@@ -16,6 +16,8 @@ dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|-
 dotnet run --project OpenElexSharp -- assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets skeletons [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets animations [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets blendshapes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -119,6 +121,28 @@ dotnet run --project OpenElexSharp -- assets skeletons CH_Head_F_Ambient_01_L1 -
 dotnet run --project OpenElexSharp -- assets skeletons --all
 ```
 
+### `animations`
+
+Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count and ROM path. `--properties` lists every readable name, including track, bone, state and condition names. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets animations Chest --properties
+dotnet run --project OpenElexSharp -- assets animations --all
+```
+
+The network graph, clip boundaries and keyframe tracks are not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
+
+### `blendshapes`
+
+Parses `bln` resources (blend-shape target sets). Prints name, target count, base-mesh vertex count, name count, the three unresolved header fields, the first target names and ROM path. `--properties` lists every target with its relative name offset.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1 --properties
+dotnet run --project OpenElexSharp -- assets blendshapes --all
+```
+
+The per-target delta data is not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -146,10 +170,12 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MeshLoader` / `DrMeshPartTag` | DigitalRiseModel `DrMesh`/`DrMeshPart` creation with real normals, UVs, submesh ranges and material references. |
 | `ElexMaterial` / `MaterialLibrary` | Material payload parsing, runtime shader/texture attachment and a shared upload cache. |
 | `Skeleton` | Embedded `skn` skeleton tail: bind-pose bones, parent indices, name offsets, DJB2 hashes and names. |
+| `MotionNetwork` | `net` Morpheme motion-network readable names: tracks, bones, states and conditions. |
+| `ElexBlendShapeSet` | `bln` blend-shape header, name offsets and `blendShape1.*` target names. |
 | `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |
 | `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh/part count and the Escape control hint. |
 
-The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
+The catalog is metadata-only: building it does not open payloads. Inspectors read payloads on demand, and `export` is the only command that writes asset bytes.
 
 ## Performance and caching
 
@@ -162,6 +188,8 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 `assets meshes --all` parses all 5,868 static meshes and their database metadata; `--properties` takes about 35 seconds including resource-database discovery and 13,406 submesh records.
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
+
+`assets animations --all` parses all 34 motion networks in roughly 4 seconds. The 59.6 MB `Male` network dominates the readable-name scan (capped at 100,000 names). `assets blendshapes --all` parses all 270 blend-shape sets in roughly 5 seconds.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -181,7 +209,9 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
-- `skn` skeletons parse for 1,270 of 1,320 resources. The remaining 50 creature/female/hologram tails use an unrecognized layout; body bind-pose transforms, animation clips and `bln` blend-shape deltas are not decoded yet.
+- `skn` skeletons parse for 1,270 of 1,320 resources. The remaining 50 creature/female/hologram tails use an unrecognized layout; body bind-pose transforms are not decoded yet.
+- `net` motion networks expose readable names only: the Morpheme graph, clip boundaries, keyframe tracks and compression are not decoded.
+- `bln` blend shapes expose the header and target names only: the per-target delta layout and quantization are not decoded.
 
 ## Related tasks
 

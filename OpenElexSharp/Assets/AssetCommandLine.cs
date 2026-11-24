@@ -14,6 +14,8 @@ public enum AssetCommandKind
 	Meshes,
 	Materials,
 	Skeletons,
+	Animations,
+	BlendShapes,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -35,6 +37,8 @@ public sealed class AssetCommandLine
           OpenElexSharp assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets skeletons [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets animations [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets blendshapes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
@@ -47,6 +51,8 @@ public sealed class AssetCommandLine
         meshes         Inspects GMSH static meshes and vertex layouts.
         materials      Inspects material resources, shaders and texture bindings.
         skeletons      Inspects embedded skeletons in skn resources.
+        animations     Inspects Morpheme motion-network resources (net).
+        blendshapes    Inspects blend-shape sets (bln).
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -142,6 +148,12 @@ public sealed class AssetCommandLine
 				break;
 			case "skeletons":
 				kind = AssetCommandKind.Skeletons;
+				break;
+			case "animations":
+				kind = AssetCommandKind.Animations;
+				break;
+			case "blendshapes":
+				kind = AssetCommandKind.BlendShapes;
 				break;
 			case "export":
 				kind = AssetCommandKind.Export;

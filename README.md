@@ -69,10 +69,12 @@ dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properti
 dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties
 dotnet run --project OpenElexSharp -- assets materials AS_AlbSigns_1 --properties
 dotnet run --project OpenElexSharp -- assets skeletons CH_Head_F_Ambient_01_L1 --properties
+dotnet run --project OpenElexSharp -- assets animations Chest --properties
+dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1 --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/Formats/Animations.md](Documentation/Formats/Animations.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -84,9 +86,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 51 | 9525 | 8247 | 297.1 KB |
-| Tests | 43 | 5659 | 4747 | 166.4 KB |
-| **Total** | **94** | **15184** | **12994** | **463.6 KB** |
+| Engine | 53 | 9983 | 8646 | 310.5 KB |
+| Tests | 45 | 5826 | 4885 | 170.4 KB |
+| **Total** | **98** | **15809** | **13531** | **480.9 KB** |
 
 ## Credits
 

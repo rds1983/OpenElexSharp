@@ -32,6 +32,8 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
 			AssetCommandKind.Skeletons => Skeletons(command, catalog, assets, output, error),
+			AssetCommandKind.Animations => Animations(command, catalog, assets, output, error),
+			AssetCommandKind.BlendShapes => BlendShapes(command, catalog, assets, output, error),
 			_ => throw new ArgumentOutOfRangeException(nameof(command)),
 		};
 	}
@@ -549,6 +551,109 @@ public static class AssetCatalogConsole
 
 		error.WriteLine(
 			$"Showing {shown} of {matches.Count:N0} mesh(es); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static int Animations(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		return InspectResources(
+			command, catalog, assets, output, error, "net", "motion network",
+			(resource, data) => MotionNetwork.Parse(resource.Name, data),
+			(resource, network, showProperties) =>
+			{
+				output.WriteLine(
+					$"{resource.Name}\t{network.Strings.Count}\t{network.BoneNames.Count}\t{resource.VirtualPath}");
+				if (showProperties)
+				{
+					foreach (var value in network.Strings)
+					{
+						output.WriteLine($"\tstring\t{value}");
+					}
+				}
+			});
+	}
+
+	private static int BlendShapes(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		return InspectResources(
+			command, catalog, assets, output, error, "bln", "blend-shape set",
+			(resource, data) => ElexBlendShapeSet.Parse(resource.Name, data),
+			(resource, set, showProperties) =>
+			{
+				output.WriteLine(
+					$"{resource.Name}\t{set.TargetCount}\t{set.VertexCount}\t{set.Names.Count}\t" +
+					$"{set.Field0}\t{set.Field1}\t{set.Field2}\t" +
+					$"{string.Join(',', set.Names.Take(4))}\t{resource.VirtualPath}");
+				if (showProperties)
+				{
+					for (var index = 0; index < set.Names.Count; index++)
+					{
+						output.WriteLine(
+							$"\ttarget\t{index}\toffset={(index == 0 ? 0 : set.NameOffsets[index - 1])}\t{set.Names[index]}");
+					}
+				}
+			});
+	}
+
+	private static int InspectResources<T>(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error,
+		string typeToken,
+		string label,
+		Func<ElexResource, byte[], T> parse,
+		Action<ElexResource, T, bool> write)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"{label} warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, typeToken, StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			try
+			{
+				var data = ReadAll(assets, resource.VirtualPath);
+				var value = parse(resource, data);
+				parsed++;
+				write(resource, value, command.ShowProperties);
+			}
+			catch (Exception exception) when (
+				exception is Gar5FormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException or InvalidOperationException)
+			{
+				error.WriteLine($"Skipping {label} '{resource.Name}': {exception.Message}");
+			}
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} {label}(s); parsed {parsed:N0}.");
 		return 0;
 	}
 

@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009b**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009c**.
 
 ---
 
@@ -131,12 +131,29 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Body/creature bind-pose transforms and the 50 unrecognized tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants).
   - Head/attachment parent encoding.
 
-- [ ] **T009b · Animation clips and blend shapes**
-  Decode animation clips (including compression) and `bln` blend shapes, then sample them into poses and morph weights for `SkinnedEffect`/morph rendering.
-  Done when: representative clips sample to plausible poses, blend shapes animate the head/body, and the source and compression of animation data are documented.
-  - No separate `ani`/`mot` resource type exists; candidate data is in `skn`/`bln`/Morpheme. Locate and document it first.
-  - `bln` (`class eCBlendShapeResource2`, 270 resources) stores `blendShape1.*` targets; decode deltas and any keyframes.
-  - Add a clip sampler and a character/pose viewer driven by the decoded skeleton and clips.
+- [x] **T009b · Animation data discovery**
+  Locate and document where animation clips and blend shapes live, and expose them through inspectors.
+  **Completed 2026-11-24 — `net` Morpheme name extraction, `bln` header/name parsing, `assets animations`/`assets blendshapes` and the animation format spec.**
+  - Confirmed there is no standalone `ani`/`mot` resource type. Animation data lives in `net` (34 Morpheme motion networks, `class eCMotionNetworkDefResource2`) and `bln` (270 blend-shape sets, `class eCBlendShapeResource2`).
+  - Added `MotionNetwork`, which extracts readable Morpheme names (tracks, `BONE_*` bones, states, conditions). Largest network is `Male` (59.6 MB); names are capped at 100,000.
+  - Added `ElexBlendShapeSet`, which parses the `bln` header (target count, base vertex count, three unresolved fields), the `targetCount-1` name offsets and the `blendShape1.*` target names; the name table is validated against the offsets so printable metadata bytes cannot be mistaken for a name.
+  - Added `assets animations` and `assets blendshapes` inspectors, 11 tests and `Documentation/Formats/Animations.md`.
+  - Retail validation: 34/34 `net` and 270/270 `bln` resources parse; every `bln` set yields one name per target.
+  - 389 tests, Debug/Release warning-free.
+  **Deferred:**
+  - Morpheme graph, clip boundaries, keyframe tracks and compression → T009c.
+  - `bln` per-target delta layout/quantization and morph sampling → T009d.
+  - Body/creature bind-pose transforms and the 50 unrecognized `skn` tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) → T009c.
+
+- [ ] **T009c · Morpheme clip decoding and pose sampling**
+  Decode the `net` network graph, clip boundaries, keyframe tracks and compression, map nodes to `skn` bones, and sample clips into poses.
+  Done when: representative `Male`/creature clips sample to plausible poses and the clip/compression formats are documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+  - Also finish the skeleton leftovers from T009a: body/creature bind-pose transforms and the 50 unrecognized `skn` tails.
+  - Add a clip sampler and a character/pose viewer driven by the decoded skeleton.
+
+- [ ] **T009d · Blend-shape deltas and morph playback**
+  Decode the `bln` per-target delta data, map targets to the base mesh, and drive morph weights from animation.
+  Done when: facial/body blend shapes can be weighted and rendered, and the delta layout/quantization is documented.
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
