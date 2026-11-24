@@ -10,10 +10,15 @@ public sealed class AssetFileSystem
 {
     private readonly List<IAssetSource> _sources;
     private readonly List<PackedMount> _packedMounts;
+    private readonly List<string> _diagnostics;
 
     /// <param name="sources">Sources in mount order; later sources take precedence.</param>
     /// <param name="packedMounts">Packed folders that still need a PAK reader.</param>
-    public AssetFileSystem(IEnumerable<IAssetSource> sources, IEnumerable<PackedMount>? packedMounts = null)
+    /// <param name="diagnostics">Warnings collected while mounting, for example skipped broken mods.</param>
+    public AssetFileSystem(
+        IEnumerable<IAssetSource> sources,
+        IEnumerable<PackedMount>? packedMounts = null,
+        IEnumerable<string>? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(sources);
 
@@ -24,6 +29,7 @@ public sealed class AssetFileSystem
         }
 
         _packedMounts = packedMounts is null ? [] : [.. packedMounts];
+        _diagnostics = diagnostics is null ? [] : [.. diagnostics];
     }
 
     /// <summary>Loose sources in mount order.</summary>
@@ -32,9 +38,12 @@ public sealed class AssetFileSystem
     /// <summary>Packed folders discovered in the mount configuration.</summary>
     public IReadOnlyList<PackedMount> PackedMounts => _packedMounts;
 
+    /// <summary>Non-fatal problems encountered while mounting assets.</summary>
+    public IReadOnlyList<string> Diagnostics => _diagnostics;
+
     /// <summary>
-    /// Mounts an installation using its <c>mount_packed.xml</c>. Packed folders are recorded but
-    /// not read until the PAK reader is implemented.
+    /// Mounts an installation using its <c>mount_packed.xml</c>. Loose folders and PAK volumes are
+    /// both exposed through the resulting file system.
     /// </summary>
     public static AssetFileSystem MountFromInstallation(ElexInstallation installation)
     {
@@ -52,6 +61,7 @@ public sealed class AssetFileSystem
         var resolver = MountPathResolver.CreateDefault(installation);
         var sources = new List<IAssetSource>();
         var packedMounts = new List<PackedMount>();
+        var diagnostics = new List<string>();
 
         foreach (var volume in configuration.Volumes)
         {
@@ -81,6 +91,13 @@ public sealed class AssetFileSystem
                     {
                         var packedPath = resolver.Resolve(folder.PackedPath, volumeRoot);
                         packedMounts.Add(new PackedMount(virtualRoot, packedPath, Enabled: !volume.NoPacked));
+                        if (!volume.NoPacked)
+                        {
+                            var packedSource = new PackedAssetSource(sourceName, virtualRoot, packedPath);
+                            sources.Add(packedSource);
+                            diagnostics.AddRange(packedSource.Diagnostics);
+                        }
+
                         continue;
                     }
 
@@ -102,7 +119,7 @@ public sealed class AssetFileSystem
             }
         }
 
-        return new AssetFileSystem(sources, packedMounts);
+        return new AssetFileSystem(sources, packedMounts, diagnostics);
     }
 
     /// <summary>Returns whether a file exists in any source.</summary>

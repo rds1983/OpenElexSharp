@@ -53,7 +53,7 @@ dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders from `mount_packed.xml` and opens an empty window; PAK contents and rendering arrive in later tasks. See [Documentation/Mounts.md](Documentation/Mounts.md) for the mount model.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens an empty window; asset-format parsing and rendering arrive in later tasks. See [Documentation/Mounts.md](Documentation/Mounts.md) and [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -65,9 +65,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 13 | 885 | 743 | 31.8 KB |
-| Tests | 8 | 962 | 792 | 29.5 KB |
-| **Total** | **21** | **1847** | **1535** | **61.3 KB** |
+| Engine | 17 | 1520 | 1280 | 53.3 KB |
+| Tests | 11 | 1575 | 1299 | 49.8 KB |
+| **Total** | **28** | **3095** | **2579** | **103.1 KB** |
 
 ## Credits
 
@@ -77,9 +77,11 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 - [BepuPhysics2](https://github.com/bepu/bepuphysics2) — 3D physics engine.
 - [DigitalRune](https://github.com/DigitalRune/DigitalRune) — the original model library that DigitalRiseModel derives from.
 
-Format-research credits are added here whenever another open-source project informs a format specification, together with what it helped with:
+Format-research credits — projects whose source or documentation informed a format specification:
 
-_None yet._
+- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0) — Elex Resource Manager; reference for the G3V0 PAK header, directory tree, file attributes and DEFLATE compression (`mi_genomevolume.cpp`).
+- [GameExtractor](https://github.com/wattostudios/GameExtractor) (GPL-2.0-or-later) — `Plugin_PAK_G3V0_2` independently documents the Risen-family PAK layout reused by ELEX.
+- [G3Archive](https://github.com/gekonnn/G3Archive) (MIT) — Gothic 3 PAK header reference that clarified the G3V0 lineage.
 
 ## Legal
 

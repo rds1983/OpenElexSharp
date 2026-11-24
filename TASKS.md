@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T003**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T004**.
 
 ---
 
@@ -37,13 +37,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Done when: unit tests with synthetic mount files pass, and the engine can list and open loose files from a real installation without embedding absolute paths. See `Documentation/Mounts.md`.
   Completed 2026-11-24 — mount parsing, macro/path resolution and layered loose VFS; 99 tests; verified against the retail installation.
 
-- [ ] **T003 · PAK archive reader**
-  Implement the G3V0 container / GAR5 entry archive format used by `data/packed/*.pak`: header, entry table, per-entry metadata, compression (if present) and streamed reads. Write `Documentation/Formats/Pak.md` first, covering layout, field semantics and open questions.
+- [x] **T003 · PAK archive reader**
+  Implement the G3V0 container format used by `data/packed/*.pak`: header, directory tree, per-entry metadata, compression and streamed reads. The GAR5 resource wrapper used by many compiled assets is asset-level and documented separately. Write `Documentation/Formats/Pak.md` first, covering layout, field semantics and open questions.
   Done when: every file in the shipped archives can be listed, and payloads can be extracted and re-read consistently; synthetic fixtures cover headers, compressed/uncompressed entries and corrupt data; `PackedMount` folders from T002 expose their contents through `AssetFileSystem`.
+  Implemented per [Formats/Pak.md](Documentation/Formats/Pak.md) using rmtools/GameExtractor references. Validation on the test installation (including one mod) covers 156,905 packaged files, 111,661 of them compressed.
+  Completed 2026-11-24 — G3V0 header/tree/attributes/raw-DEFLATE reader, PAK-backed VFS source, 127 tests and retail validation.
 
 - [ ] **T004 · Asset catalog and inspector**
-  Build an index of all virtual assets (path, size, mount, extension) with fast lookup, plus a developer tool (CLI or in-engine panel) to search paths, show statistics by extension, and export a single file for inspection. This is the main research instrument for the tasks below. Note that some mounts expose the application folder, so binaries may appear in the index; report them separately and never open executable formats.
+  Build an index of all virtual assets (path, size, mount, extension) with fast lookup, filtering by mount and language, plus a developer tool (CLI or in-engine panel) to search paths, show statistics by extension, and export a single file for inspection. Cache the archive index if startup parsing is noticeable. This is the main research instrument for the tasks below. Note that some mounts expose the application folder, so binaries may appear in the index; report them separately and never open executable formats.
   Done when: listing the full archive index takes only a few seconds and the developer can inspect any asset without writing throwaway code.
+
+- [ ] **T004b · GAR5 resource wrappers and resource databases**
+  Parse the `GAR5` wrapper used by compiled assets (tag/version, `RT02`/`SNxx` sections), `E1RF` resource reference files, and the `w_*_*.db` hash-to-resource tables. Expose resolved resource names and sizes through the asset layer so hashed `.rom` payloads can be identified by logical name. Document in `Documentation/Formats/Gar5.md`.
+  Done when: representative resource databases resolve names, a hashed dialogue/sound ROM can be addressed by its logical resource name, and synthetic fixtures cover wrappers, references and malformed indexes.
 
 - [ ] **T005 · Genome object serialization**
   Implement the GEL/Genome object model used by the `.r00`-family files: object headers, class identifiers, versioned property streams, references, arrays and unknown-property preservation. Generate `Documentation/Formats/Objects.md`.
@@ -244,3 +250,4 @@ Not committed to a milestone; revisit after T308.
 - **Archive performance**: the retail archives are multi-gigabyte; random access and indexing must be efficient.
 - **Save compatibility** with the original game is out of scope; OpenElexSharp defines its own save format.
 - **Mount semantics**: the meaning of `$(app)` and of `#Volume:/path` references is inferred from the retail layout; revisit if assets fail to resolve.
+- **Language-specific volumes**: `_en`, `_na` and other PAK variants are all mounted; a language preference is not implemented yet.

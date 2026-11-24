@@ -10,7 +10,7 @@ Format knowledge is derived **only** from game assets — never from `ELEX.exe` 
 | --- | --- | --- |
 | [Mounts.md](Mounts.md) | implemented | T002 |
 | [Formats/README.md](Formats/README.md) | living | — |
-| Formats/Pak.md | planned | T003 |
+| [Formats/Pak.md](Formats/Pak.md) | implemented | T003 |
 | Formats/Objects.md | planned | T005 |
 | Formats/Templates.md | planned | T006 |
 | Formats/Textures.md | planned | T007 |

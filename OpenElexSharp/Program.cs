@@ -30,9 +30,17 @@ catch (Exception exception) when (exception is ElexInstallationException or Moun
 }
 
 Console.WriteLine($"ELEX installation: {installation.RootPath}");
+var packedSources = assets.Sources.OfType<PackedAssetSource>().ToArray();
+var looseSourceCount = assets.Sources.Count - packedSources.Length;
+var packedEntryCount = packedSources.Sum(source => source.EntryCount);
 Console.WriteLine(
-    $"Mounted {assets.Sources.Count} loose source(s) and {assets.PackedMounts.Count} packed mount(s); " +
-    "PAK reading is not implemented yet.");
+    $"Mounted {looseSourceCount} loose source(s), {packedSources.Length} packed source(s) " +
+    $"({packedEntryCount} files), {assets.PackedMounts.Count} packed mount(s).");
+
+foreach (var diagnostic in assets.Diagnostics.Take(5))
+{
+    Console.Error.WriteLine($"Asset warning: {diagnostic}");
+}
 
 Console.WriteLine(options.SmokeTest
     ? "OpenElexSharp starting (smoke test)."

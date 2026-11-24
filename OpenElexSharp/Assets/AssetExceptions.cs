@@ -36,3 +36,17 @@ public sealed class AssetNotFoundException : Exception
     {
     }
 }
+
+/// <summary>A PAK archive is malformed or uses an unsupported variant.</summary>
+public sealed class PakFormatException : Exception
+{
+    public PakFormatException(string message)
+        : base(message)
+    {
+    }
+
+    public PakFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

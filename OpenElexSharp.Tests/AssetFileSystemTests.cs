@@ -133,7 +133,7 @@ public class AssetFileSystemTests
         var assets = AssetFileSystem.MountFromInstallation(installation);
 
         Assert.Equal(
-            ["G3:data/extern", "G3:ini", "G3:scripts"],
+            ["G3:data/compiled", "G3:data/extern", "G3:ini", "G3:scripts"],
             assets.Sources.Select(source => source.Name).OrderBy(name => name, StringComparer.Ordinal));
 
         var packed = Assert.Single(assets.PackedMounts);
@@ -171,6 +171,37 @@ public class AssetFileSystemTests
     }
 
     [Fact]
+    public void MountFromInstallation_IncludesPackedEntries()
+    {
+        using var temp = new TempDirectory();
+        temp.CreateDirectory("system");
+        temp.CreateFile(
+            "data/ini/mount_packed.xml",
+            """
+            <MountList>
+              <Volume Name="G3" RootPath="..">
+                <Folders>
+                  <Folder VirtualPath="data/compiled" PackedPath="data/packed" />
+                </Folders>
+              </Volume>
+            </MountList>
+            """);
+        temp.CreateDirectory("data/packed");
+        File.WriteAllBytes(
+            Path.Combine(temp.Root, "data", "packed", "c_1_test.pak"),
+            new TestPakBuilder().AddFile("localization/en.str", "packed text").Build());
+
+        var installation = ElexInstallation.Open(temp.Root);
+        var assets = AssetFileSystem.MountFromInstallation(installation);
+
+        Assert.True(assets.Exists("data/compiled/localization/en.str"));
+        using var stream = assets.OpenRead("DATA/COMPILED/localization/EN.str");
+        using var reader = new StreamReader(stream);
+        Assert.Equal("packed text", reader.ReadToEnd());
+        Assert.Empty(assets.Diagnostics);
+    }
+
+    [Fact]
     public void Mount_NoPackedVolume_DisablesPackedMount()
     {
         using var temp = new TempDirectory();
@@ -189,5 +220,6 @@ public class AssetFileSystemTests
         var assets = AssetFileSystem.Mount(installation, configuration);
 
         Assert.False(Assert.Single(assets.PackedMounts).Enabled);
+        Assert.DoesNotContain(assets.Sources, source => source is PackedAssetSource);
     }
 }

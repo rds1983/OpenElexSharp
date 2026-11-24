@@ -66,10 +66,14 @@ Macro names are case-insensitive. An unknown or unterminated macro is a configur
 | Mount XML parser | `OpenElexSharp/Assets/MountConfiguration.cs` |
 | Path/macro resolution | `OpenElexSharp/Assets/MountPathResolver.cs` |
 | Loose folders | `OpenElexSharp/Assets/LooseFolderSource.cs` |
+| PAK reader | `OpenElexSharp/Assets/PakArchive.cs` |
+| PAK-backed source | `OpenElexSharp/Assets/PackedAssetSource.cs` |
 | Layered VFS | `OpenElexSharp/Assets/AssetFileSystem.cs` |
 | Packed mount records | `OpenElexSharp/Assets/PackedMount.cs` |
 
-Packed folders are discovered but their contents are not readable until T003 connects the PAK reader to `PackedMount`. Unit tests use only synthetic temporary folders; the retail installation is exercised manually.
+Packed folders are now readable: every `*.pak` in the folder is parsed and its entries are exposed under the folder's virtual root. Volumes are loaded in file-name order, so later volumes (mods) shadow earlier ones. Broken third-party volumes are skipped with a diagnostic; empty volumes simply add no entries. Unit tests use only synthetic temporary folders; the retail installation is exercised manually.
+
+Archive internals are specified in [Formats/Pak.md](Formats/Pak.md).
 
 ## Evidence from the retail installation
 
@@ -80,6 +84,7 @@ Packed folders are discovered but their contents are not readable until T003 con
 ## Open questions
 
 - Whether `$(app)` means the executable folder or the game root. The engine assumes the executable folder because that makes `RootPath=".."` and all retail folder paths resolve consistently.
-- Override order between PAK archives and loose folders for the same virtual path (T003).
+- Language selection among `c_*_en.pak`, `c_*_na.pak` and similar volumes. All volumes are currently mounted in file-name order.
+- Override order when a loose folder and a PAK expose the same virtual path; currently mount order decides, with later sources winning.
 - Exact semantics of `CreateFolder` for writable volumes (save games, screenshots); irrelevant for read-only assets.
 - How `#Volume:/path` references in configuration files should map onto the VFS.

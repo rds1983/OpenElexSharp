@@ -24,4 +24,4 @@ This folder documents the binary formats used by ELEX assets. Each specification
 
 ## Implemented specs
 
-_None yet. See [../README.md](../README.md) for the planned list._
+- [Pak.md](Pak.md) — G3V0 PAK archives (T003).
