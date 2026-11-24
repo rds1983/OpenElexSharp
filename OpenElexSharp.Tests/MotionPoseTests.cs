@@ -77,6 +77,47 @@ public class MotionPoseTests
 	}
 
 	[Fact]
+	public void TransitionSampler_SamplesOneShot()
+	{
+		var from = CreateClip(("BONE_Root", Quaternion.Identity));
+		var to = CreateClip(("BONE_Root", Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2)));
+		var sampler = new MotionTransitionSampler(from, to, 2f);
+
+		AssertQuaternion(Quaternion.Identity, sampler.Sample(0f, ["Root"]).Rotations[0]);
+		AssertQuaternion(
+			Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 4),
+			sampler.Sample(1f, ["Root"]).Rotations[0]);
+		AssertQuaternion(
+			Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2),
+			sampler.Sample(5f, ["Root"]).Rotations[0]);
+	}
+
+	[Fact]
+	public void TransitionSampler_PingPongLoop()
+	{
+		var from = CreateClip(("BONE_Root", Quaternion.Identity));
+		var to = CreateClip(("BONE_Root", Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2)));
+		var sampler = new MotionTransitionSampler(from, to, 2f);
+
+		AssertQuaternion(Quaternion.Identity, sampler.SampleLoop(0f, ["Root"]).Rotations[0]);
+		AssertQuaternion(
+			Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 4),
+			sampler.SampleLoop(0.5f, ["Root"]).Rotations[0]);
+		AssertQuaternion(Quaternion.Identity, sampler.SampleLoop(2f, ["Root"]).Rotations[0]);
+	}
+
+	[Fact]
+	public void TransitionSampler_InvalidDuration_Throws()
+	{
+		var clip = CreateClip(("BONE_Root", Quaternion.Identity));
+
+		Assert.Throws<ArgumentOutOfRangeException>(
+			() => new MotionTransitionSampler(clip, clip, 0f));
+		Assert.Throws<ArgumentNullException>(
+			() => new MotionTransitionSampler(null!, clip, 1f));
+	}
+
+	[Fact]
 	public void SkeletonPose_AppliesObjectMatrix()
 	{
 		var pose = new SkeletonPose(

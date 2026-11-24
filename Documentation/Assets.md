@@ -179,6 +179,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionStatePath` | Hierarchical `A|B|...|ConditionGroup|Condition` path with segments and condition. |
 | `MotionGraphNode` | Candidate binary state-graph block with five-value records and references. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
+| `MotionTransitionSampler` | Timed one-shot/ping-pong blends between two clip poses. |
 | `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
 | `ElexBlendShapeTarget` / `ElexBlendShapeDelta` | Named target with sparse position/normal deltas. |
 | `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |

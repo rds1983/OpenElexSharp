@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009j**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009k**.
 
 ---
 
@@ -236,7 +236,18 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Mapping the five values to state/edge semantics and transition durations.
   - Per-track keyframe/curve data and compression; the large `Male` tail remains undecoded.
 
-- [ ] **T009j · Morpheme keyframe curves and graph semantics**
+- [x] **T009j · Timed pose transitions**
+  Add a timed sampler for transitions between two decoded clip poses.
+  Done when: one-shot and looping transition sampling are available and tested.
+  **Completed 2026-11-24 — `MotionTransitionSampler` with one-shot and ping-pong sampling, used by the pose viewer.**
+  - Added `MotionTransitionSampler(from, to, duration)` with `Sample(seconds)` and `SampleLoop(seconds)`.
+  - The skeleton viewer now drives its blend through the sampler with a two-second loop.
+  - 3 new tests; 428 tests, Debug/Release warning-free.
+  **Deferred to T009k:**
+  - Mapping binary record values to states/edges/transition durations.
+  - Per-track keyframe/curve data and compression; the large `Male` tail remains undecoded.
+
+- [ ] **T009k · Morpheme keyframe curves and graph semantics**
   Map binary graph record values to states, edges and transition durations, and decode the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
   Done when: graph edges and transition durations can be followed, representative curves sample over time, and the binary/curve layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 

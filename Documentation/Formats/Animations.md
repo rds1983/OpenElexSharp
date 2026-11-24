@@ -95,9 +95,10 @@ attributes.
 - otherwise `BONE_`/`bone_` is removed from the track name and matched again;
 - bones without a track receive the identity rotation.
 
-`MotionPose.Blend(from, to, t, boneNames)` slerps two clips. `SkeletonPose.FromMotionPose` combines
-the rotations with the skeleton's bind-pose translations and parent indices, and
-`ComputeWorldMatrices` composes the hierarchy. Bind-pose translations are used when the `skn`
+`MotionPose.Blend(from, to, t, boneNames)` slerps two clips. `MotionTransitionSampler` adds a
+duration and one-shot/ping-pong sampling on top. `SkeletonPose.FromMotionPose` combines the rotations
+with the skeleton's bind-pose translations and parent indices, and `ComputeWorldMatrices` composes
+the hierarchy. Bind-pose translations are used when the `skn`
 skeleton exposes them; body skeletons still lack them, so their world positions are zero.
 
 ## State graph
@@ -299,6 +300,7 @@ per-target delta counts and the first two position/normal deltas.
 | --- | --- |
 | Motion-network, clip and pose parser | `OpenElexSharp/Assets/MotionNetwork.cs`, `MotionClip.cs` |
 | Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
+| Timed pose transitions | `OpenElexSharp/Assets/MotionTransitionSampler.cs` |
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
@@ -318,6 +320,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009g - Morpheme hierarchical state paths.
 - T009h - Morpheme binary graph blocks.
 - T009i - binary state record layout.
-- T009j - keyframe curves and graph semantics.
+- T009j - timed pose transitions.
+- T009k - keyframe curves and graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

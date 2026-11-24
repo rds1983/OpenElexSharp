@@ -270,8 +270,8 @@ public sealed class OpenElexGame : Game
 	{
 		var skeleton = _skeleton!;
 		var time = (float)gameTime.TotalGameTime.TotalSeconds;
-		var blend = (MathF.Sin(time * 0.45f) + 1f) * 0.5f;
-		var pose = MotionPose.Blend(_clipA!, _clipB!, blend, skeleton.Names);
+		var transition = new MotionTransitionSampler(_clipA!, _clipB!, 2f);
+		var pose = transition.SampleLoop(time, skeleton.Names);
 		var skeletonPose = SkeletonPose.FromMotionPose(pose, skeleton);
 		var matrices = skeletonPose.ComputeWorldMatrices();
 		var points = new Vector3[matrices.Length];
