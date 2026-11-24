@@ -567,12 +567,34 @@ public static class AssetCatalogConsole
 			(resource, network, showProperties) =>
 			{
 				output.WriteLine(
-					$"{resource.Name}\t{network.Strings.Count}\t{network.BoneNames.Count}\t{resource.VirtualPath}");
+					$"{resource.Name}\t{network.Strings.Count}\t{network.BoneNames.Count}\t" +
+					$"{network.Clips.Count}\t{network.Clips.Count(clip => clip.HasPose)}\t" +
+					$"{resource.VirtualPath}");
 				if (showProperties)
 				{
 					foreach (var value in network.Strings)
 					{
 						output.WriteLine($"\tstring\t{value}");
+					}
+
+					foreach (var clip in network.Clips)
+					{
+						output.WriteLine(
+							$"\tclip\t{clip.Index}\ttracks={clip.TrackNames.Count}\t" +
+							$"field0={clip.Field0:G9}\tfield1={clip.Field1:G9}\t" +
+							$"pose={clip.PoseOffset}\t{string.Join(',', clip.TrackNames.Take(4))}");
+						for (var track = 0; track < Math.Min(4, clip.TrackNames.Count); track++)
+						{
+							if (!clip.HasPose)
+							{
+								break;
+							}
+
+							var value = clip.Pose[track];
+							output.WriteLine(
+								$"\t\ttrack\t{clip.TrackNames[track]}\t" +
+								$"{value.X:F5},{value.Y:F5},{value.Z:F5},{value.W:F5}");
+						}
 					}
 				}
 			});

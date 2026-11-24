@@ -1,23 +1,32 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace OpenElexSharp.Assets;
 
 /// <summary>
 /// A <c>net</c> motion-network resource (<c>class eCMotionNetworkDefResource2</c>). The payload is a
-/// Morpheme network definition; the current parser exposes the readable node, track, bone, condition
-/// and event names. Keyframe and graph decoding is open work.
+/// Morpheme network definition; the parser exposes readable node, track, bone, condition and event
+/// names plus the decoded clip poses. Keyframe curves are not decoded yet.
 /// </summary>
 public sealed class MotionNetwork
 {
 	private const int Gar5WrapperSize = 44;
 	private const int MinStringLength = 4;
 	private const int MaxStrings = 100_000;
+	private const int MaxTracks = 4096;
+	private const int MaxNameLength = 512;
+	private const int MaxPoseSearch = 0x20_000;
 
-	private MotionNetwork(string name, IReadOnlyList<string> strings, int payloadOffset)
+	private MotionNetwork(
+		string name,
+		IReadOnlyList<string> strings,
+		IReadOnlyList<MotionClip> clips,
+		int payloadOffset)
 	{
 		Name = name;
 		Strings = strings;
+		Clips = clips;
 		PayloadOffset = payloadOffset;
 	}
 
@@ -26,6 +35,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Readable names found in the network payload, in file order.</summary>
 	public IReadOnlyList<string> Strings { get; }
+
+	/// <summary>Decoded animation clips with track names and pose quaternions.</summary>
+	public IReadOnlyList<MotionClip> Clips { get; }
 
 	/// <summary>Offset of the GAR5 payload.</summary>
 	public int PayloadOffset { get; }
@@ -48,6 +60,49 @@ public sealed class MotionNetwork
 			throw new Gar5FormatException($"Motion network '{name}' has no GAR5 payload.");
 		}
 
+		var strings = ReadStrings(data);
+		var mainEnd = FindMainPayloadEnd(data, Gar5WrapperSize);
+		var tables = FindStringTables(data, Gar5WrapperSize, mainEnd)
+			.Where(table => table.Names.Count > 0 &&
+				string.Equals(table.Names[0], "CharacterWorldSpaceTM", StringComparison.Ordinal))
+			.ToList();
+		var headers = FindClipHeaders(data, Gar5WrapperSize, mainEnd);
+		var clips = new List<MotionClip>(tables.Count);
+		var usedHeaders = new bool[headers.Count];
+		var headerCursor = 0;
+		for (var index = 0; index < tables.Count; index++)
+		{
+			var table = tables[index];
+			while (headerCursor < headers.Count && headers[headerCursor].Offset < table.StringStart)
+			{
+				headerCursor++;
+			}
+
+			ClipHeader? header = null;
+			if (headerCursor > 0 && !usedHeaders[headerCursor - 1])
+			{
+				header = headers[headerCursor - 1];
+				usedHeaders[headerCursor - 1] = true;
+			}
+
+			var nextStart = index + 1 < tables.Count ? tables[index + 1].StringStart : mainEnd;
+			var (poseOffset, pose) = FindPose(data, table, nextStart, table.Names.Count);
+			clips.Add(new MotionClip(
+				index,
+				header?.Field0 ?? 0,
+				header?.Field1 ?? 0,
+				table.Names,
+				pose,
+				header?.Offset ?? -1,
+				table.StringStart,
+				poseOffset));
+		}
+
+		return new MotionNetwork(name, strings, clips, Gar5WrapperSize);
+	}
+
+	private static List<string> ReadStrings(byte[] data)
+	{
 		var strings = new List<string>();
 		var position = Gar5WrapperSize;
 		while (position < data.Length && strings.Count < MaxStrings)
@@ -64,15 +119,203 @@ public sealed class MotionNetwork
 				position++;
 			}
 
-			var length = position - start;
-			if (length >= MinStringLength)
+			if (position - start >= MinStringLength)
 			{
-				strings.Add(Encoding.Latin1.GetString(data, start, length));
+				strings.Add(Encoding.Latin1.GetString(data, start, position - start));
 			}
 		}
 
-		return new MotionNetwork(name, strings, Gar5WrapperSize);
+		return strings;
+	}
+
+	private static int FindMainPayloadEnd(byte[] data, int payloadStart)
+	{
+		var relative = data.AsSpan(payloadStart).LastIndexOf("GAR5"u8);
+		if (relative <= 0x40)
+		{
+			return data.Length;
+		}
+
+		return payloadStart + relative;
+	}
+
+	private static List<ClipHeader> FindClipHeaders(byte[] data, int start, int end)
+	{
+		var headers = new List<ClipHeader>();
+		var search = start;
+		while (search + 0x20 <= end)
+		{
+			var marker = data.AsSpan(search, end - search).IndexOf(MotionClip.HeaderMarker);
+			if (marker < 0)
+			{
+				break;
+			}
+
+			var header = search + marker - 0x14;
+			if (header >= start && header + 0x20 <= end)
+			{
+				var field0 = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(header + 4));
+				var field1 = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(header + 0x10));
+				if (float.IsFinite(field0) && float.IsFinite(field1) &&
+					MathF.Abs(field0) < 10_000 && MathF.Abs(field1) < 10_000)
+				{
+					headers.Add(new ClipHeader(header, field0, field1));
+				}
+			}
+
+			search += marker + 1;
+		}
+
+		return headers;
+	}
+
+	private static (int Offset, Quaternion[] Pose) FindPose(
+		byte[] data,
+		StringTable table,
+		int nextStart,
+		int trackCount)
+	{
+		if (trackCount <= 0)
+		{
+			return (-1, []);
+		}
+
+		var searchStart = (table.StringEnd + 3) & ~3;
+		var searchEnd = Math.Min(nextStart, searchStart + MaxPoseSearch);
+		for (var offset = searchStart; offset + 16 <= searchEnd; offset += 4)
+		{
+			if (!TryReadQuaternion(data, offset, out _))
+			{
+				continue;
+			}
+
+			var run = 0;
+			var cursor = offset;
+			while (cursor + 16 <= searchEnd && TryReadQuaternion(data, cursor, out _))
+			{
+				run++;
+				cursor += 16;
+			}
+
+			if (run < trackCount)
+			{
+				offset = cursor - 4;
+				continue;
+			}
+
+			var pose = new Quaternion[trackCount];
+			for (var index = 0; index < pose.Length; index++)
+			{
+				TryReadQuaternion(data, offset + index * 16, out pose[index]);
+			}
+
+			return (offset, pose);
+		}
+
+		return (-1, []);
+	}
+
+	private static bool TryReadQuaternion(byte[] data, int offset, out Quaternion value)
+	{
+		value = default;
+		if (offset < 0 || offset + 16 > data.Length)
+		{
+			return false;
+		}
+
+		var x = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset));
+		var y = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 4));
+		var z = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 8));
+		var w = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 12));
+		if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(z) || !float.IsFinite(w))
+		{
+			return false;
+		}
+
+		var lengthSquared = x * x + y * y + z * z + w * w;
+		if (lengthSquared < 0.72f || lengthSquared > 1.32f)
+		{
+			return false;
+		}
+
+		value = new Quaternion(x, y, z, w);
+		return true;
+	}
+
+	private static List<StringTable> FindStringTables(byte[] data, int start, int end)
+	{
+		var tables = new List<StringTable>();
+		var position = start;
+		while (position < end)
+		{
+			if (!IsPrintableByte(data[position]))
+			{
+				position++;
+				continue;
+			}
+
+			var nameStart = position;
+			var names = new List<string>();
+			while (position < end && IsPrintableByte(data[position]))
+			{
+				var zero = Array.IndexOf(
+					data, (byte)0, position, Math.Min(MaxNameLength + 1, end - position));
+				if (zero < 0)
+				{
+					break;
+				}
+
+				names.Add(Encoding.Latin1.GetString(data, position, zero - position));
+				position = zero + 1;
+				if (names.Count > MaxTracks)
+				{
+					break;
+				}
+			}
+
+			if (names.Count >= 2 && ValidateOffsets(data, start, nameStart, names))
+			{
+				tables.Add(new StringTable(nameStart, position, names));
+				continue;
+			}
+
+			if (position <= nameStart)
+			{
+				position = nameStart + 1;
+			}
+		}
+
+		return tables;
+	}
+
+	private static bool ValidateOffsets(byte[] data, int start, int nameStart, List<string> names)
+	{
+		var offsetsStart = nameStart - names.Count * 4;
+		if (offsetsStart < start)
+		{
+			return false;
+		}
+
+		uint expected = 0;
+		for (var index = 0; index < names.Count; index++)
+		{
+			if (index > 0)
+			{
+				expected += (uint)(names[index - 1].Length + 1);
+			}
+
+			if (BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offsetsStart + index * 4)) != expected)
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private static bool IsPrintableByte(byte value) => value >= 0x20 && value < 0x7F;
+
+	private readonly record struct ClipHeader(int Offset, float Field0, float Field1);
+
+	private readonly record struct StringTable(int StringStart, int StringEnd, List<string> Names);
 }

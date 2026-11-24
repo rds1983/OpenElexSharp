@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009c**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009e**; **T009d** and **T009f** open.
 
 ---
 
@@ -145,15 +145,33 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - `bln` per-target delta layout/quantization and morph sampling → T009d.
   - Body/creature bind-pose transforms and the 50 unrecognized `skn` tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) → T009c.
 
-- [ ] **T009c · Morpheme clip decoding and pose sampling**
+  - Body/creature bind-pose transforms and the 50 unrecognized `skn` tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) → T009f.
+
+- [x] **T009c · Morpheme clip decoding and pose sampling**
   Decode the `net` network graph, clip boundaries, keyframe tracks and compression, map nodes to `skn` bones, and sample clips into poses.
   Done when: representative `Male`/creature clips sample to plausible poses and the clip/compression formats are documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
-  - Also finish the skeleton leftovers from T009a: body/creature bind-pose transforms and the 50 unrecognized `skn` tails.
-  - Add a clip sampler and a character/pose viewer driven by the decoded skeleton.
+  **Completed 2026-11-24 — 61 static clip poses decoded, name-based skeleton retargeting, clip blending and `assets animations` clip output.**
+  - Located the clip blocks in `net`: a 32-byte header (marker at offset `0x14`), a cumulative track-name table and a unit-quaternion pose array.
+  - Decoded 61 clips across the 34 networks; every clip has a pose. Retargeting matches track names to skeleton bones exactly or after stripping `BONE_`/`bone_`; `Male` full-body clips map all 61 skeleton bones, and its 40/33-track clips map 25 as an upper-body layer.
+  - Added `MotionClip`, `MotionPose` (retarget + slerp blending) and `SkeletonPose` (local/world transform composition), plus `assets animations` clip output and 10 new tests.
+  - Retail validation: 34/34 networks parse, 61/61 clips have poses, `Male` mapping 61/61 bones.
+  - 399 tests, Debug/Release warning-free.
+  **Deferred:**
+  - State graph, transition timing, keyframe curves and compression → T009e.
+  - Body/creature bind-pose transforms and a rendered pose viewer → T009f.
+  - The 50 unrecognized `skn` tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) → T009f.
 
 - [ ] **T009d · Blend-shape deltas and morph playback**
   Decode the `bln` per-target delta data, map targets to the base mesh, and drive morph weights from animation.
   Done when: facial/body blend shapes can be weighted and rendered, and the delta layout/quantization is documented.
+
+- [ ] **T009e · Morpheme state graph and keyframe curves**
+  Decode the network graph: states, transitions, conditions, transition durations and the per-track keyframe/curve data behind each clip.
+  Done when: transitions can be sampled over time, and the curve/compression format is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+
+- [ ] **T009f · Body bind poses and the pose viewer**
+  Finish the `skn` bind-pose leftovers (body/creature transforms and the 50 unrecognized tails), then render a skinned character driven by a decoded clip and a blended transition.
+  Done when: a representative character displays a decoded pose and a two-clip blend in the app.
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

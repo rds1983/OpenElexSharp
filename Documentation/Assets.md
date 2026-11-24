@@ -123,14 +123,16 @@ dotnet run --project OpenElexSharp -- assets skeletons --all
 
 ### `animations`
 
-Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count and ROM path. `--properties` lists every readable name, including track, bone, state and condition names. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
+Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count, clip count, clips with a decoded pose and ROM path. `--properties` lists every readable name, then each clip's track count, header fields, pose offset and first track names with their quaternions. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
+
+The parser also decodes the static clip poses and maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks). Keyframe curves and the state graph are not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets animations Chest --properties
 dotnet run --project OpenElexSharp -- assets animations --all
 ```
 
-The network graph, clip boundaries and keyframe tracks are not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
+The network graph, state transitions and keyframe curves are not decoded yet; each clip currently exposes a single static pose.
 
 ### `blendshapes`
 
@@ -170,7 +172,9 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MeshLoader` / `DrMeshPartTag` | DigitalRiseModel `DrMesh`/`DrMeshPart` creation with real normals, UVs, submesh ranges and material references. |
 | `ElexMaterial` / `MaterialLibrary` | Material payload parsing, runtime shader/texture attachment and a shared upload cache. |
 | `Skeleton` | Embedded `skn` skeleton tail: bind-pose bones, parent indices, name offsets, DJB2 hashes and names. |
-| `MotionNetwork` | `net` Morpheme motion-network readable names: tracks, bones, states and conditions. |
+| `MotionNetwork` | `net` Morpheme motion-network readable names, clip tables and static clip poses. |
+| `MotionClip` | One clip: track names and per-track quaternion pose. |
+| `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
 | `ElexBlendShapeSet` | `bln` blend-shape header, name offsets and `blendShape1.*` target names. |
 | `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |
 | `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh/part count and the Escape control hint. |
@@ -210,7 +214,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources. The remaining 50 creature/female/hologram tails use an unrecognized layout; body bind-pose transforms are not decoded yet.
-- `net` motion networks expose readable names only: the Morpheme graph, clip boundaries, keyframe tracks and compression are not decoded.
+- `net` motion networks expose readable names and one static pose per clip; the state graph, transition timing, keyframe curves and compression are not decoded.
 - `bln` blend shapes expose the header and target names only: the per-target delta layout and quantization are not decoded.
 
 ## Related tasks

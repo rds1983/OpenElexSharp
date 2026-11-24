@@ -12,8 +12,8 @@ animation are:
 
 The `skn` resources supply the skinned mesh and skeleton ([Skeletons.md](Skeletons.md)); `net`
 supplies the animation graph and clips, and `bln` supplies morph targets. This specification covers
-the outer container and the readable/structured parts decoded so far. The motion-network graph and
-both payload bodies remain open work.
+the outer container, readable names, the static clip poses and the blend-shape header/names. The
+state graph, keyframe curves and payload bodies remain open work.
 
 ## Container and endianness
 
@@ -43,7 +43,62 @@ a large collection of NUL-terminated names:
 
 `Male` appears to be the human network and holds the bulk of the body animation data. The network
 graph, clip boundaries, keyframe tracks and compression are **not decoded yet**; the current parser
-extracts names only.
+extracts names and the static clip poses described below.
+
+## Motion clips
+
+Each clip block is preceded by a 32-byte header and followed by a track-name table and a pose array.
+The block header is recognized by the fixed bytes `0A D7 23 3C 00 00 80 3E` at offset `0x14`:
+
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint32` | Version, observed `1`. |
+| 4 | `float` | Unresolved timing/playback value (field 0). |
+| 8 | `uint32[2]` | Zero. |
+| 16 | `float` | Unresolved timing/playback value (field 1). |
+| 20 | `byte[8]` | Marker `0A D7 23 3C 00 00 80 3E` (floats `0.01`, `0.25`). |
+| 28 | `uint32` | Zero. |
+
+A few networks (for example `BigBang-Rig`) use a header variant without the marker; their clip table
+and pose still decode, but `field0`/`field1` remain `0` because no header is recognized.
+
+The track-name table uses the same cumulative layout as the skeleton name tables:
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint32[trackCount]` | Name offsets, relative to the first name: `0`, then each name's cumulative length. |
+| `4 * trackCount` | `char[]` | NUL-terminated track names. |
+
+The pose array follows the table: `trackCount` little-endian `float32` quaternions in `(x, y, z, w)`
+order, all unit length. The first two tracks are normally `CharacterWorldSpaceTM` and `TRAJECTORY`;
+the remaining tracks are bone names such as `Male_Hips`, `BONE_Root` or `BONE_Lid`. The names match
+the `skn` skeleton bones exactly, or after removing a `BONE_`/`bone_` prefix on the track.
+
+A clip stores a **single pose**, not a keyframe sequence. State transitions (for example
+`Closed_Opened` or `Rest_Flight`) are separate graph records that are not decoded yet. The
+`field0`/`field1` values are therefore exposed unresolved; they are likely timing or playback
+attributes.
+
+| Resource | Clips | Track counts | Notes |
+| --- | ---: | --- | --- |
+| `Male` | 4 | 98, 88, 40, 33 | 61 skeleton bones. The 98/88-track clips map all 61; the 40/33-track clips map 25 and look like an upper-body layer. |
+| `Crawler-Rig` | 4 | 111, 111, 50, 49 | Full-body and partial layers. |
+| `Gull-Rig` | 2 | 31, 31 | Two full-body poses. |
+| `Weapons` | 8 | 12, 9, 6, 7, 6, 5, 7, 5 | Per-weapon poses. |
+| `Chest` | 2 | 4, 4 | Two container poses. |
+| All resources | 61 | — | Every decoded clip has a pose array. |
+
+### Retargeting and sampling
+
+`MotionPose` maps a clip to skeleton bone names:
+
+- exact name match wins;
+- otherwise `BONE_`/`bone_` is removed from the track name and matched again;
+- bones without a track receive the identity rotation.
+
+`MotionPose.Blend(from, to, t, boneNames)` slerps two clips. `SkeletonPose.FromMotionPose` combines
+the rotations with the skeleton's bind-pose translations and parent indices, and
+`ComputeWorldMatrices` composes the hierarchy. Bind-pose translations are used when the `skn`
+skeleton exposes them; body skeletons still lack them, so their world positions are zero.
 
 ## Blend shapes (`bln`)
 
@@ -79,6 +134,10 @@ quantization are **not decoded yet**; the current parser exposes the header and 
 
 - Retail resource databases list 34 `net` and 270 `bln` resources; every one parses with the current
   header/name readers.
+- The 34 networks contain 61 clips and all 61 expose a pose array.
+- `Male` full-body clips contain 61 tracks that match the 61 `skn` skeleton bones exactly; the
+  partial clips map 25. `Chest` clips map `BONE_Root`/`BONE_Lid` to `Root`/`Lid` after prefix
+  stripping.
 - `bln` sample `CH_Head_F_Ambient_01_L1`: 83 targets, 9,975 base vertices, 83 `blendShape1.*` names,
   82 offsets and a 2,257-byte name table. Header field 2 is 2,925 but does not equal the name-table
   length.
@@ -96,7 +155,8 @@ dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1
 dotnet run --project OpenElexSharp -- assets blendshapes --all
 ```
 
-The `animations` command prints the readable-name count and `BONE_`-prefixed names. The
+The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count and
+posed-clip count; `--properties` also lists each clip's track table and first pose quaternions. The
 `blendshapes` command prints the target count, base vertex count, unresolved header fields and the
 first target names.
 
@@ -105,6 +165,9 @@ first target names.
 | Metric | Value |
 | --- | ---: |
 | `net` resources parsed | 34 / 34 |
+| `net` clips decoded | 61 |
+| Clips with a pose | 61 / 61 |
+| `Male` full-body track mapping | 61 / 61 skeleton bones |
 | `bln` resources parsed | 270 / 270 |
 | Largest network | `Male`, 59.6 MB |
 | Maximum readable names (cap) | 100,000 |
@@ -112,28 +175,34 @@ first target names.
 
 ## Open questions
 
-- Morpheme network graph: node types, connections, clip boundaries and state machines.
-- Keyframe tracks, time bases and compression.
-- Mapping `net` nodes to `skn` skeletons and bone indices.
+- Morpheme network graph: node types, connections, state machines and transition timing.
+- Keyframe curves, time bases and compression; clips currently expose one pose each.
+- Mapping clips and transitions to state names, and the meaning of clip `field0`/`field1`.
+- Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
 - `bln` delta layout, quantization, per-target vertex ranges and the meaning of header fields
   8/12/16.
 - Whether facial animation is driven by `bln` weights, Morpheme nodes or both.
-- Clip sampling and a pose/character viewer.
+- Body bind-pose transforms, needed before a full skinned pose viewer can be rendered.
+- A playable pose/character viewer.
 
 ## Implementation
 
 | Component | File |
 | --- | --- |
-| Motion-network name extractor | `OpenElexSharp/Assets/MotionNetwork.cs` |
+| Motion-network, clip and pose parser | `OpenElexSharp/Assets/MotionNetwork.cs`, `MotionClip.cs` |
+| Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
+| Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `OpenElexSharp.Tests/BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
 - T009a - skeletons and skinned meshes.
-- T009b - animation data discovery (this specification, partial).
-- T009c - Morpheme clip decoding and pose sampling.
+- T009b - animation data discovery.
+- T009c - motion clips and pose sampling (this specification, partial).
 - T009d - blend-shape deltas and morph playback.
+- T009e - Morpheme state graph, transition timing and keyframe curves.
+- T009f - body bind poses and the pose viewer.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.
