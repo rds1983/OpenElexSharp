@@ -12,8 +12,9 @@ animation are:
 
 The `skn` resources supply the skinned mesh and skeleton ([Skeletons.md](Skeletons.md)); `net`
 supplies the animation graph and clips, and `bln` supplies morph targets. This specification covers
-the outer container, readable names, the static clip poses and the blend-shape header/names. The
-state graph, keyframe curves and payload bodies remain open work.
+the outer container, readable names, the static clip poses, sampled tracks, binary state blocks,
+timed transitions and the blend-shape header/names. State-record semantics, name tables with inline
+GUIDs, keyframe curves and payload bodies remain open work.
 
 ## Container and endianness
 
@@ -41,9 +42,9 @@ a large collection of NUL-terminated names:
 | `Crawler-Rig` | 2.6 MB | 34,342 | 563 |
 | `Chest` | 23 KB | 41 | 4 |
 
-`Male` appears to be the human network and holds the bulk of the body animation data. The network
-graph, clip boundaries, keyframe tracks and compression are **not decoded yet**; the current parser
-extracts names and the static clip poses described below.
+`Male` appears to be the human network and holds the bulk of the body animation data. Clip
+boundaries, keyframe curves and compression are **not decoded yet**; the parser extracts names, the
+static clip poses, sampled tracks, binary state blocks and timed transitions described below.
 
 ## Motion clips
 
@@ -74,9 +75,9 @@ the remaining tracks are bone names such as `Male_Hips`, `BONE_Root` or `BONE_Li
 the `skn` skeleton bones exactly, or after removing a `BONE_`/`bone_` prefix on the track.
 
 A clip stores a **single pose**, not a keyframe sequence. State transitions (for example
-`Closed_Opened` or `Rest_Flight`) are separate graph records that are not decoded yet. The
-`field0`/`field1` values are therefore exposed unresolved; they are likely timing or playback
-attributes.
+`Closed_Opened` or `Rest_Flight`) are separate graph records; their names, binary state blocks and
+timed records are described below. The `field0`/`field1` values are therefore exposed unresolved;
+they are likely timing or playback attributes.
 
 | Resource | Clips | Track counts | Notes |
 | --- | ---: | --- | --- |
@@ -165,42 +166,79 @@ interpolates raw positions and slerps rotations over the duration. Positions use
 `raw / 32767 * 100` model-unit scale; `GetTrackName`/`GetBoneName` resolve the header indices against
 a clip's track list. `MotionSampleGroup.GroupByDuration` groups tracks that share a duration; `Male`
 yields 253 groups (largest: 0.8 s / 85 tracks). The skeleton viewer uses the largest group to animate
-a real sampled pose. Graph semantics remain open (T009p).
+a real sampled pose. Binary state blocks and timed transitions are described below.
 
-### Binary graph probe
+### Binary state-machine blocks
 
-A binary state-node block is observed in `Weapons` at payload offset `0x40C0`:
+Every sampled network contains state-machine blocks with this header:
 
 | Offset | Type | Meaning |
 | ---: | --- | --- |
-| 0 | `uint32` | Block type, observed `1`. |
-| 4 | `uint32` | Marker, observed `0x53`. |
-| 8 | `uint32` | Reference count, observed `16`. |
-| 12 | `uint32` | Zero. |
-| 16 | `uint32` | Header size, observed `24`. |
-| 20 | `uint32` | Zero. |
-| 24 | `Record[count]` | 40 bytes per record: five little-endian `uint64` values; the first value is a node reference or `0xFFFFFFFF`. |
+| 0 | `uint32` | State count (also the block kind), observed `1`–`57`. |
+| 4 | `uint32` | Marker `0x53`. |
+| 8 | `uint64` | Records per state, always `16`. |
+| 16 | `uint64[stateCount]` | State offsets relative to the block start; the first equals `16 + stateCount × 8`. |
 
-The detector finds only this one block in `Weapons`; the other state offsets (`0x38F8`, `0x3B90`,
-`0x3E28`) begin directly with 40-byte record arrays. The five 64-bit slots are exposed but their
-state/edge/duration semantics are not mapped yet.
-
-### State record groups
-
-`Weapons` also exposes four state groups of 16 records plus a 24-byte trailer:
+Each state is 664 bytes: 16 records of 40 bytes followed by a 24-byte trailer. Every record holds
+five 32-bit values in 8-byte slots (the upper half of each slot is zero). `0xFFFFFFFF` marks an empty
+value. The trailer is three `0xFFFFFFFF` slots.
 
 ```text
-Active  -> 16 records
-Aim     -> 16 records
-Shoot   -> 16 records
-Reload  -> 16 records
+block + 0x30  state 0 -> 16 records + trailer
+block + 0x2C8 state 1 -> 16 records + trailer
+...
 ```
 
-Each record is five `uint64` values; the first value is usually a small node reference or
-`0xFFFFFFFF`. `MotionGraphState` maps the groups to the state-name table in order and aggregates the
-distinct non-sentinel references. `FindSampleTracks` matches those references against sample-track
-indices, giving a partial state/sample association. Transition durations and the node/edge semantics
-remain open (T009r).
+Observed blocks:
+
+| Resource | Blocks (state counts) |
+| --- | --- |
+| `Weapons` | 4 and 1 |
+| `Chest` | 4 and 1 |
+| `Items` | 4 and 1 |
+| `CleaningBot-Rig` | 6 and 1 |
+| `Searchlight` | 6 and 3 |
+| `Male` | 57 and 34 |
+
+Block state names come from a preceding string table. `Weapons` maps its four states to
+`Active`, `Aim`, `Shoot`, `Reload` in table order. State-name tables for several other resources store
+a GUID between the offsets and the strings, so they are not decoded yet.
+
+The 16×5 values of the four-state blocks are **identical across unrelated resources** (for example
+state 0 has `119`/`117` in `Weapons`, `Chest`, `Items` and `CleaningBot-Rig`). They therefore reference
+a fixed template or global vocabulary rather than per-resource edges or sample-track indices. The
+earlier idea of matching them against sample-track indices was not valid. The large `Male` block
+shares several of these state patterns but is not identical.
+
+### Timed transition records
+
+Transition timing is stored in runs of 48-byte records:
+
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint16` | Record kind, observed `1` or `2`. |
+| 2 | `uint16` | Flags, always `1`. |
+| 4 | `uint32` | Zero. |
+| 8 | `uint16` | Zero. |
+| 10 | `uint16` | Transition index. |
+| 12 | `uint16` | Source state slot. |
+| 14 | `uint16` | Target state slot. |
+| 16 | `uint16` | Duration in milliseconds; `0` means immediate. |
+| 18 | 30 bytes | Zero padding. |
+
+Records in a run have consecutive indices starting at 4 or later. Source/target are zero-based state
+slots; `0` is an implicit disabled/entry state in networks such as `Weapons`. Examples:
+
+| Resource | Records (index: source → target @ ms) |
+| --- | --- |
+| `Weapons` | `7: 0→1 @ 852`, `8: 1→0 @ 808`, … `21: 2→0 @ 236`, `22: 4→0 @ 0` |
+| `Chest` | `6: 0→2 @ 228`, `7: 1→3 @ 184`, `8: 2→1 @ 140`, `9: 3→0 @ 0` |
+| `Items` | `4: 1→0 @ 116`, `5: 0→1 @ 0` |
+| `CleaningBot-Rig` | `7: 0→1 @ 116`, `8: 1→0 @ 0` |
+
+Within every observed run the duration decreases by exactly 44 ms, ending at 0. The reason is not
+known; the field is still the only candidate for transition timing and matches the recurring 116 ms
+blend seen across small networks.
 
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
@@ -213,8 +251,8 @@ remain open (T009r).
 
 `Male` uses long hierarchical path names such as
 `Main|Animation|Animation|Locomotion|Locomotion|Walk|...|ConditionGroup|MessageCondition` rather than
-simple three-segment transitions, so it currently exposes no simple transitions. Transition
-durations and binary graph edges are not decoded yet.
+simple three-segment transitions, so it exposes no simple transitions. Its binary state blocks
+(57 and 34 states) and 939 timed records are still exposed.
 
 ## Blend shapes (`bln`)
 
@@ -305,8 +343,9 @@ dotnet run --project OpenElexSharp -- assets blendshapes --all
 The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
 posed-clip count, simple-transition count, state-name count, hierarchical-path count and candidate
 binary-graph count. `--properties` also lists each clip's track table and first pose quaternions,
-followed by every transition, state, graph node, the first 16 state paths, the first 16 binary
-graph blocks, the first quantized quaternion runs and the first sample tracks.
+followed by every transition, state block entry, timed transition summary, graph node, the first 16
+state paths, the first 16 binary graph blocks, the first quantized quaternion runs and the first
+sample tracks.
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -323,9 +362,11 @@ per-target delta counts and the first two position/normal deltas.
 | Simple transitions (`Crawler-Rig` / `Weapons` / `Chest`) | 176 / 20 / 4 |
 | `Male` simple transitions | 0 (hierarchical paths) |
 | Hierarchical state paths | 10,000 (`Male`, cap) |
-| Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
-| Mapped state groups (`Weapons`) | 4 (`Active`, `Aim`, `Shoot`, `Reload`) |
-| State reference counts (`Weapons`) | 16 / 7 / 11 / 20 |
+| Binary state blocks | 2 per sampled network (`Male`: 57 + 34 states) |
+| Named state blocks (`Weapons`) | 4 (`Active`, `Aim`, `Shoot`, `Reload`) |
+| State value counts (`Weapons`) | 11 / 7 / 11 / 20 |
+| Timed transition records | 939 (`Male`), 16 (`Weapons`), 4 (`Chest`) |
+| Observed transition durations | 0–5,768 ms |
 | Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
 | Sample duration groups (`Male`) | 253 (largest 0.8 s / 85 tracks) |
 | Inferred sample position scale | `raw / 32767 × 100` model units |
@@ -338,7 +379,12 @@ per-target delta counts and the first two position/normal deltas.
 
 ## Open questions
 
-- Morpheme network graph: binary node records, GUIDs, edges and transition durations.
+- The meaning of the 16×5 values in each binary state record: they are constant across resources and
+  appear to be a fixed template or global vocabulary.
+- State-name tables that place a 16-byte GUID between the offset array and the strings are not
+  decoded, so most state blocks currently have no names.
+- Transition source/target slots are zero-based; whether slot `0` is an implicit disabled state must
+  be confirmed per network, and transition runs are not yet associated with a specific state block.
 - Hierarchical paths are exposed as segment/condition paths, but their binary node links and timing
   are not decoded.
 - No uncompressed keyframe tracks were found; compressed pose/curve blocks remain open (T009l).
@@ -359,14 +405,15 @@ per-target delta counts and the first two position/normal deltas.
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
-| State record groups | `OpenElexSharp/Assets/MotionGraphState.cs` |
+| State-machine blocks | `OpenElexSharp/Assets/MotionGraphState.cs` |
+| Timed transition records | `OpenElexSharp/Assets/MotionGraphTransition.cs` |
 | Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
 | Sample-track codec | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
 | Sample grouping and sampled poses | `OpenElexSharp/Assets/MotionSampleGroup.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionGraphStateTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionGraphStateTests.cs`, `MotionGraphTransitionTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -384,7 +431,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009n - sample scale and track-name mapping.
 - T009o - sample grouping and sampled poses.
 - T009p - state record groups.
-- T009q - state references and sample-track matching.
-- T009r - transition durations and edge semantics.
+- T009q - state value aggregation.
+- T009r - state-block offsets and timed transition records.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

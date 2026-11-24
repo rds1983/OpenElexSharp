@@ -7,8 +7,8 @@ namespace OpenElexSharp.Assets;
 /// <summary>
 /// A <c>net</c> motion-network resource (<c>class eCMotionNetworkDefResource2</c>). The payload is a
 /// Morpheme network definition; the parser exposes readable node, track, bone, condition and event
-/// names, decoded clip poses and name-derived transitions. Binary graph edges and keyframe curves
-/// are not decoded yet.
+/// names, decoded clip poses, name-derived transitions, binary state blocks and timed transition
+/// records. Keyframe curves are not decoded yet.
 /// </summary>
 public sealed class MotionNetwork
 {
@@ -32,6 +32,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<MotionSampleTrack> sampleTracks,
 		IReadOnlyList<MotionSampleGroup> sampleGroups,
 		IReadOnlyList<MotionGraphState> graphStates,
+		IReadOnlyList<MotionGraphTransition> graphTransitions,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -46,6 +47,7 @@ public sealed class MotionNetwork
 		SampleTracks = sampleTracks;
 		SampleGroups = sampleGroups;
 		GraphStates = graphStates;
+		GraphTransitions = graphTransitions;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -78,8 +80,11 @@ public sealed class MotionNetwork
 	/// <summary>Sample tracks grouped into animations by shared duration.</summary>
 	public IReadOnlyList<MotionSampleGroup> SampleGroups { get; }
 
-	/// <summary>Binary state groups mapped to state names, when recognized.</summary>
+	/// <summary>States of the binary state-machine blocks found in the payload.</summary>
 	public IReadOnlyList<MotionGraphState> GraphStates { get; }
+
+	/// <summary>Timed binary transition records found in the payload.</summary>
+	public IReadOnlyList<MotionGraphTransition> GraphTransitions { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -230,6 +235,7 @@ public sealed class MotionNetwork
 		var sampleTracks = MotionSampleTrack.FindAll(data, Gar5WrapperSize, mainEnd);
 		var sampleGroups = MotionSampleGroup.GroupByDuration(sampleTracks);
 		var graphStates = FindGraphStates(data, allTables, mainEnd);
+		var graphTransitions = MotionGraphTransition.FindAll(data, Gar5WrapperSize, mainEnd);
 
 		return new MotionNetwork(
 			name,
@@ -242,6 +248,7 @@ public sealed class MotionNetwork
 			sampleTracks,
 			sampleGroups,
 			graphStates,
+			graphTransitions,
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);
@@ -349,28 +356,47 @@ public sealed class MotionNetwork
 		List<StringTable> tables,
 		int mainEnd)
 	{
-		foreach (var table in tables)
+		var states = new List<MotionGraphState>();
+		for (var offset = Gar5WrapperSize; offset + MotionGraphState.HeaderBaseSize <= mainEnd;)
 		{
-			if (table.Names.Count < 2 || table.Names.Count > 16 ||
-				IsClipTable(table) || IsTransitionTable(table) || IsEventTable(table) ||
-				IsBlendShapeTable(table) ||
-				table.Names.Exists(name => name.Length == 0 || name.Contains(' ') || name.Contains('|')))
+			if (!MotionGraphState.TryReadHeader(data, offset, mainEnd, out var stateCount, out var size))
 			{
+				offset += 4;
 				continue;
 			}
 
-			var names = table.Names.ToArray();
-			var searchEnd = Math.Min(mainEnd, table.StringEnd + 0x2000);
-			for (var start = table.StringEnd; start + names.Length * MotionGraphState.StateSize <= searchEnd; start += 4)
+			var names = FindStateNames(tables, stateCount);
+			if (MotionGraphState.TryRead(data, offset, mainEnd, names, out var block, out _))
 			{
-				if (MotionGraphState.TryRead(data, start, names, out var states))
-				{
-					return states;
-				}
+				states.AddRange(block);
+				offset += size;
+			}
+			else
+			{
+				offset += 4;
 			}
 		}
 
-		return [];
+		return states;
+	}
+
+	private static string[]? FindStateNames(List<StringTable> tables, int stateCount)
+	{
+		if (stateCount < 2)
+		{
+			return null;
+		}
+
+		foreach (var table in tables)
+		{
+			if (table.Names.Count == stateCount &&
+				table.Names.TrueForAll(MotionGraphState.IsNameCandidate))
+			{
+				return table.Names.ToArray();
+			}
+		}
+
+		return null;
 	}
 
 	private static List<string> ReadStrings(byte[] data)

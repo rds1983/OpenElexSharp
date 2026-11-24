@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009r**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T010**.
 
 ---
 
@@ -312,19 +312,31 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Transition durations and node/edge semantics.
   - Association of sample groups with states/clips.
 
-- [x] **T009q · State references and sample matching**
-  Aggregate state-record references and match them to sample-track indices.
-  Done when: state references and matching sample tracks are exposed and tested.
-  **Completed 2026-11-25 — state reference sets and `FindSampleTracks`; Weapons refs are 16/7/11/20.**
+- [x] **T009q · State value aggregation**
+  Aggregate the values of each binary state record group.
+  Done when: state value sets are exposed and tested.
+  **Completed 2026-11-25 — state value sets exposed; `Weapons` values are 11/7/11/20.**
   - `MotionGraphState.References` aggregates distinct non-sentinel values across the 16×5 slots.
-  - `FindSampleTracks` matches references against sample-track indices.
+  - The sample-track matching attempted here was invalidated by T009r: the values repeat across
+    unrelated resources and are a fixed template, not track indices.
   - 443 tests, Debug/Release warning-free.
   **Deferred to T009r:**
   - Transition durations and full edge semantics.
 
-- [ ] **T009r · Transition durations and edge semantics**
+- [x] **T009r · Transition durations and edge semantics**
   Determine how transition durations and edge/node semantics are encoded in the remaining records.
   Done when: transitions carry durations or the layout is conclusively documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+  **Completed 2026-11-25 — corrected state-block offsets and decoded timed 48-byte transition records.**
+  - State blocks: kind/state count, marker `0x53`, 16 records per state and a per-state offset table;
+    the earlier parser was 8 bytes off, so the state names and value counts were wrong.
+  - `MotionGraphTransition` decodes runs of 48-byte records with index, source/target slots and a
+    duration in milliseconds (`Weapons` 16 records, `Male` 939, `Chest` 4).
+  - The four-state blocks share identical 16×5 values across resources, so they are a fixed template;
+    the T009q sample-track association was removed.
+  - 10 new tests; 453 tests, Debug/Release warning-free.
+  **Open follow-ups:**
+  - Decode state-name tables that store a GUID between the offsets and the strings.
+  - Associate transition runs with their state block and confirm slot `0` semantics per network.
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

@@ -655,9 +655,17 @@ public static class AssetCatalogConsole
 					foreach (var state in network.GraphStates)
 					{
 						output.WriteLine(
-							$"\tstate\t{state.Name}\trecords={state.Records.Count}\t" +
+							$"\tstate\t{state.Name ?? "-"}\tblock={state.BlockOffset}\t" +
+							$"index={state.Index}\tvalues={state.Values.Count}\t" +
 							$"refs={state.References.Count}\t" +
-							$"first={string.Join(',', state.Records.Take(4).Select(record => record[0]))}");
+							$"first={string.Join(',', state.Values.Take(4).Select(record => record[0]))}");
+					}
+
+					if (network.GraphTransitions.Count > 0)
+					{
+						output.WriteLine(
+							$"\ttimed\t{network.GraphTransitions.Count}\t" +
+							$"{string.Join(',', network.GraphTransitions.Take(8).Select(transition => $"{transition.Index}:{transition.Source}->{transition.Target}@{transition.DurationMilliseconds}ms"))}");
 					}
 				}
 			});
