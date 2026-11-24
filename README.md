@@ -2,7 +2,7 @@
 
 An open-source, from-scratch C# implementation of the **ELEX** engine and game runtime (Piranha Bytes, 2017), built on MonoGame.
 
-> **Status: pre-alpha.** Asset mounting and asset-format research. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
+> **Status: pre-alpha.** Asset mounting, format parsing and texture loading. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
 
 OpenElexSharp reads assets from a local ELEX installation. **No game assets or game code are distributed with this project.**
 
@@ -13,6 +13,7 @@ OpenElexSharp reads assets from a local ELEX installation. **No game assets or g
 | Language / runtime | C# 14 on .NET 10 |
 | Framework | [MonoGame](https://monogame.net) (DesktopGL) |
 | Models & animation | [DigitalRiseModel](https://github.com/rds1983/DigitalRiseModel) |
+| Textures | MonoGame surface formats + [BCnEncoder.NET](https://github.com/Nominom/BCnEncoder.NET) for BC6H/BC7 CPU decoding |
 | UI | [Myra](https://github.com/rds1983/Myra) |
 | Physics | [BepuPhysics2](https://github.com/bepu/bepuphysics2) |
 | Tests | xUnit |
@@ -53,7 +54,7 @@ dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens an empty window; asset-format parsing and rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture in the test scene; mesh and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -64,10 +65,11 @@ dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
+dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properties --decode
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -79,9 +81,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 33 | 4475 | 3809 | 160.5 KB |
-| Tests | 31 | 3562 | 2973 | 117.8 KB |
-| **Total** | **64** | **8037** | **6782** | **278.3 KB** |
+| Engine | 36 | 6174 | 5335 | 222.1 KB |
+| Tests | 36 | 4545 | 3801 | 146.8 KB |
+| **Total** | **72** | **10719** | **9136** | **368.9 KB** |
 
 ## Credits
 
@@ -93,9 +95,11 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 Format-research credits — projects whose source or documentation informed a format specification:
 
-- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0) — Elex Resource Manager; reference for the G3V0 PAK header, directory tree, file attributes, DEFLATE compression (`mi_genomevolume.cpp`), to the Genome object/class model and to the embedded class/property name registry.
+- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0) — Elex Resource Manager; reference for the G3V0 PAK header, directory tree, file attributes, DEFLATE compression (`mi_genomevolume.cpp`), the Genome object/class model, the embedded class/property name registry, the ELEX image wrapper and its legacy/DXGI texture format tables.
 - [GameExtractor](https://github.com/wattostudios/GameExtractor) (GPL-2.0-or-later) — `Plugin_PAK_G3V0_2` independently documents the Risen-family PAK layout reused by ELEX.
 - [G3Archive](https://github.com/gekonnn/G3Archive) (MIT) — Gothic 3 PAK header reference that clarified the G3V0 lineage.
+- [BCnEncoder.NET](https://github.com/Nominom/BCnEncoder.NET) (MIT OR Unlicense) — CPU decoding for BC6H and BC7 textures.
+- [Microsoft DXGI_FORMAT documentation](https://learn.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format) — authoritative DXGI format identifiers used by the DDS DX10 header.
 
 ## Legal
 

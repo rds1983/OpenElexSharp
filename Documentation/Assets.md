@@ -12,6 +12,7 @@ dotnet run --project OpenElexSharp -- assets find <substring> [options]
 dotnet run --project OpenElexSharp -- assets resources [substring] [options]
 dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -66,6 +67,19 @@ Builds the template database from `tpl` resources and prints name, GUID, resolve
 dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
 ```
 
+### `textures`
+
+Builds the logical resource index, finds `img` resources and parses their DDS headers. Prints name,
+width, height, mip count, format, sRGB flag, volume/cubemap flags, array size, logical size and ROM
+path. `--properties` prints header offsets, FourCC/DXGI, caps, masks and every mip level.
+`--decode` decodes mip 0 to RGBA8 and prints an FNV-1a checksum; volume textures are reported as
+decode failures because they cannot be uploaded as a `Texture2D`.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properties --decode
+dotnet run --project OpenElexSharp -- assets textures --all
+```
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -85,6 +99,8 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `ElexResourceIndex` / `ElexResource` | Logical name → hashed ROM resolution through `RT02` databases. |
 | `GenomeObject` / `GenomeHeaderDocument` / `GenomeStringTable` | GEC2 objects, DT01 documents and GENOMFLE string tables. |
 | `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
+| `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
+| `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 
@@ -93,6 +109,8 @@ The catalog is metadata-only: building it does not open payloads. Export is the 
 On the reference installation the catalog contains 156,954 entries (156,905 packed, 49 loose). A cold `assets stats` run, including mounting and parsing all PAK indexes, takes about 2.4 seconds. The catalog itself builds in well under a second after mounting.
 
 `assets resources` additionally parses every `RT02` database; a cold run takes about 3.5 seconds and resolves 65,965 logical resources.
+
+`assets textures --all` parses all 9,631 image headers in roughly 20-30 seconds including resource-database discovery. Decoding every mip-0 texture with `--decode` takes several minutes and is intended as a diagnostic rather than an interactive command.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -108,6 +126,8 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Executable classification is extension-based.
 - Resource database records are located via their `GEC2` class blocks; the reference metadata in the middle of a record is not decoded yet.
 - Object properties and class data are preserved raw; type-specific decoding and nested `GEC2` objects are not implemented yet.
+- `assets textures --all --decode` is intentionally a diagnostic path: decoding every mip-0 texture in the retail set takes several minutes. Normal browsing should use a filter or omit `--decode`.
+- Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
 
 ## Related tasks
 

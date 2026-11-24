@@ -65,6 +65,20 @@ public sealed class Gar5FormatException : Exception
     }
 }
 
+/// <summary>A DirectDraw Surface (DDS) texture is malformed or uses an unsupported format.</summary>
+public sealed class DdsFormatException : Exception
+{
+    public DdsFormatException(string message)
+        : base(message)
+    {
+    }
+
+    public DdsFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
 /// <summary>A Genome GEC2 object or DT01 document is malformed.</summary>
 public sealed class GenomeFormatException : Exception
 {

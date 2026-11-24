@@ -74,10 +74,42 @@ public class LaunchOptionsTests
     [Fact]
     public void Parse_CombinedOptions_SetsAllValues()
     {
-        var options = LaunchOptions.Parse(["--smoke-test", "--elex-path", @"C:\Games\ELEX"]);
+        var options = LaunchOptions.Parse(
+            ["--smoke-test", "--elex-path", @"C:\Games\ELEX", "--texture", "AS_AlbSigns_1_DfA"]);
 
         Assert.True(options.SmokeTest);
         Assert.Equal(@"C:\Games\ELEX", options.ElexPath);
+        Assert.Equal("AS_AlbSigns_1_DfA", options.Texture);
+    }
+
+    [Fact]
+    public void Parse_TextureWithEquals_SetsValue()
+    {
+        var options = LaunchOptions.Parse(["--texture=AS_AlbSigns_1_Nm"]);
+
+        Assert.Equal("AS_AlbSigns_1_Nm", options.Texture);
+    }
+
+    [Fact]
+    public void Parse_TextureIsTrimmed()
+    {
+        var options = LaunchOptions.Parse(["--texture", "  AS_AlbSigns_1_Nm  "]);
+
+        Assert.Equal("AS_AlbSigns_1_Nm", options.Texture);
+    }
+
+    [Fact]
+    public void Parse_MissingTextureValue_Throws()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--texture"]));
+
+        Assert.Contains("--texture", exception.Message);
+    }
+
+    [Fact]
+    public void Parse_EmptyTextureValue_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--texture="]));
     }
 
     [Fact]

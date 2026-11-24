@@ -28,6 +28,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.Resources => Resources(command, catalog, assets, output, error),
             AssetCommandKind.Objects => Objects(command, catalog, assets, output, error),
             AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
+            AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -307,6 +308,120 @@ public static class AssetCatalogConsole
             $"Showing {shown} of {matches.Count:N0} template(s); database has " +
             $"{database.Templates.Count:N0} top-level and {database.AllTemplates.Count:N0} total templates.");
         return 0;
+    }
+
+    private static int Textures(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {
+        var resources = ElexResourceIndex.Build(catalog, assets);
+        foreach (var diagnostic in resources.Diagnostics.Take(5))
+        {
+            error.WriteLine($"Texture warning: {diagnostic}");
+        }
+
+        IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+            string.Equals(resource.TypeToken, "img", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(command.Filter))
+        {
+            query = query.Where(resource =>
+                resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = query
+            .OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+        var parsed = 0;
+        var decodeFailures = 0;
+        for (var index = 0; index < shown; index++)
+        {
+            var resource = matches[index];
+            DdsImage image;
+            try
+            {
+                using var stream = assets.OpenRead(resource.VirtualPath);
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                image = DdsImage.Parse(buffer.ToArray());
+                parsed++;
+            }
+            catch (Exception exception) when (
+                exception is DdsFormatException or IOException or UnauthorizedAccessException or
+                    AssetNotFoundException)
+            {
+                error.WriteLine($"Skipping texture '{resource.Name}': {exception.Message}");
+                continue;
+            }
+
+            output.WriteLine(
+                $"{resource.Name}\t{image.Width}\t{image.Height}\t{image.MipCount}\t" +
+                $"{image.FormatName}\t{image.IsSrgb}\t{image.IsVolume}\t{image.IsCubemap}\t" +
+                $"{image.ArraySize}\t{resource.Size}\t{resource.VirtualPath}");
+
+            if (command.ShowProperties)
+            {
+                output.WriteLine(
+                    $"\tddsOffset={image.DdsOffset}\tdataOffset={image.DataOffset}\t" +
+                    $"dataLength={image.DataLength}\ttrailing={image.TrailingLength}");
+                output.WriteLine(
+                    $"\tfourCc={image.FourCcText}\tdxgi={image.DxgiFormat?.ToString() ?? ""}\t" +
+                    $"flags=0x{image.Flags:x8}\tcaps=0x{image.Caps:x8}\tcaps2=0x{image.Caps2:x8}");
+                output.WriteLine(
+                    $"\tpixelFlags=0x{image.PixelFormatFlags:x8}\tbits={image.RgbBitCount}\t" +
+                    $"masks={image.RedMask:x8}/{image.GreenMask:x8}/{image.BlueMask:x8}/{image.AlphaMask:x8}");
+                for (var face = 0; face < image.Faces.Count; face++)
+                {
+                    for (var mip = 0; mip < image.Faces[face].Mipmaps.Count; mip++)
+                    {
+                        var level = image.Faces[face].Mipmaps[mip];
+                        output.WriteLine(
+                            $"\tface={face}\tmip={mip}\t{level.Width}x{level.Height}x{level.Depth}\t" +
+                            $"bytes={level.Data.Length}");
+                    }
+                }
+            }
+
+            if (command.Decode)
+            {
+                try
+                {
+                    var normalMap = resource.Name.Contains("_Nm", StringComparison.OrdinalIgnoreCase);
+                    var level = DdsTextureDecoder.Decode(
+                        image,
+                        0,
+                        new DdsDecodeOptions(NormalMap: normalMap));
+                    output.WriteLine(
+                        $"\tdecoded\t{level.Width}x{level.Height}\tchecksum={Checksum(level.Pixels):x8}");
+                }
+                catch (Exception exception) when (
+                    exception is DdsFormatException or NotSupportedException or ArgumentException)
+                {
+                    decodeFailures++;
+                    error.WriteLine($"Could not decode texture '{resource.Name}': {exception.Message}");
+                }
+            }
+        }
+
+        error.WriteLine(
+            $"Showing {shown} of {matches.Count:N0} texture(s); parsed {parsed:N0}" +
+            (command.Decode ? $", decode failures {decodeFailures:N0}" : string.Empty) + ".");
+        return 0;
+    }
+
+    private static uint Checksum(byte[] data)
+    {
+        var hash = 2166136261u;
+        foreach (var value in data)
+        {
+            hash ^= value;
+            hash *= 16777619u;
+        }
+
+        return hash;
     }
 
     private static int Export(

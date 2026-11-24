@@ -10,6 +10,7 @@ public enum AssetCommandKind
     Resources,
     Objects,
     Templates,
+    Textures,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -27,6 +28,7 @@ public sealed class AssetCommandLine
           OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
@@ -35,6 +37,7 @@ public sealed class AssetCommandLine
         resources      Prints logical resources resolved through RT02 databases.
         objects        Lists GEC2 objects in a DT01 header document.
         templates      Lists entity/item templates and inheritance information.
+        textures       Inspects DDS image resources and texture metadata.
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -63,6 +66,8 @@ public sealed class AssetCommandLine
     public bool IncludeBinaries { get; private init; }
 
     public bool ShowProperties { get; private init; }
+
+    public bool Decode { get; private init; }
 
     public string? AssetPath { get; private init; }
 
@@ -117,6 +122,9 @@ public sealed class AssetCommandLine
             case "templates":
                 kind = AssetCommandKind.Templates;
                 break;
+            case "textures":
+                kind = AssetCommandKind.Textures;
+                break;
             case "export":
                 kind = AssetCommandKind.Export;
                 break;
@@ -137,6 +145,7 @@ public sealed class AssetCommandLine
         var limit = 100;
         var includeBinaries = false;
         var showProperties = false;
+        var decode = false;
         var positionals = new List<string>();
 
         for (var index = 2; index < args.Count; index++)
@@ -225,6 +234,14 @@ public sealed class AssetCommandLine
 
                     showProperties = true;
                     break;
+                case "--decode":
+                    if (inlineValue is not null)
+                    {
+                        throw new ArgumentException("Option '--decode' does not take a value.", nameof(args));
+                    }
+
+                    decode = true;
+                    break;
                 case "--elex-path":
                     elexPath = TakeValue();
                     break;
@@ -310,6 +327,7 @@ public sealed class AssetCommandLine
             Limit = limit,
             IncludeBinaries = includeBinaries,
             ShowProperties = showProperties,
+            Decode = decode,
             ElexPath = elexPath,
         };
     }

@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T007**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T008**.
 
 ---
 
@@ -73,9 +73,11 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: GTP0/eCTemplateEntity parser, child composition and GUID inheritance, typed full property sets, `assets templates`; 261 tests; 8,678 top-level and 17,356 total retail templates parsed (max 15 property sets per composition).
   Completed 2026-11-24 — template database, composition/inheritance resolution and typed property sets.
 
-- [ ] **T007 · Textures**
+- [x] **T007 · Textures**
   Parse texture assets (DDS with BC1–BC7 and mipmaps, plus any engine container) into `Texture2D`, with sRGB handling, fallback textures and a documented on-disk spec.
   Done when: diffuse/normal maps from the game display with correct orientation and alpha in a test scene.
+  Implementation complete: DDS parser, format mapping, BC4/BC5/BC6H/BC7 CPU decoding, compressed/uncompressed upload, `--texture` test scene, fallback texture and `assets textures`; 325 tests; all 9,631 retail `img` resources parse, all 9,625 2D textures decode, 6 volume textures parsed but not uploaded.
+  Completed 2026-11-24 — DDS image resources, BC1–BC7 upload/decoding, normal maps, fallback and texture inspector.
 
 - [ ] **T008 · Static meshes**
   Identify and parse static mesh assets: vertex layouts, index buffers, submeshes, materials, texture bindings and LODs. Document the vertex-stream combinations actually present in the data.
@@ -256,6 +258,8 @@ Not committed to a milestone; revisit after T308.
 - Generalize nested class-data object decoding beyond `gCInfo`.
 - Asset export/screenshot tools for documentation.
 - Editor support for inspecting templates and worlds.
+- Upload volume textures as `Texture3D`, cubemaps and texture arrays; add an HDR float pipeline instead of clamping BC6H/16F/32F data.
+- Resolve texture roles and sRGB intent from material metadata once T008 binds textures to meshes.
 - ELEX 2 support if its formats are close enough.
 
 ## Known risks

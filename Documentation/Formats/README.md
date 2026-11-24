@@ -25,3 +25,7 @@ This folder documents the binary formats used by ELEX assets. Each specification
 ## Implemented specs
 
 - [Pak.md](Pak.md) — G3V0 PAK archives (T003).
+- [Gar5.md](Gar5.md) — GAR5 resource wrappers, RT02 databases and E1RF files (T004b).
+- [Objects.md](Objects.md) — GEC2 objects, DT01 documents and GENOMFLE string tables (T005/T005b).
+- [Templates.md](Templates.md) — GTP0 entity/item templates (T006).
+- [Textures.md](Textures.md) — DDS image resources, BC1–BC7 and texture upload (T007).

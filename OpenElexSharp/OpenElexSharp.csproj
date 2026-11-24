@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCnEncoder.Net" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" />
   </ItemGroup>
 

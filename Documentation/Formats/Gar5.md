@@ -36,8 +36,9 @@ Records start at offset 24.
 | --- | ---: | --- |
 | `STB\x07` | 32 | Compiled string table. |
 | `\0\0\0\0` | 32 | Generic ROM wrapper (sound/dialogue payloads, etc.). |
+| `\0\0\0\0` | 44 | Image resource; payload starts with a `DDS ` file and ends with a 36-byte offset table. See [Textures.md](Textures.md). |
 
-For non-`RT02` tags the remaining header bytes carry tag-specific metadata; the current parser skips them and reports `PayloadOffset = 32`. Header size is tag-specific, so the `0x20` value must not be treated as the total header length.
+For non-`RT02` tags the remaining header bytes carry tag-specific metadata; the current parser skips them and reports `PayloadOffset = 32`. Header size is tag-specific, so the `0x20` value must not be treated as the total header length. The 44-byte image variant is recognized by the `DDS ` magic at offset 44.
 
 Manual validation against retail assets:
 
@@ -46,6 +47,7 @@ Manual validation against retail assets:
 | `localization/en.str` | `STB\x07` | 32 | — |
 | `0_en_snd/0/d/w_snd_0_en_d0dc3290.rom` | zeroes | 32 | — |
 | `0_en_snd/w_snd_0_en.db` | `RT02` | 24 | `SN11` / `0x88E0CA06` |
+| `0_na_img/0/7/w_img_0_na_788ff6f0.rom` | zeroes | 44 | `DDS ` payload |
 
 ## RT02 database records
 

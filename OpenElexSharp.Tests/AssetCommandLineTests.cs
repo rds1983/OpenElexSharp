@@ -173,6 +173,19 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_Textures_ReadsFilterAndFlags()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "textures", "DfA", "--limit", "7", "--properties", "--decode"]);
+
+        Assert.Equal(AssetCommandKind.Textures, command.Kind);
+        Assert.Equal("DfA", command.Filter);
+        Assert.Equal(7, command.Limit);
+        Assert.True(command.ShowProperties);
+        Assert.True(command.Decode);
+    }
+
+    [Fact]
     public void Parse_Export_ReadsPaths()
     {
         var command = AssetCommandLine.Parse(
