@@ -18,6 +18,7 @@ dotnet run --project OpenElexSharp -- assets collision [substring] [--limit <n>|
 dotnet run --project OpenElexSharp -- assets occlusion [substring] [--limit <n>|--all] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets navigation [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets sounds [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets strings [text|hash] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -147,6 +148,23 @@ dotnet run --project OpenElexSharp -- assets sounds --all
 
 See [Formats/Audio.md](Formats/Audio.md).
 
+### `strings`
+
+Decodes the compiled STB string table(s), prints version/source/column/row counts and the `loc.ini`
+prefix summary. A hexadecimal argument performs an ID-hash lookup; any other argument searches decoded
+text. `--properties` prints rows (limited by `--limit`, or all with `--all`).
+
+```powershell
+dotnet run --project OpenElexSharp -- assets strings
+dotnet run --project OpenElexSharp -- assets strings "Worn Journal"
+dotnet run --project OpenElexSharp -- assets strings fff85a02
+dotnet run --project OpenElexSharp -- assets strings --properties --limit 20
+```
+
+The table stores ID hashes rather than ID strings; use `ElexStringTable.TryGet` or
+`Djb2Hash.Compute(prefix + ":" + id)` for programmatic lookups. See
+[Formats/Localization.md](Formats/Localization.md).
+
 ### `textures`
 
 Builds the logical resource index, finds `img` resources and parses their DDS headers. Prints name,
@@ -245,6 +263,8 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `ElexCollisionMesh` | `col` triangle collision mesh with 16- or 32-bit indices. |
 | `ElexOcclusionMesh` | `ocm` occlusion triangle mesh. |
 | `FsbSoundBank` / `FsbSample` | GAR5-wrapped FSB5 audio metadata, codec, channels, rate, duration and loops. |
+| `ElexStringTable` | Compiled STB string-table columns, ID hashes and dictionary-decoded text. |
+| `ElexLocalizationConfig` | `loc.ini` section/prefix/CSV/bin mapping. |
 | `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
 | `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
 | `GmshMesh` | GMSH v2 geometry, GPU indices, packed vertex streams and buffer descriptors. |
@@ -284,7 +304,7 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
-`assets world --all --properties` lists all four worlds and 436 sectors in roughly 3 seconds. `assets scene --all` parses all 481 sectors with 376,186 entities in roughly 15 seconds. `assets collision --all` parses 2,138 collision meshes in roughly 5 seconds; `assets occlusion --all` parses all 299 occlusion meshes and `assets navigation --all` the 17 nav sectors in roughly 3 seconds each. `assets sounds --all` reads all 35,018 FSB5 banks (4.3 GB of encoded audio) in roughly 45 seconds.
+`assets world --all --properties` lists all four worlds and 436 sectors in roughly 3 seconds. `assets scene --all` parses all 481 sectors with 376,186 entities in roughly 15 seconds. `assets collision --all` parses 2,138 collision meshes in roughly 5 seconds; `assets occlusion --all` parses all 299 occlusion meshes and `assets navigation --all` the 17 nav sectors in roughly 3 seconds each. `assets sounds --all` reads all 35,018 FSB5 banks (4.3 GB of encoded audio) in roughly 45 seconds. `assets strings` decodes the 41,449-row `en.str` table in roughly 1 second.
 
 `assets animations --all` parses all 34 motion networks in roughly 15 seconds. The 59.6 MB `Male` network dominates the readable-name, transition, quantized-sample and sample-track scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
 
@@ -312,6 +332,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - `col` collision meshes parse 2,138 of 2,141 resources; the three `_CV` convex variants and the `SEBD` header fields beyond the counts remain open. `ocm` occlusion meshes parse all 299 resources.
 - Navigation has no baked mesh resource; the 17 `*_Nav` sectors contain flex-path and off-mesh-connector annotations, while the walkable mesh is generated from collision at runtime.
 - All 35,018 `snd`/`dlg` resources are FSB5 v1 sound banks with one FADPCM sample each. Metadata (codec, channels, rate, frames, duration, loops) is available; FADPCM decoding and playback are deferred to M3.
+- The compiled `en.str` contains 41,449 ID hashes × two columns (`English_Text`, `English_StageDir`) and decodes fully. The original CSV ID names and raw CSVs are not mounted, so IDs are looked up by hash/prefix; raw `strings.csvt`/`strings.csv` inputs are unavailable.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks

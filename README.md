@@ -79,10 +79,12 @@ dotnet run --project OpenElexSharp -- assets occlusion Palisade --limit 5
 dotnet run --project OpenElexSharp -- assets navigation --all --properties
 dotnet run --project OpenElexSharp -- assets sounds IKENI7 --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets sounds --all
+dotnet run --project OpenElexSharp -- assets strings "Worn Journal"
+dotnet run --project OpenElexSharp -- assets strings fff85a02
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/Formats/Animations.md](Documentation/Formats/Animations.md), [Documentation/Formats/Worlds.md](Documentation/Formats/Worlds.md), [Documentation/Formats/Collision.md](Documentation/Formats/Collision.md), [Documentation/Formats/Audio.md](Documentation/Formats/Audio.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/Formats/Animations.md](Documentation/Formats/Animations.md), [Documentation/Formats/Worlds.md](Documentation/Formats/Worlds.md), [Documentation/Formats/Collision.md](Documentation/Formats/Collision.md), [Documentation/Formats/Audio.md](Documentation/Formats/Audio.md), [Documentation/Formats/Localization.md](Documentation/Formats/Localization.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -94,9 +96,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 71 | 14410 | 12520 | 449.4 KB |
-| Tests | 60 | 7928 | 6692 | 232.6 KB |
-| **Total** | **131** | **22338** | **19212** | **682.1 KB** |
+| Engine | 73 | 15071 | 13097 | 468.7 KB |
+| Tests | 62 | 8176 | 6900 | 240.2 KB |
+| **Total** | **135** | **23247** | **19997** | **708.9 KB** |
 
 ## Credits
 

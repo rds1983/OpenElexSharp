@@ -34,6 +34,7 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Occlusion => Occlusions(command, catalog, assets, output, error),
 			AssetCommandKind.Navigation => Navigations(command, catalog, assets, output, error),
 			AssetCommandKind.Sounds => Sounds(command, catalog, assets, output, error),
+			AssetCommandKind.Strings => Strings(command, catalog, assets, output, error),
 			AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
@@ -770,9 +771,142 @@ public static class AssetCatalogConsole
 		return 0;
 	}
 
-	private static byte[] ReadAsset(AssetFileSystem assets, ElexResource resource)
+	private static int Strings(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
 	{
-		using var stream = assets.OpenRead(resource.VirtualPath);
+		ElexLocalizationConfig? localization = null;
+		if (catalog.TryGetEntry("ini/loc.ini", out var locEntry))
+		{
+			try
+			{
+				localization = ElexLocalizationConfig.Parse(ReadAsset(assets, locEntry.VirtualPath));
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Localization warning: {exception.Message}");
+			}
+		}
+
+		var entries = catalog.Entries
+			.Where(entry => string.Equals(entry.Extension, ".str", StringComparison.OrdinalIgnoreCase))
+			.OrderBy(entry => entry.VirtualPath, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		if (entries.Count == 0)
+		{
+			error.WriteLine("No compiled string tables were found.");
+			return 0;
+		}
+
+		var filter = command.Filter;
+		var limit = command.Limit;
+		var showAll = limit == 0;
+		var isHash = filter is not null && TryParseHash(filter, out _);
+		var parsed = 0;
+		foreach (var entry in entries)
+		{
+			ElexStringTable table;
+			try
+			{
+				table = ElexStringTable.Parse(
+					entry.VirtualPath,
+					entry.VirtualPath,
+					ReadAsset(assets, entry.VirtualPath));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping string table '{entry.VirtualPath}': {exception.Message}");
+				continue;
+			}
+
+			output.WriteLine(
+				$"{table.Name}\tversion={table.Version}\tsources={table.Sources.Count}\t" +
+				$"columns={table.Columns.Count}\trows={table.RowCount}\t{entry.SourceName}");
+			if (localization is not null)
+			{
+				output.WriteLine($"\tloc\t{localization.Entries.Count}\t{string.Join(',', localization.Entries.Take(8).Select(item => item.Prefix))}");
+			}
+
+			if (!string.IsNullOrEmpty(filter))
+			{
+				if (isHash && TryParseHash(filter, out var hash))
+				{
+					foreach (var column in table.Columns)
+					{
+						if (table.TryGet(hash, column.Name, out var text))
+						{
+							output.WriteLine(
+								$"\t{hash:x8}\t{column.Name}\t{Escape(text)}");
+						}
+					}
+				}
+				else
+				{
+					foreach (var match in table.Find(filter, showAll ? int.MaxValue : Math.Max(1, limit)))
+					{
+						output.WriteLine(
+							$"\t{match.IdHash:x8}\t{match.Column}\t{Escape(match.Text)}");
+					}
+				}
+
+				continue;
+			}
+
+			if (!command.ShowProperties)
+			{
+				continue;
+			}
+
+			var rowLimit = showAll ? table.IdHashes.Count : Math.Min(Math.Max(1, limit), table.IdHashes.Count);
+			for (var row = 0; row < rowLimit; row++)
+			{
+				var hash = table.IdHashes[row];
+				foreach (var column in table.Columns)
+				{
+					if (table.TryGet(hash, column.Name, out var text))
+					{
+						output.WriteLine(
+							$"\t{hash:x8}\t{column.Name}\t{Escape(text)}");
+					}
+				}
+			}
+		}
+
+		error.WriteLine($"Showing {parsed:N0} of {entries.Count:N0} string table(s).");
+		return 0;
+	}
+
+	private static bool TryParseHash(string value, out uint hash)
+	{
+		hash = 0;
+		var text = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
+		return text.Length is > 0 and <= 8 &&
+			uint.TryParse(
+				text,
+				System.Globalization.NumberStyles.HexNumber,
+				System.Globalization.CultureInfo.InvariantCulture,
+				out hash);
+	}
+
+	private static string Escape(string value) =>
+		value.Replace("\r", "\\r", StringComparison.Ordinal)
+			.Replace("\n", "\\n", StringComparison.Ordinal)
+			.Replace("\t", "\\t", StringComparison.Ordinal);
+
+	private static byte[] ReadAsset(AssetFileSystem assets, ElexResource resource) =>
+		ReadAsset(assets, resource.VirtualPath);
+
+	private static byte[] ReadAsset(AssetFileSystem assets, string virtualPath)
+	{
+		using var stream = assets.OpenRead(virtualPath);
 		using var buffer = new MemoryStream();
 		stream.CopyTo(buffer);
 		return buffer.ToArray();

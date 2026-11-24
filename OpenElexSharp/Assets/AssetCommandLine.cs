@@ -16,6 +16,7 @@ public enum AssetCommandKind
 	Occlusion,
 	Navigation,
 	Sounds,
+	Strings,
 	Textures,
 	Meshes,
 	Materials,
@@ -45,6 +46,7 @@ public sealed class AssetCommandLine
           OpenElexSharp assets occlusion [substring] [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets navigation [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets sounds [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets strings [text|hash] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
           OpenElexSharp assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -65,6 +67,7 @@ public sealed class AssetCommandLine
         occlusion      Inspects occlusion meshes (ocm) and their triangles.
         navigation     Summarizes navigation annotations in Nav sectors.
         sounds         Inspects FSB5 sound banks (snd/dlg resources).
+        strings        Decodes compiled string tables (str) and searches text or ID hashes.
         textures       Inspects DDS image resources and texture metadata.
         meshes         Inspects GMSH static meshes and vertex layouts.
         materials      Inspects material resources, shaders and texture bindings.
@@ -183,6 +186,12 @@ public sealed class AssetCommandLine
 			case "sound":
 			case "audio":
 				kind = AssetCommandKind.Sounds;
+				break;
+			case "strings":
+			case "string":
+			case "localization":
+			case "localisation":
+				kind = AssetCommandKind.Strings;
 				break;
 			case "textures":
 				kind = AssetCommandKind.Textures;

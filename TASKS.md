@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T013**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T014**.
 
 ---
 
@@ -390,9 +390,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Why some names exist in both `snd` and `dlg` with separate payloads.
   - The 36-byte trailer after the FSB5 sample data.
 
-- [ ] **T013 · Text and localization**
+- [x] **T013 · Text and localization**
   Parse string tables, `strings.csvt`, `loc.ini` and related localization data into a lookup API used by UI, dialogue and item names.
   Done when: item/UI strings for the selected language resolve from game data.
+  **Completed 2026-11-25 — STB v7 string table, `loc.ini`, hash lookup and text search.**
+  - `ElexStringTable` decodes all 41,449 IDs × two columns (`English_Text`, `English_StageDir`) from `en.str`.
+  - Dictionary/symbol compression is decoded; `TryGet(hash)`, `TryGet(id, prefix)` and `Find(text)` form the lookup API.
+  - `ElexLocalizationConfig` maps the 18 `loc.ini` prefixes to raw CSV and compiled bin paths.
+  - `assets strings` searches text, resolves an 8-digit hash, and prints rows with `--properties`.
+  - The raw CSVs/IDs and `strings.csvt` are not mounted, so only hashes survive; 10 new tests, 496 total.
+  **Open follow-ups:**
+  - Confirm the item/UI prefix/hash convention used by gameplay callers.
+  - Recover or obtain raw CSV ID names for friendly lookups.
+  - Verify retail non-mod language files use the same STB version/columns.
 
 - [ ] **T014 · Script system research**
   Determine how game logic is stored and executed (bytecode/format, entry points, native API surface, quest/dialogue hooks) and write `Documentation/Formats/Scripts.md`. No runtime implementation in this task.
