@@ -19,6 +19,13 @@ public class MotionGraphStateTests
 		Assert.Equal(MotionGraphState.RecordCount, states[0].Records.Count);
 		Assert.Equal(0ul, states[0].Records[0][0]);
 		Assert.Equal(100ul, states[1].Records[0][0]);
+		Assert.Contains(100u, states[1].References);
+		var tracks = new[]
+		{
+			new MotionSampleTrack(0, 16, 1, 1f, 60f, 100, 100, 0,
+				[new MotionSample(System.Numerics.Vector3.Zero, System.Numerics.Quaternion.Identity)]),
+		};
+		Assert.Single(states[1].FindSampleTracks(tracks));
 	}
 
 	[Fact]

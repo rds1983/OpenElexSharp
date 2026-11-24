@@ -22,6 +22,26 @@ public sealed record MotionGraphState(string Name, IReadOnlyList<IReadOnlyList<u
 	/// <summary>Total bytes per state group.</summary>
 	public const int StateSize = RecordCount * RecordSize + TrailerSize;
 
+	/// <summary>Distinct non-sentinel references across all records.</summary>
+	public IReadOnlyList<uint> References => Records
+		.SelectMany(record => record)
+		.Select(value => (uint)value)
+		.Where(value => value != uint.MaxValue && value <= 0x10000)
+		.Distinct()
+		.Order()
+		.ToArray();
+
+	/// <summary>Returns sample tracks whose <see cref="MotionSampleTrack.TrackIndex"/> is referenced.</summary>
+	public IReadOnlyList<MotionSampleTrack> FindSampleTracks(
+		IReadOnlyList<MotionSampleTrack> sampleTracks)
+	{
+		ArgumentNullException.ThrowIfNull(sampleTracks);
+		var references = References.ToHashSet();
+		return sampleTracks
+			.Where(track => references.Contains((uint)track.TrackIndex))
+			.ToArray();
+	}
+
 	/// <summary>
 	/// Tries to read <paramref name="names"/>.Length consecutive state groups starting at
 	/// <paramref name="start"/>.

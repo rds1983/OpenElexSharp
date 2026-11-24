@@ -656,6 +656,7 @@ public static class AssetCatalogConsole
 					{
 						output.WriteLine(
 							$"\tstate\t{state.Name}\trecords={state.Records.Count}\t" +
+							$"refs={state.References.Count}\t" +
 							$"first={string.Join(',', state.Records.Take(4).Select(record => record[0]))}");
 					}
 				}

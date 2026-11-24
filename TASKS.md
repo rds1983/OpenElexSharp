@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009q**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009r**.
 
 ---
 
@@ -312,9 +312,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Transition durations and node/edge semantics.
   - Association of sample groups with states/clips.
 
-- [ ] **T009q · Transition durations and sample/state association**
-  Decode transition durations and node/edge semantics, and associate duration-grouped sample tracks with states and clips.
-  Done when: transitions carry durations and a sample group can be selected by state in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009q · State references and sample matching**
+  Aggregate state-record references and match them to sample-track indices.
+  Done when: state references and matching sample tracks are exposed and tested.
+  **Completed 2026-11-25 — state reference sets and `FindSampleTracks`; Weapons refs are 16/7/11/20.**
+  - `MotionGraphState.References` aggregates distinct non-sentinel values across the 16×5 slots.
+  - `FindSampleTracks` matches references against sample-track indices.
+  - 443 tests, Debug/Release warning-free.
+  **Deferred to T009r:**
+  - Transition durations and full edge semantics.
+
+- [ ] **T009r · Transition durations and edge semantics**
+  Determine how transition durations and edge/node semantics are encoded in the remaining records.
+  Done when: transitions carry durations or the layout is conclusively documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

@@ -197,8 +197,10 @@ Reload  -> 16 records
 ```
 
 Each record is five `uint64` values; the first value is usually a small node reference or
-`0xFFFFFFFF`. `MotionGraphState` maps the groups to the state-name table in order. Transition
-durations and the node/edge semantics remain open (T009q).
+`0xFFFFFFFF`. `MotionGraphState` maps the groups to the state-name table in order and aggregates the
+distinct non-sentinel references. `FindSampleTracks` matches those references against sample-track
+indices, giving a partial state/sample association. Transition durations and the node/edge semantics
+remain open (T009r).
 
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
@@ -323,6 +325,7 @@ per-target delta counts and the first two position/normal deltas.
 | Hierarchical state paths | 10,000 (`Male`, cap) |
 | Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
 | Mapped state groups (`Weapons`) | 4 (`Active`, `Aim`, `Shoot`, `Reload`) |
+| State reference counts (`Weapons`) | 16 / 7 / 11 / 20 |
 | Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
 | Sample duration groups (`Male`) | 253 (largest 0.8 s / 85 tracks) |
 | Inferred sample position scale | `raw / 32767 × 100` model units |
@@ -381,6 +384,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009n - sample scale and track-name mapping.
 - T009o - sample grouping and sampled poses.
 - T009p - state record groups.
-- T009q - transition durations and sample/state association.
+- T009q - state references and sample-track matching.
+- T009r - transition durations and edge semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.
