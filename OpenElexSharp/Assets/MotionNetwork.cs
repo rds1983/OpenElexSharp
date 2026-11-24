@@ -27,6 +27,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<MotionClip> clips,
 		IReadOnlyList<MotionTransition> transitions,
 		IReadOnlyList<MotionStatePath> statePaths,
+		IReadOnlyList<MotionGraphNode> graphNodes,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -36,6 +37,7 @@ public sealed class MotionNetwork
 		Clips = clips;
 		Transitions = transitions;
 		StatePaths = statePaths;
+		GraphNodes = graphNodes;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -55,6 +57,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Hierarchical state-machine paths decoded from <c>|</c>-separated names.</summary>
 	public IReadOnlyList<MotionStatePath> StatePaths { get; }
+
+	/// <summary>Candidate binary state-graph blocks found in the payload.</summary>
+	public IReadOnlyList<MotionGraphNode> GraphNodes { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -208,6 +213,7 @@ public sealed class MotionNetwork
 			clips,
 			transitions,
 			statePaths,
+			MotionGraphNode.FindAll(data, Gar5WrapperSize, mainEnd),
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);

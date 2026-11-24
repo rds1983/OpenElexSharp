@@ -570,7 +570,8 @@ public static class AssetCatalogConsole
 					$"{resource.Name}\t{network.Strings.Count}\t{network.BoneNames.Count}\t" +
 					$"{network.Clips.Count}\t{network.Clips.Count(clip => clip.HasPose)}\t" +
 					$"{network.Transitions.Count}\t{network.StateNames.Count}\t" +
-					$"{network.StatePaths.Count}\t{resource.VirtualPath}");
+					$"{network.StatePaths.Count}\t{network.GraphNodes.Count}\t" +
+					$"{resource.VirtualPath}");
 				if (showProperties)
 				{
 					foreach (var value in network.Strings)
@@ -621,6 +622,13 @@ public static class AssetCatalogConsole
 						output.WriteLine(
 							$"\tpath\t{string.Join('|', path.Segments)}\t" +
 							$"{path.Group}\t{path.Condition}");
+					}
+
+					foreach (var node in network.GraphNodes.Take(16))
+					{
+						output.WriteLine(
+							$"\tgraph\t{node.Offset}\ttype={node.Type}\tsize={node.Size}\t" +
+							$"count={node.Count}\trefs={string.Join(',', node.References.Take(12))}");
 					}
 				}
 			});

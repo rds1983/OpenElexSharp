@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009h**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009i**.
 
 ---
 
@@ -213,8 +213,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Per-track keyframe/curve data and compression; the large `Male` tail (about 54 MB) remains undecoded.
   - Mapping hierarchical paths to clips/state transitions programmatically.
 
-- [ ] **T009h · Morpheme binary graph and keyframe curves**
-  Decode the binary graph records (GUIDs, edges, state links and transition durations) and the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
+- [x] **T009h · Morpheme binary graph blocks**
+  Decode the candidate binary state-graph blocks and expose their headers and reference words.
+  Done when: candidate blocks are detected, their layout is documented and the inspector exposes them.
+  **Completed 2026-11-24 — `MotionGraphNode` probe, `assets animations` block output and the binary-block spec.**
+  - Added a candidate binary block probe (`MotionGraphNode`): finds 24-byte headers followed by 16×40-byte reference records. `Weapons` exposes one block at payload `0x40C0` (type 1, 16 references); the other state offsets begin directly with record arrays.
+  - `assets animations` reports the candidate-block count and prints the first blocks under `--properties`.
+  - 425 tests, Debug/Release warning-free.
+  **Deferred to T009i:**
+  - Mapping reference words/edges to state names and decoding transition durations.
+  - Per-track keyframe/curve data and compression; the large `Male` tail (about 54 MB) remains undecoded.
+  - The other state arrays that start directly with 40-byte records.
+
+- [ ] **T009i · Morpheme keyframe curves and graph semantics**
+  Decode the 40-byte state record arrays, map references/edges and transition durations to state names, and decode the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
   Done when: graph edges and transition durations can be followed, representative curves sample over time, and the binary/curve layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**

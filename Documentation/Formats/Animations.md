@@ -133,6 +133,24 @@ Main|Animation|Locomotion|Walk|ConditionGroup|MessageCondition
 Simple transitions such as `Closed_Opened|ConditionGroup|MessageCondition` are paths with a single
 segment. Paths are capped at 10,000 per network; `Male` reaches the cap.
 
+### Binary graph probe
+
+A binary state-node block is observed in `Weapons` at payload offset `0x40C0`:
+
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint32` | Block type, observed `1`. |
+| 4 | `uint32` | Marker, observed `0x53`. |
+| 8 | `uint32` | Reference count, observed `16`. |
+| 12 | `uint32` | Zero. |
+| 16 | `uint32` | Header size, observed `24`. |
+| 20 | `uint32` | Zero. |
+| 24 | `Record[count]` | 40 bytes per record; the first `uint32` is a node reference or `0xFFFFFFFF`. |
+
+The detector finds only this one block in `Weapons`; the other state offsets (`0x38F8`, `0x3B90`,
+`0x3E28`) begin directly with 40-byte record arrays. Node references, edges and transition durations
+are not mapped to states yet.
+
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
 | `Crawler-Rig` | 176 | 3 |
@@ -234,9 +252,10 @@ dotnet run --project OpenElexSharp -- assets blendshapes --all
 ```
 
 The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
-posed-clip count, simple-transition count, state-name count and hierarchical-path count.
-`--properties` also lists each clip's track table and first pose quaternions, followed by every
-transition, state, graph node and the first 16 state paths.
+posed-clip count, simple-transition count, state-name count, hierarchical-path count and candidate
+binary-graph count. `--properties` also lists each clip's track table and first pose quaternions,
+followed by every transition, state, graph node, the first 16 state paths and the first 16 binary
+graph blocks.
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -253,6 +272,7 @@ per-target delta counts and the first two position/normal deltas.
 | Simple transitions (`Crawler-Rig` / `Weapons` / `Chest`) | 176 / 20 / 4 |
 | `Male` simple transitions | 0 (hierarchical paths) |
 | Hierarchical state paths | 10,000 (`Male`, cap) |
+| Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
 | `bln` resources parsed | 270 / 270 |
 | `bln` delta sets decoded | 270 / 270 |
 | Total blend-shape deltas | 63,541,940 |
@@ -281,10 +301,11 @@ per-target delta counts and the first two position/normal deltas.
 | Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
+| Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -295,6 +316,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009e - Morpheme state graph names and transitions.
 - T009f - body bind poses and the pose viewer.
 - T009g - Morpheme hierarchical state paths.
-- T009h - binary graph edges and keyframe curves.
+- T009h - Morpheme binary graph blocks.
+- T009i - keyframe curves and graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

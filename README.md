@@ -87,9 +87,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 59 | 11488 | 9967 | 354.9 KB |
-| Tests | 48 | 6542 | 5495 | 191.4 KB |
-| **Total** | **107** | **18030** | **15462** | **546.3 KB** |
+| Engine | 60 | 11582 | 10051 | 358.2 KB |
+| Tests | 49 | 6589 | 5535 | 192.8 KB |
+| **Total** | **109** | **18171** | **15586** | **551.0 KB** |
 
 ## Credits
 
