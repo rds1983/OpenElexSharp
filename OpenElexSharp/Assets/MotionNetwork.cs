@@ -16,6 +16,7 @@ public sealed class MotionNetwork
 	private const int MinStringLength = 4;
 	private const int MaxStrings = 100_000;
 	private const int MaxTransitions = 20_000;
+	private const int MaxStatePaths = 10_000;
 	private const int MaxTracks = 4096;
 	private const int MaxNameLength = 512;
 	private const int MaxPoseSearch = 0x20_000;
@@ -25,6 +26,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<string> strings,
 		IReadOnlyList<MotionClip> clips,
 		IReadOnlyList<MotionTransition> transitions,
+		IReadOnlyList<MotionStatePath> statePaths,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -33,6 +35,7 @@ public sealed class MotionNetwork
 		Strings = strings;
 		Clips = clips;
 		Transitions = transitions;
+		StatePaths = statePaths;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -49,6 +52,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Transitions decoded from <c>Source_Target|ConditionGroup|Condition</c> names.</summary>
 	public IReadOnlyList<MotionTransition> Transitions { get; }
+
+	/// <summary>Hierarchical state-machine paths decoded from <c>|</c>-separated names.</summary>
+	public IReadOnlyList<MotionStatePath> StatePaths { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -169,6 +175,21 @@ public sealed class MotionNetwork
 			transitions.Add(MotionTransition.Parse(transitionName, knownNames));
 		}
 
+		var statePaths = new List<MotionStatePath>();
+		var seenPaths = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var value in strings.Concat(transitionNames))
+		{
+			if (seenPaths.Add(value) &&
+				MotionStatePath.TryParse(value, out var path) && path is not null)
+			{
+				statePaths.Add(path);
+				if (statePaths.Count >= MaxStatePaths)
+				{
+					break;
+				}
+			}
+		}
+
 		var endpoints = transitions
 			.Where(transition => transition.Target.Length > 0)
 			.SelectMany(transition => new[] { transition.Source, transition.Target })
@@ -186,6 +207,7 @@ public sealed class MotionNetwork
 			strings,
 			clips,
 			transitions,
+			statePaths,
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);

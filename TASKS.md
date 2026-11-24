@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009g**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009h**.
 
 ---
 
@@ -201,9 +201,21 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Skinned-mesh rendering/skinning (GMSH `skn` geometry, blend indices/weights, `SkinnedEffect`) → T106/T102.
   - Selecting clips by state instead of the two largest → T009g.
 
-- [ ] **T009g · Morpheme binary graph and keyframe curves**
-  Decode the binary graph records (GUIDs, edges, transition durations) and the per-track keyframe/curve data and compression behind each network state, including the hierarchical `Male` paths.
-  Done when: transitions can be sampled over time, the large `net` tail is decoded, and the curve/compression layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009g · Morpheme hierarchical state paths**
+  Decode the hierarchical `|`-separated state-machine paths used by the larger networks.
+  Done when: path segments, condition groups and conditions decode and the layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+  **Completed 2026-11-24 — hierarchical path parsing, `assets animations` path output and the updated state-graph spec.**
+  - Added `MotionStatePath`, which decodes `|`-separated names into state segments, condition group and condition; `assets animations` reports a path count and prints the first 16.
+  - Retail validation: all 34 networks parse; `Male` reaches the 10,000-path cap, `Creature` 5,051, `Troll-Rig` 3,830, `Crawler-Rig` 1,767. `Weapons` has 20 simple transitions and 344 paths.
+  - 422 tests, Debug/Release warning-free.
+  **Deferred to T009h:**
+  - Binary graph records (GUIDs, edges, state links) and transition durations.
+  - Per-track keyframe/curve data and compression; the large `Male` tail (about 54 MB) remains undecoded.
+  - Mapping hierarchical paths to clips/state transitions programmatically.
+
+- [ ] **T009h · Morpheme binary graph and keyframe curves**
+  Decode the binary graph records (GUIDs, edges, state links and transition durations) and the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
+  Done when: graph edges and transition durations can be followed, representative curves sample over time, and the binary/curve layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

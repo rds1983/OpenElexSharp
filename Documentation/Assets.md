@@ -124,9 +124,9 @@ dotnet run --project OpenElexSharp -- assets skeletons --all
 
 ### `animations`
 
-Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count, clip count, posed-clip count, simple-transition count, state-name count and ROM path. `--properties` lists every readable name, each clip's tracks/poses, then every transition, state and graph node. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
+Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count, clip count, posed-clip count, simple-transition count, state-name count, hierarchical-path count and ROM path. `--properties` lists every readable name, each clip's tracks/poses, then every transition, state, graph node and the first 16 state paths. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
 
-The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), and derives state-machine transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names. Binary graph edges, hierarchical `Male` paths and keyframe curves are not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
+The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), derives simple transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names, and exposes `|`-separated names as hierarchical state paths. Binary graph edges, transition timing and keyframe curves are not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets animations Chest --properties
@@ -176,6 +176,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionNetwork` | `net` Morpheme motion-network readable names, clip tables and static clip poses. |
 | `MotionClip` | One clip: track names and per-track quaternion pose. |
 | `MotionTransition` | Parsed `Source_Target|ConditionGroup|Condition` graph transition. |
+| `MotionStatePath` | Hierarchical `A|B|...|ConditionGroup|Condition` path with segments and condition. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
 | `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
 | `ElexBlendShapeTarget` / `ElexBlendShapeDelta` | Named target with sparse position/normal deltas. |

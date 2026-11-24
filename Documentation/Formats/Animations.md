@@ -120,6 +120,19 @@ follows:
 - names that occur as transition endpoints become **state names**;
 - the remaining names become **node names** (motion nodes, mesh/bone names and other graph labels).
 
+Names containing `|` are also decoded as **hierarchical state paths**. The segments before
+`ConditionGroup` are the state-machine path and the segment(s) after it are the condition, for
+example:
+
+```text
+Main|Animation|Locomotion|Walk|ConditionGroup|MessageCondition
+  segments = Main, Animation, Locomotion, Walk
+  condition = MessageCondition
+```
+
+Simple transitions such as `Closed_Opened|ConditionGroup|MessageCondition` are paths with a single
+segment. Paths are capped at 10,000 per network; `Male` reaches the cap.
+
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
 | `Crawler-Rig` | 176 | 3 |
@@ -127,6 +140,7 @@ follows:
 | `Weapons` | 20 | 5 |
 | `Chest` | 4 | 2 |
 | `Items` | 2 | 2 |
+| `Male` | 0 simple | 10,000 hierarchical paths (cap) |
 
 `Male` uses long hierarchical path names such as
 `Main|Animation|Animation|Locomotion|Locomotion|Walk|...|ConditionGroup|MessageCondition` rather than
@@ -220,8 +234,9 @@ dotnet run --project OpenElexSharp -- assets blendshapes --all
 ```
 
 The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
-posed-clip count, simple-transition count and state-name count. `--properties` also lists each
-clip's track table and first pose quaternions, followed by every transition, state and graph node.
+posed-clip count, simple-transition count, state-name count and hierarchical-path count.
+`--properties` also lists each clip's track table and first pose quaternions, followed by every
+transition, state, graph node and the first 16 state paths.
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -236,7 +251,8 @@ per-target delta counts and the first two position/normal deltas.
 | `Male` full-body track mapping | 61 / 61 skeleton bones |
 | Simple transitions (all networks) | 1,086 |
 | Simple transitions (`Crawler-Rig` / `Weapons` / `Chest`) | 176 / 20 / 4 |
-| `Male` simple transitions | 0 (hierarchical paths, not decoded) |
+| `Male` simple transitions | 0 (hierarchical paths) |
+| Hierarchical state paths | 10,000 (`Male`, cap) |
 | `bln` resources parsed | 270 / 270 |
 | `bln` delta sets decoded | 270 / 270 |
 | Total blend-shape deltas | 63,541,940 |
@@ -247,15 +263,15 @@ per-target delta counts and the first two position/normal deltas.
 ## Open questions
 
 - Morpheme network graph: binary node records, GUIDs, edges and transition durations.
-- Nested hierarchical state paths (used by `Male`) and their condition paths.
+- Hierarchical paths are exposed as segment/condition paths, but their binary node links and timing
+  are not decoded.
 - Keyframe curves, time bases and compression; clips currently expose one pose each.
 - The large `Male` tail: about 54 MB of mixed float, index and high-entropy blocks is not decoded.
 - Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
 - Exact blend-shape game unit and whether blended normals should be normalized before rendering.
 - Whether every `bln` resource pairs with an `skn` of the same vertex count/order outside the sampled head.
 - Whether facial animation is driven by `bln` weights, Morpheme nodes or both.
-- Body bind-pose transforms, needed before a full skinned pose viewer can be rendered.
-- A playable pose/character viewer.
+- A fully skinned character viewer (bind transforms are decoded; mesh skinning is T106/T102).
 
 ## Implementation
 
@@ -264,10 +280,11 @@ per-target delta counts and the first two position/normal deltas.
 | Motion-network, clip and pose parser | `OpenElexSharp/Assets/MotionNetwork.cs`, `MotionClip.cs` |
 | Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
+| Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -277,6 +294,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009d - blend-shape deltas and morph weighting.
 - T009e - Morpheme state graph names and transitions.
 - T009f - body bind poses and the pose viewer.
-- T009g - binary graph edges and keyframe curves.
+- T009g - Morpheme hierarchical state paths.
+- T009h - binary graph edges and keyframe curves.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

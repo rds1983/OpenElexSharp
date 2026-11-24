@@ -104,6 +104,7 @@ public class MotionNetworkTests
 		Assert.Equal(["Closed", "Opened"], network.StateNames);
 		Assert.Equal(["Walk"], network.NodeNames);
 		Assert.Equal(2, network.Transitions.Count);
+		Assert.Equal(2, network.StatePaths.Count);
 		Assert.Equal("Closed", network.Transitions[0].Source);
 		Assert.Equal("Opened", network.Transitions[0].Target);
 		Assert.Equal("FractionThroughSource", network.Transitions[1].Condition);
