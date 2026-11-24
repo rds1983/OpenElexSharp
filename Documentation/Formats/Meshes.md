@@ -1,25 +1,23 @@
 # Static meshes (GMSH v2)
 
 ELEX static mesh resources use the `msh` type (`.elexmsh`) and resolve through `w_msh_*.db`
-databases to hashed `.rom` files. The payload is a 44-byte GAR5 image-style wrapper followed by a
-`GMSH` version 2 mesh block.
+databases to hashed `.rom` files. A resource contains a `GMSH` version 2 block with a GPU index
+buffer, tightly packed vertex streams, two buffer descriptors and declaration tables. Submesh
+ranges, material names and LOD distances are **not** in the GMSH payload; they live in the
+`eCMeshResource2` class block of the owning RT02 database record (see
+[Mesh metadata](#mesh-metadata-materials-and-lods)).
 
 ## Purpose and scope
 
-This specification covers the mesh container, triangle indices, vertex positions and the
-attribute/stream/material declarations. Normal, UV, tangent and material binding semantics are
-partially decoded; see [Open questions](#open-questions).
-
-## References
-
-- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0), `mimicry/source/Mimicry/mi_xmshreader.cpp`
-  for the related `eCMeshResource2` property model and vertex declaration concepts.
-- The embedded Genome name registry for `class eCMeshResource2`, `class eCSubMesh`,
-  `class eCSubMesh` arrays, `eEGfxFormat2` and `eEMeshLodStages` names.
+This specification covers the mesh container, the GPU index buffer, vertex streams, attribute
+formats, buffer descriptors and the tooling copies stored after the declarations. It also documents
+the database-side submesh/material/LOD metadata needed to bind meshes. Material payloads are covered
+in [Materials.md](Materials.md).
 
 ## Container layout
 
-The observed `.rom` file starts with the same 44-byte GAR5 wrapper used by image resources:
+All integers are little-endian. A `.rom` mesh file is a 44-byte GAR5 image-style wrapper followed by
+the GMSH payload:
 
 | Offset | Type | Meaning |
 | ---: | --- | --- |
@@ -29,177 +27,287 @@ The observed `.rom` file starts with the same 44-byte GAR5 wrapper used by image
 | 44 | `char[4]` | Mesh magic `GMSH`. |
 | 48 | `uint32` | Version, `2`. |
 
-The end of the file contains a `0xFEEDFACE` sentinel and a 44-byte offset table. The current parser
-locates the `GMSH` block and ignores the trailer.
+Relative to the `GMSH` magic:
+
+| Offset | Contents |
+| ---: | --- |
+| `0x00` | `GMSH`, version, 14 `uint32` header values (64 bytes total). |
+| `0x40` | GPU index buffer: `indexCount` × 2 or 4 bytes. |
+| align16 | Vertex streams, contiguous: `sum(stride × vertexCount)` bytes. |
+| ... | Two 40-byte buffer descriptors. |
+| ... | 28-byte mesh header. |
+| ... | Vertex attribute records (`attributeCount` × 28 bytes). |
+| ... | Submesh section (`submeshCount` × 16 bytes; observed zero-filled). |
+| ... | Vertex stream records (`streamCount` × 16 bytes). |
+| ... | Tooling index block: `uint32 indexCount` + `uint32[indexCount]`. |
+| ... | `uint32 vertexCount` + `float32[vertexCount][3]` positions. |
+| ... | Per-triangle cluster data, `0xFEEDFACE` sentinel and a 44-byte GAR5 trailer. |
+
+The final per-triangle block and trailer are not decoded; they are not needed to render the mesh.
+The vertex data starts at `align16(0x40 + indexCount × indexElementSize)`.
 
 ## GMSH header
 
-All integers are little-endian. After `GMSH` and the version, 14 `uint32` values follow:
+After `GMSH` and the version, 14 `uint32` values follow:
 
 | Index | Meaning |
 | ---: | --- |
-| 0 | Index-block offset relative to `GMSH`. |
+| 0 | Offset of the 32-bit **tooling** index block. |
 | 1 | Reserved, observed `0`. |
 | 2 | Mesh count, observed `1`. |
-| 3 | Mesh-header offset; in observed files this is the end of the material section. |
+| 3 | Mesh-header offset; equals the end of the buffer-descriptor block. |
 | 4 | Vertex-attribute count. |
 | 5 | Vertex-attribute offset. |
-| 6 | Submesh count, observed `1`. |
-| 7 | Submesh-section offset. |
+| 6 | Submesh-record count. |
+| 7 | Submesh-record offset. |
 | 8 | Vertex-stream count. |
 | 9 | Vertex-stream offset. |
-| 10 | Material-reference count, observed `2`. |
-| 11 | Material-reference offset. |
+| 10 | Buffer-descriptor count, observed `2`. |
+| 11 | Buffer-descriptor offset. |
 | 12 | Reserved, observed `0`. |
 | 13 | Reserved, observed `0`. |
 
-## Index block
+The `indexCount` used by the GPU index buffer is stored in the tooling index block at `header[0]`.
+The vertex count is stored after that block, so the header alone is not sufficient to size the GPU
+buffer.
 
-At `header[0]`:
+## GPU index buffer
 
-| Type | Meaning |
-| --- | --- |
-| `uint32` | Index count. |
-| `uint32[indexCount]` | Triangle-list indices. |
-
-Observed index counts are multiples of three. Indices are 32-bit and reference the vertex positions
-that follow the index block.
-
-## Position block
-
-Immediately after the index data:
+At `GMSH + 0x40`:
 
 | Type | Meaning |
 | --- | --- |
-| `uint32` | Vertex count. |
-| `float32[vertexCount][3]` | Position XYZ. |
+| `uint16[indexCount]` or `uint32[indexCount]` | Triangle-list indices. |
 
-Coordinates are float32. The observed cube has positions in `[-250, 250]` on X/Z and `[0, 500]` on
-Y, consistent with centimetre-like units.
-
-## Vertex attributes
-
-At `header[4]`, `header[5]`, each record is 28 bytes:
-
-| Offset | Type | Meaning |
-| ---: | --- | --- |
-| 0 | `uint32` | Usage: 0 position, 1 normal, 2 texcoord, 3 tangent, 4 color. |
-| 4 | `uint32` | Usage index. |
-| 8 | `uint32` | Format code (an `eEGfxFormat2` value). |
-| 12 | `uint32` | Stream index or related attribute field. |
-| 16 | `uint32` | Unknown. |
-| 20 | `uint32` | Unknown. |
-| 24 | `uint32` | Unknown. |
-
-Observed format codes: `7` (position), `15` (normal/texcoord), `23` (color), `58` (tangent on the
-five-attribute layouts).
+The element size is stored in buffer descriptor 0, field 3 (see below). Meshes with up to 65,535
+vertices use 16-bit indices; larger meshes use 32-bit indices. The buffer size always equals
+`indexCount × elementSize`. Indices reference the vertex streams in the same order as the tooling
+position copy.
 
 ## Vertex streams
 
-At `header[8]`, `header[9]`, each record is 16 bytes:
+At `header[9]`, each record is 16 bytes:
 
 | Offset | Type | Meaning |
 | ---: | --- | --- |
-| 0 | `uint32` | Usage, matching the attribute usage. |
+| 0 | `uint32` | Usage: 0 position, 1 normal, 2 tangent, 3 color, 4 texcoord. |
 | 4 | `uint32` | Observed `1`. |
-| 8 | `uint32` | Offset. |
-| 12 | `uint32` | Stride or size. |
+| 8 | `uint32` | Byte offset from the start of the vertex data. |
+| 12 | `uint32` | Record stride in bytes. |
 
-Example (`Obj_Dmy_MaterialCube_1_L1`):
+Streams are **contiguous arrays**, not interleaved per vertex: stream *k* occupies
+`vertexDataOffset + offset` through `+ offset + stride × vertexCount`. When two attributes share a
+stream (for example two texture-coordinate sets), the stream stride is the sum of their element
+sizes and each attribute reads at `UsageOffset` within the record.
 
-```text
-position  offset=0    stride=8
-normal    offset=192  stride=4
-texcoord  offset=288  stride=4
-color     offset=384  stride=4
-```
+## Vertex attributes
 
-The descriptors are preserved and exposed by the parser. Their offsets do not yet fully explain the
-12-byte position buffer, so the renderer currently uses the position block directly and generates
-smooth normals from the triangle list. UV/material stream decoding is open work.
+At `header[5]`, each record is 28 bytes:
 
-## Material references
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint32` | Usage (see below). |
+| 4 | `uint32` | Byte offset of this attribute inside its stream record. |
+| 8 | `uint32` | `eEGfxFormat2` format code. |
+| 12 | `uint32` | Observed shader-slot value; **not** a stream index. |
+| 16 | `uint32` | Observed `0`. |
+| 20 | `uint32` | Observed `0`. |
+| 24 | `uint32` | Observed `0`. |
 
-At `header[10]`, `header[11]`, each observed record is 40 bytes (ten `uint32` values). Two records
-are present in all 5,868 retail meshes. A repeated value `0x81d1b3f7` appears at record field 6.
-Its meaning is unresolved; it is not a DJB2 resource hash of any material name in the reference
-installation.
+Attributes bind to the stream with the same usage. Two attributes with the same usage share that
+stream and differ by `UsageOffset` (observed `0` and `4` for the second UV set).
+
+## Vertex formats
+
+The format codes are indexes into the engine's DXGI-style `eEGfxFormat2` list with typeless formats
+removed. The retail set uses only five codes:
+
+| Code | Name | Size | Decoding |
+| ---: | --- | ---: | --- |
+| 4 | `R32G32B32_Float` | 12 | Three little-endian floats (position). |
+| 7 | `R16G16B16A16_Float` | 8 | Four half floats; positions use x, y, z and ignore w. |
+| 15 | `R10G10B10A2_UNorm` | 4 | Packed normal/tangent: x bits 0–9, y bits 10–19, z bits 20–29, 2 unused bits. |
+| 23 | `R16G16_Float` | 4 | Two half floats (texture coordinates). |
+| 58 | `B8G8R8A8_UNorm` | 4 | Four bytes in blue, green, red, alpha order (vertex color). |
+
+Packed components decode as `component = clamp(raw / 511.5 - 1, -1, 1)`; normals and tangents are
+normalized after decoding. A zero-length decoded vector falls back to `(0, 1, 0)`.
+
+## Coordinate system
+
+Positions and normals are stored in object space with Y up. The retail cube is 500 units tall
+(`-250..250` on X/Z, `0..500` on Y) and the door is roughly 600 units wide, which is consistent with
+centimetre-like units. The loader applies **no** axis conversion, scale or pivot shift; the test
+scene uses MonoGame's right-handed `CreateLookAt`/`CreatePerspectiveFieldOfView` directly and the
+meshes render upright. The stock renderer uses `RasterizerState.CullNone`, so triangle winding is not
+relied on; normals come from the vertex stream (or are generated only when the stream is absent).
+Exact winding/handedness conventions remain an open question.
+
+## Buffer descriptors
+
+At `header[11]`, each record is 40 bytes (ten `uint32` values). The first descriptor describes the
+index buffer and the second the vertex buffer:
+
+| Field | Index descriptor | Vertex descriptor |
+| ---: | --- | --- |
+| 0 | Index buffer size in bytes. | Vertex buffer size in bytes (`sum(stride) × vertexCount`). |
+| 1 | `0`. | `0`. |
+| 2 | `2`. | `1`. |
+| 3 | Index element size, `2` or `4`. | `0`. |
+| 4 | `0x28`, or `0x1E` for 32-bit indices. | `0`. |
+| 5 | `1`. | `1`. |
+| 6 | Constant `0x81D1B3F7`. | Constant `0x81D1B3F7`. |
+| 7 | `1`. | `1`. |
+| 8 | `0x40`. | Alignment/size hint, varies. |
+| 9 | Same as field 0. | Same as field 0. |
+
+The repeated hash is a buffer/class identifier, not a material name. It does not match any material
+or image resource-name hash in the retail data.
+
+## Tooling copies
+
+The bytes after the stream records are a second, tooling-oriented copy of the geometry:
+
+| Type | Meaning |
+| --- | --- |
+| `uint32 indexCount` + `uint32[indexCount]` | 32-bit index list. Triangle order can differ from the GPU buffer. |
+| `uint32 vertexCount` + `float32[vertexCount][3]` | Widened position copy. |
+
+Verified against all 5,868 retail meshes: the widened positions exactly match the packed stream
+positions (maximum deviation `0`). The GPU buffer is authoritative; the copies are useful for
+diagnostics and for formats that are not decoded yet.
+
+## Mesh metadata: materials and LODs
+
+GMSH itself has no material names or submesh ranges. The owning `w_msh_*.db` record contains a
+`GEC2` class block of `class eCMeshResource2` version 1 with six properties:
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `SubMeshes` | `class bTObjArray<class eCSubMesh>` | Submesh ranges and material bindings. |
+| `IndexCount` | `unsigned int` | Total GPU index count. |
+| `VertexCount` | `unsigned int` | Total vertex count. |
+| `Boundary` | `class bCBox` | Six floats: min x/y/z, max x/y/z. |
+| `BoundingSphere` | `class bCSphere` | Four floats: centre x/y/z, radius. |
+| `LoDRangeStart` | `float` | Distance at which this LOD becomes active; `0` for LOD1. |
+
+`SubMeshes` stores a `uint32` count followed by that many consecutive `GEC2` objects of
+`class eCSubMesh` version 2. Each submesh has ten properties:
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `MaterialName` | `class bCString` | Material resource name, for example `AS_Alb_Tileset_Wall_3`. |
+| `Extends` | `class bCBox` | Submesh bounding box. |
+| `FirstIndex` | `unsigned int` | First index in the GPU index buffer. |
+| `IndexCount` | `unsigned int` | Number of indices in the submesh. |
+| `FirstVertex` | `unsigned int` | First vertex of the skinning/batch range. |
+| `VertexCount` | `unsigned int` | Vertices in the skinning/batch range. |
+| `FirstBone` | `unsigned int` | First bone (skinned meshes). |
+| `BoneCount` | `unsigned int` | Bone count (skinned meshes). |
+| `MaterialSwitchIndex` | `int` | Material-switch index for animated materials. |
+| `Flags` | `enum eSSubMeshFlags` | Submesh flags. |
+
+Submesh `FirstIndex`/`IndexCount` ranges are contiguous and sum exactly to the mesh index count.
+`FirstVertex`/`VertexCount` are not a disjoint vertex partition (ranges may overlap); they describe
+skin/batch windows. Render one draw range per submesh and bind `MaterialName` to that range. The
+runtime resolves it to an `ElexMaterial` and stores the reference in `DrMeshPartTag`.
+
+LODs are separate resources named `_L1`, `_L2`, `_L3` (with decreasing vertex counts). `LoDRangeStart`
+is the activation distance: `0` for `_L1`, a positive distance for later stages. Select `_L1`
+explicitly for the default LOD. Verified on `Obj_Bld_Alb_Door_Closed_L1/L2/L3`: 758/430/216
+vertices, 2,010/693/300 indices and `LoDRangeStart` 0/5000/10000.
 
 ## Observed retail set
 
 | Metric | Value |
 | --- | ---: |
 | `msh` resources | 5,868 |
-| Parsed with positions/indices | 5,868 |
+| Parsed with decoded streams | 5,868 |
 | Distinct attribute/stream layouts | 6 |
-| Most common layout | 4 attributes, 4 streams, 2 material records (3,487) |
-| Maximum vertices | 327,858 |
-| Maximum indices | 654,600 |
+| Submesh records (DB) | 13,406 |
+| Maximum submeshes per mesh | 15 |
+| Meshes with decoded normals | 5,868 |
+| Meshes with texture coordinates | 5,738 |
+| Meshes with two UV sets | 1,044 |
+| Meshes with tangents | 5,718 |
+| Meshes with vertex colors | 1,614 |
+| Meshes with 32-bit indices | 28 |
+| Maximum vertices | 327,858 (`Obj_Bld_Cle_Cathedral_1_L1`) |
+| Maximum indices | 654,600 (32-bit) |
 
 Layouts observed:
 
-| Attributes | Streams | Materials | Count |
-| ---: | ---: | ---: | ---: |
-| 4 | 4 | 2 | 3,487 |
-| 5 | 5 | 2 | 1,185 |
-| 5 | 4 | 2 | 620 |
-| 6 | 5 | 2 | 424 |
-| 2 | 2 | 2 | 123 |
-| 3 | 3 | 2 | 29 |
+| Attributes | Streams | Contents | Count |
+| ---: | ---: | --- | ---: |
+| 4 | 4 | position, normal, tangent, UV | 3,487 |
+| 5 | 5 | position, normal, tangent, color, UV | 1,185 |
+| 5 | 4 | position, normal, tangent, UV0+UV1 | 620 |
+| 6 | 5 | position, normal, tangent, color, UV0+UV1 | 424 |
+| 2 | 2 | position, normal | 123 |
+| 3 | 3 | position, normal, UV | 29 |
 
 ## Evidence
 
-`Obj_Dmy_MaterialCube_1_L1` starts with `GAR5` at 0, `GMSH` at 44 and version 2. Its header values
-include index offset `0x39C`, mesh-header offset `0x2C0`, index count `36`, vertex count `24`, and
-positions forming a cube with extents `(-250, 0, -250)` to `(250, 500, 250)`.
+`Obj_Dec_Hum_Plane_L1` (4 attributes, half positions):
+
+```text
+header[0]=0x1CC header[3]=0xF0 header[4]=4 header[5]=0x10C
+header[6]=1    header[7]=0x17C header[8]=4 header[9]=0x18C
+header[10]=2   header[11]=0xA0
+indexCount=6, vertexCount=4
+GPU index buffer at 0x40: 00 00 01 00 02 00 02 00 03 00 00 00
+vertex data at 0x50: a7 59 12 3a a7 59 00 00  ->  half3 (180.875, 0.758789, 180.875)
+```
+
+`Obj_Bld_Alb_Door_Closed_L1` (6 attributes, 5 streams, 4 submeshes):
+
+```text
+vertex data base = 0x1000, stream sizes 6064/3032/3032/3032/6064 -> end 0x62E8 = descriptor offset
+submeshes: AS_Alb_Tileset_Wall_3 / AS_Alb_Tileset_Grilles_1 /
+           AS_Alb_Tileset_Wall_6 / AS_Alb_Tileset_Wall_10
+ranges: 0+180, 180+168, 348+1440, 1788+222 = 2,010 indices
+```
+
+## Open questions
+
+- Meaning of the per-triangle cluster block before the `0xFEEDFACE` sentinel.
+- Meaning of the 44-byte GAR5 trailer and its offsets.
+- Semantics of attribute field 12 (observed shader-slot values) and the unused 2 bits of packed normals.
+- Whether more than two UV sets can share a stream and how `UsageOffset` scales for them.
+- Vertex-color and tangent rendering: the stock `BasicEffect` supports lighting or vertex colors, not both.
+- Whether any mesh uses a position format other than codes 4 and 7.
 
 ## Implementation
 
 | Component | File |
 | --- | --- |
-| GMSH parser | `OpenElexSharp/Assets/GmshMesh.cs` |
-| DigitalRiseModel mesh-part creation and normal generation | `OpenElexSharp/Graphics/MeshLoader.cs` |
-| `DrMeshPartTag` bounds metadata | `OpenElexSharp/Graphics/MeshLoader.cs` |
-| Low-level renderer and render statistics | `OpenElexSharp/Graphics/Renderer.cs` |
-| Test scene | `OpenElexSharp/OpenElexGame.cs` (`--mesh`) |
+| GMSH parser and vertex decoding | `OpenElexSharp/Assets/GmshMesh.cs` |
+| Format/usage definitions | `OpenElexSharp/Assets/GmshMesh.cs` |
+| DB-side mesh metadata | `OpenElexSharp/Assets/MeshMetadata.cs` |
+| RT02 class-block reader | `OpenElexSharp/Assets/ResourceClassBlockReader.cs` |
+| DigitalRiseModel mesh-part creation and material binding | `OpenElexSharp/Graphics/MeshLoader.cs` |
+| Runtime material cache and texture upload | `OpenElexSharp/Graphics/MaterialLibrary.cs` |
+| Low-level renderer and statistics | `OpenElexSharp/Graphics/Renderer.cs` |
+| Test scene | `OpenElexSharp/OpenElexGame.cs` (`--mesh`, `--capture`) |
 | CLI inspector | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets meshes`) |
 
 CLI:
 
 ```powershell
-dotnet run --project OpenElexSharp -- assets meshes Obj_Dmy_MaterialCube_1_L1 --properties
+dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties
 dotnet run --project OpenElexSharp -- assets meshes --all
 ```
 
 Test scene:
 
 ```powershell
-dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1
-dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Cle_Mixer_2_Apps_L1 --smoke-test
+dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Alb_Door_Closed_L1
+dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Cle_Cathedral_1_L1 --smoke-test --capture shot.png
 ```
-
-The scene shows a Myra HUD with FPS, draw calls, triangles and mesh count; `Escape` exits.
-
-Meshes are uploaded as `DrMeshPart` from DigitalRiseModel. The bounding sphere is stored in a
-per-part `DrMeshPartTag`; the part itself carries the vertex/index buffers, primitive type and
-bounding box. A dedicated `Renderer` owns the stock `BasicEffect`, device state and draw-call /
-triangle statistics. It draws positions and indices with generated smooth normals and a fallback
-checker texture. It does not yet bind decoded UVs, real normals or material textures.
-
-## Open questions
-
-- Mapping of `eEGfxFormat2` format codes to component types and byte sizes.
-- Exact meaning of the vertex-stream offset/stride fields; they do not yet explain the 12-byte
-  position data.
-- How per-vertex normals, UVs and colors are laid out and whether they are interleaved or streamed.
-- Meaning of the repeated `0x81d1b3f7` material field and how mesh material records resolve to
-  `eCMaterialResource2` resources.
-- LOD/submesh data after the position block: observed counts and bounding boxes are not decoded.
-- Coordinate handedness, unit scale and whether meshes require a coordinate shift.
-- Skinned meshes and bone/weight streams (T009).
 
 ## Related tasks
 
-- T008 - this parser and static-mesh viewer.
+- T008 - static-mesh container and preview.
+- T008b - vertex streams, materials and LODs.
 - T009 - skeleton, skinning and animation.
 - T102 - full mesh renderer and material binding.

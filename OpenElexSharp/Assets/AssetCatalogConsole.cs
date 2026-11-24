@@ -30,6 +30,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
             AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
             AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
+            AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -439,6 +440,7 @@ public static class AssetCatalogConsole
             .ToList();
         var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
         var parsed = 0;
+        using var classBlocks = new ResourceClassBlockReader(assets);
         for (var index = 0; index < shown; index++)
         {
             var resource = matches[index];
@@ -470,7 +472,7 @@ public static class AssetCatalogConsole
             output.WriteLine(
                 $"{resource.Name}\t{mesh.Positions.Count}\t{mesh.TriangleCount}\t" +
                 $"{mesh.VertexAttributes.Count}\t{mesh.VertexStreams.Count}\t" +
-                $"{mesh.MaterialReferences.Count}\t" +
+                $"{mesh.BufferDescriptors.Count}\t" +
                 $"{min.X:0.###},{min.Y:0.###},{min.Z:0.###}\t" +
                 $"{max.X:0.###},{max.Y:0.###},{max.Z:0.###}\t{resource.VirtualPath}");
 
@@ -479,12 +481,23 @@ public static class AssetCatalogConsole
                 output.WriteLine(
                     $"\tgmshOffset={mesh.GmshOffset}\tversion={mesh.Version}\t" +
                     $"indexOffset={mesh.IndexOffset}\tindices={mesh.Indices.Count}\t" +
-                    $"isTriangleList={mesh.IsTriangleList}");
+                    $"isTriangleList={mesh.IsTriangleList}\tindexElementSize=" +
+                    $"{(mesh.BufferDescriptors.Count > 0 ? mesh.BufferDescriptors[0].ElementSize : 0)}");
+                output.WriteLine(
+                    $"\tlayout\tindexDataOffset=0x{mesh.IndexDataOffset:X}\t" +
+                    $"vertexDataOffset=0x{mesh.VertexDataOffset:X}\t" +
+                    $"vertexDataLength={mesh.VertexDataLength}\t" +
+                    $"hasNormals={mesh.HasNormals}\thasTextureCoordinates={mesh.HasTextureCoordinates}\t" +
+                    $"hasTangents={mesh.Tangents.Count > 0}\thasColors={mesh.Colors.Count > 0}\t" +
+                    $"hasTextureCoordinates1={mesh.TextureCoordinates1.Count > 0}");
+                var deviation = MaxSourcePositionDeviation(mesh);
+                output.WriteLine($"\tpositions\tmaxSourceDeviation={deviation:0.######}");
                 foreach (var attribute in mesh.VertexAttributes)
                 {
                     output.WriteLine(
-                        $"\tattribute\t{attribute.UsageName}\t{attribute.UsageIndex}\t" +
-                        $"format={attribute.Format}\tstream={attribute.Stream}\t" +
+                        $"\tattribute\t{attribute.UsageName}\toffset={attribute.UsageOffset}\t" +
+                        $"format={attribute.Format}\tformatName={attribute.FormatName}\t" +
+                        $"slot={attribute.Slot}\t" +
                         $"unknown={attribute.Unknown0:x8}/{attribute.Unknown1:x8}/{attribute.Unknown2:x8}");
                 }
 
@@ -495,12 +508,40 @@ public static class AssetCatalogConsole
                         $"stride={stream.Stride}\tunknown={stream.Unknown}");
                 }
 
-                for (var material = 0; material < mesh.MaterialReferences.Count; material++)
+                for (var descriptor = 0; descriptor < mesh.BufferDescriptors.Count; descriptor++)
                 {
-                    var reference = mesh.MaterialReferences[material];
+                    var buffer = mesh.BufferDescriptors[descriptor];
                     output.WriteLine(
-                        $"\tmaterial\t{material}\t" +
-                        string.Join('/', reference.Raw.Select(value => value.ToString("x8"))));
+                        $"\tbuffer\t{descriptor}\tsize={buffer.Size}\telementSize={buffer.ElementSize}\t" +
+                        $"hash={buffer.Hash:x8}\t" +
+                        string.Join('/', buffer.Raw.Select(value => value.ToString("x8"))));
+                }
+
+                try
+                {
+                    var metadata = MeshMetadata.Parse(classBlocks.Read(resource));
+                    output.WriteLine(
+                        $"\tmetadata\tindexCount={metadata.IndexCount}\tvertexCount={metadata.VertexCount}\t" +
+                        $"lodStart={metadata.LODRangeStart:0.###}\tsubMeshes={metadata.SubMeshes.Count}");
+                    foreach (var subMesh in metadata.SubMeshes)
+                    {
+                        output.WriteLine(
+                            $"\tsubmesh\t{subMesh.MaterialName}\tfirstIndex={subMesh.FirstIndex}\t" +
+                            $"indexCount={subMesh.IndexCount}\tfirstVertex={subMesh.FirstVertex}\t" +
+                            $"vertexCount={subMesh.VertexCount}\tfirstBone={subMesh.FirstBone}\t" +
+                            $"boneCount={subMesh.BoneCount}\tmaterials={subMesh.MaterialSwitchIndex}");
+                    }
+                }
+                catch (Exception exception) when (
+                    exception is Gar5FormatException or GenomeFormatException or IOException or
+                        UnauthorizedAccessException or AssetNotFoundException)
+                {
+                    error.WriteLine($"Skipping mesh metadata '{resource.Name}': {exception.Message}");
+                }
+
+                foreach (var diagnostic in mesh.Diagnostics)
+                {
+                    output.WriteLine($"\tdiagnostic\t{diagnostic}");
                 }
             }
         }
@@ -508,6 +549,99 @@ public static class AssetCatalogConsole
         error.WriteLine(
             $"Showing {shown} of {matches.Count:N0} mesh(es); parsed {parsed:N0}.");
         return 0;
+    }
+
+    private static int Materials(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {
+        var resources = ElexResourceIndex.Build(catalog, assets);
+        foreach (var diagnostic in resources.Diagnostics.Take(5))
+        {
+            error.WriteLine($"Material warning: {diagnostic}");
+        }
+
+        IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+            string.Equals(resource.TypeToken, "mat", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(command.Filter))
+        {
+            query = query.Where(resource =>
+                resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = query
+            .OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+        var parsed = 0;
+        using var classBlocks = new ResourceClassBlockReader(assets);
+        for (var index = 0; index < shown; index++)
+        {
+            var resource = matches[index];
+            ElexMaterial material;
+            try
+            {
+                using var stream = assets.OpenRead(resource.VirtualPath);
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                material = ElexMaterial.Parse(resource.Name, buffer.ToArray());
+                parsed++;
+            }
+            catch (Exception exception) when (
+                exception is Gar5FormatException or IOException or UnauthorizedAccessException or
+                    AssetNotFoundException)
+            {
+                error.WriteLine($"Skipping material '{resource.Name}': {exception.Message}");
+                continue;
+            }
+
+            if (command.ShowProperties)
+            {
+                try
+                {
+                    material.Shader = MaterialMetadata.Parse(classBlocks.Read(resource)).InstanceMaterial;
+                }
+                catch (Exception exception) when (
+                    exception is Gar5FormatException or GenomeFormatException or IOException or
+                        UnauthorizedAccessException or AssetNotFoundException)
+                {
+                    error.WriteLine($"Skipping material metadata '{resource.Name}': {exception.Message}");
+                }
+            }
+
+            output.WriteLine(
+                $"{resource.Name}\t{material.Textures.Count}\t{material.TemplateName}\t" +
+                $"{material.Shader ?? string.Empty}\t" +
+                $"{material.PrimaryTexture?.Name ?? string.Empty}\t{resource.VirtualPath}");
+            if (command.ShowProperties)
+            {
+                foreach (var texture in material.Textures)
+                {
+                    output.WriteLine($"\ttexture\t{texture.Usage}\t{texture.Name}");
+                }
+            }
+        }
+
+        error.WriteLine(
+            $"Showing {shown} of {matches.Count:N0} material(s); parsed {parsed:N0}.");
+        return 0;
+    }
+
+    private static float MaxSourcePositionDeviation(GmshMesh mesh)
+    {
+        var count = Math.Min(mesh.Positions.Count, mesh.SourcePositions.Count);
+        var max = 0f;
+        for (var index = 0; index < count; index++)
+        {
+            max = Math.Max(
+                max,
+                System.Numerics.Vector3.Distance(mesh.Positions[index], mesh.SourcePositions[index]));
+        }
+
+        return max;
     }
 
     private static uint Checksum(byte[] data)

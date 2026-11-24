@@ -16,6 +16,8 @@ namespace OpenElexSharp.Assets;
 /// <param name="ClassTag">Resource class tag from the database header.</param>
 /// <param name="DatabaseEntryOffset">Offset of the record in the database.</param>
 /// <param name="DatabaseEntrySize">Size of the record in the database.</param>
+/// <param name="ClassBlockOffset">Offset of the record's <c>GEC2</c> class block in the database.</param>
+/// <param name="ClassBlockSize">Size of the class block.</param>
 public sealed record ElexResource(
     string Name,
     string TypeToken,
@@ -28,7 +30,9 @@ public sealed record ElexResource(
     uint ClassHash,
     string ClassTag,
     int DatabaseEntryOffset,
-    int DatabaseEntrySize);
+    int DatabaseEntrySize,
+    int ClassBlockOffset,
+    int ClassBlockSize);
 
 /// <summary>
 /// Resolves ELEX logical resource names to hashed ROM files using the <c>RT02</c> databases in an
@@ -133,7 +137,9 @@ public sealed class ElexResourceIndex
                     database.ClassHash,
                     database.ClassTag,
                     record.Offset,
-                    record.Size));
+                    record.Size,
+                    record.ClassBlockOffset,
+                    record.ClassBlockSize));
             }
         }
 

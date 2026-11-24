@@ -29,4 +29,5 @@ This folder documents the binary formats used by ELEX assets. Each specification
 - [Objects.md](Objects.md) — GEC2 objects, DT01 documents and GENOMFLE string tables (T005/T005b).
 - [Templates.md](Templates.md) — GTP0 entity/item templates (T006).
 - [Textures.md](Textures.md) — DDS image resources, BC1–BC7 and texture upload (T007).
-- [Meshes.md](Meshes.md) — GMSH v2 static meshes and vertex layouts (T008, partial).
+- [Meshes.md](Meshes.md) — GMSH v2 static meshes, vertex streams and submesh metadata (T008/T008b).
+- [Materials.md](Materials.md) — GAR5 material payloads, texture entries and shader metadata (T008b).

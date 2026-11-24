@@ -87,8 +87,23 @@ public sealed class Renderer : IDisposable
     }
 
     /// <summary>
+    /// Draws every part of a DigitalRiseModel mesh. Each part uses its own material texture when
+    /// present and the fallback checker texture otherwise.
+    /// </summary>
+    public void DrawMesh(DrMesh mesh, Matrix world, bool cull = false)
+    {
+        EnsureFrameOpen(nameof(DrawMesh));
+        ArgumentNullException.ThrowIfNull(mesh);
+        foreach (var part in mesh.MeshParts)
+        {
+            DrawMeshPart(part, world, cull);
+        }
+    }
+
+    /// <summary>
     /// Draws one DigitalRiseModel mesh part. The part's <see cref="DrMeshPartTag"/> supplies the
-    /// bounding sphere used for optional culling.
+    /// bounding sphere used for optional culling and the runtime material whose diffuse texture is
+    /// bound for the draw.
     /// </summary>
     public void DrawMeshPart(DrMeshPart part, Matrix world, bool cull = false)
     {
@@ -99,9 +114,10 @@ public sealed class Renderer : IDisposable
             return;
         }
 
+        var tag = part.Tag as DrMeshPartTag;
         if (cull)
         {
-            var sphere = (part.Tag as DrMeshPartTag)?.Bounds ?? default;
+            var sphere = tag?.Bounds ?? default;
             if (sphere.Radius > 0f && !_frustum.Intersects(sphere.Transform(world)))
             {
                 return;
@@ -109,7 +125,7 @@ public sealed class Renderer : IDisposable
         }
 
         _effect.World = world;
-        _effect.Texture = _fallbackTexture;
+        _effect.Texture = tag?.Material?.Texture ?? _fallbackTexture;
         _effect.DiffuseColor = Vector3.One;
         foreach (var pass in _effect.CurrentTechnique.Passes)
         {

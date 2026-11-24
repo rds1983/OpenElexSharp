@@ -10,15 +10,35 @@ namespace OpenElexSharp.Graphics;
 /// Additional per-part metadata that does not belong in DigitalRiseModel's <see cref="DrMeshPart"/>.
 /// </summary>
 /// <param name="Bounds">Bounding sphere used by viewers and future scene culling.</param>
-public sealed record DrMeshPartTag(BoundingSphere Bounds);
+/// <param name="Material">Runtime material bound to this range, when known.</param>
+/// <param name="FirstIndex">First index of the range in the shared index buffer.</param>
+/// <param name="IndexCount">Number of indices in the range.</param>
+/// <param name="LODRangeStart">Distance at which the LOD containing this mesh becomes active.</param>
+public sealed record DrMeshPartTag(
+    BoundingSphere Bounds,
+    ElexMaterial? Material = null,
+    int FirstIndex = 0,
+    int IndexCount = 0,
+    float LODRangeStart = 0f);
 
-/// <summary>Builds DigitalRiseModel mesh parts from parsed GMSH resources.</summary>
+/// <summary>Builds DigitalRiseModel meshes from parsed GMSH resources and mesh metadata.</summary>
 public static class MeshLoader
 {
-    /// <summary>Builds a <see cref="DrMeshPart"/> and generates smooth normals when needed.</summary>
+    /// <summary>
+    /// Builds a <see cref="DrMesh"/> with one part per submesh. When <paramref name="metadata"/> is
+    /// missing or has no valid ranges, a single part covers the whole index buffer.
+    /// </summary>
+    /// <param name="device">Graphics device used to create buffers.</param>
+    /// <param name="source">Parsed GMSH geometry.</param>
+    /// <param name="metadata">Optional <c>eCMeshResource2</c> metadata with submesh ranges and materials.</param>
+    /// <param name="materialResolver">Optional resolver that maps a material name to a runtime material.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="GmshFormatException">The mesh has no usable triangle/position data.</exception>
-    public static DrMeshPart Load(GraphicsDevice device, GmshMesh source)
+    public static DrMesh Load(
+        GraphicsDevice device,
+        GmshMesh source,
+        MeshMetadata? metadata = null,
+        Func<string, ElexMaterial?>? materialResolver = null)
     {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(source);
@@ -28,20 +48,28 @@ public static class MeshLoader
         }
 
         var positions = source.Positions;
-        var normals = ComputeNormals(positions, source.Indices);
+        var normals = source.Normals.Count == positions.Count
+            ? source.Normals
+            : ComputeNormals(positions, source.Indices);
+        var textureCoordinates = source.TextureCoordinates.Count == positions.Count
+            ? source.TextureCoordinates
+            : null;
+
         var vertices = new VertexPositionNormalTexture[positions.Count];
         for (var index = 0; index < vertices.Length; index++)
         {
             vertices[index] = new VertexPositionNormalTexture(
                 new Vector3(positions[index].X, positions[index].Y, positions[index].Z),
                 new Vector3(normals[index].X, normals[index].Y, normals[index].Z),
-                Vector2.Zero);
+                textureCoordinates is null
+                    ? Vector2.Zero
+                    : new Vector2(textureCoordinates[index].X, textureCoordinates[index].Y));
         }
 
         var indices = new int[source.Indices.Count];
         for (var index = 0; index < indices.Length; index++)
         {
-            indices[index] = checked((int)source.Indices[index]);
+            indices[index] = source.Indices[index];
         }
 
         var vertexBuffer = new VertexBuffer(
@@ -70,37 +98,72 @@ public static class MeshLoader
             indexBuffer.SetData(shorts);
         }
 
-        var (box, sphere) = ComputeBounds(positions);
-        var part = new DrMeshPart(
-            vertexBuffer,
-            indexBuffer,
-            box,
-            PrimitiveType.TriangleList,
-            vertices.Length,
-            indices.Length / 3)
+        var (box, _) = ComputeBounds(positions);
+        var mesh = new DrMesh
         {
-            Tag = new DrMeshPartTag(sphere),
+            Name = source.Name,
         };
-        return part;
+
+        var ranges = ResolveRanges(source, metadata);
+        foreach (var range in ranges)
+        {
+            var rangeBox = range.Box ?? box;
+            var rangeSphere = new BoundingSphere(
+                (rangeBox.Min + rangeBox.Max) * 0.5f,
+                Math.Max(0.001f, Vector3.Distance((rangeBox.Min + rangeBox.Max) * 0.5f, rangeBox.Max)));
+            var part = new DrMeshPart(
+                vertexBuffer,
+                indexBuffer,
+                rangeBox,
+                PrimitiveType.TriangleList,
+                vertices.Length,
+                range.PrimitiveCount,
+                0,
+                range.StartIndex)
+            {
+                Tag = new DrMeshPartTag(
+                    rangeSphere,
+                    ResolveMaterial(materialResolver, range.MaterialName),
+                    range.StartIndex,
+                    range.IndexCount,
+                    metadata?.LODRangeStart ?? 0f),
+            };
+
+            mesh.MeshParts.Add(part);
+        }
+
+        return mesh;
+    }
+
+    private static ElexMaterial? ResolveMaterial(
+        Func<string, ElexMaterial?>? materialResolver,
+        string? materialName)
+    {
+        if (materialResolver is null || string.IsNullOrEmpty(materialName))
+        {
+            return null;
+        }
+
+        return materialResolver(materialName);
     }
 
     /// <summary>Generates normalized smooth normals from the face list.</summary>
     public static NumericsVector3[] ComputeNormals(
         IReadOnlyList<NumericsVector3> positions,
-        IReadOnlyList<uint> indices)
+        IReadOnlyList<int> indices)
     {
         ArgumentNullException.ThrowIfNull(positions);
         ArgumentNullException.ThrowIfNull(indices);
         var normals = new NumericsVector3[positions.Count];
         for (var index = 0; index + 2 < indices.Count; index += 3)
         {
-            var a = positions[checked((int)indices[index])];
-            var b = positions[checked((int)indices[index + 1])];
-            var c = positions[checked((int)indices[index + 2])];
+            var a = positions[indices[index]];
+            var b = positions[indices[index + 1]];
+            var c = positions[indices[index + 2]];
             var normal = NumericsVector3.Cross(b - a, c - a);
-            normals[checked((int)indices[index])] += normal;
-            normals[checked((int)indices[index + 1])] += normal;
-            normals[checked((int)indices[index + 2])] += normal;
+            normals[indices[index]] += normal;
+            normals[indices[index + 1]] += normal;
+            normals[indices[index + 2]] += normal;
         }
 
         for (var index = 0; index < normals.Length; index++)
@@ -132,4 +195,70 @@ public static class MeshLoader
         var sphere = new BoundingSphere(new Vector3(center.X, center.Y, center.Z), radius);
         return (box, sphere);
     }
+
+    private static List<Range> ResolveRanges(GmshMesh source, MeshMetadata? metadata)
+    {
+        var ranges = new List<Range>();
+        if (metadata is not null)
+        {
+            foreach (var subMesh in metadata.SubMeshes)
+            {
+                if (subMesh.IndexCount <= 0 || subMesh.FirstIndex < 0)
+                {
+                    continue;
+                }
+
+                if (subMesh.FirstIndex + subMesh.IndexCount > source.Indices.Count)
+                {
+                    continue;
+                }
+
+                if (subMesh.IndexCount % 3 != 0)
+                {
+                    continue;
+                }
+
+                ranges.Add(new Range(
+                    subMesh.FirstIndex,
+                    subMesh.IndexCount,
+                    subMesh.IndexCount / 3,
+                    subMesh.MaterialName,
+                    TryCreateBox(subMesh.Extends)));
+            }
+        }
+
+        if (ranges.Count == 0)
+        {
+            ranges.Add(new Range(0, source.Indices.Count, source.Indices.Count / 3, null, null));
+        }
+
+        return ranges;
+    }
+
+    private static BoundingBox? TryCreateBox(IReadOnlyList<float> extends)
+    {
+        if (extends.Count != 6)
+        {
+            return null;
+        }
+
+        var min = new Vector3(extends[0], extends[1], extends[2]);
+        var max = new Vector3(extends[3], extends[4], extends[5]);
+        if (!IsFinite(min) || !IsFinite(max) || min.X > max.X || min.Y > max.Y || min.Z > max.Z)
+        {
+            return null;
+        }
+
+        return new BoundingBox(min, max);
+    }
+
+    private static bool IsFinite(Vector3 value) =>
+        float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
+
+    private sealed record Range(
+        int StartIndex,
+        int IndexCount,
+        int PrimitiveCount,
+        string? MaterialName,
+        BoundingBox? Box);
 }

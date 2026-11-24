@@ -53,7 +53,18 @@ After the 3D or texture scene has been drawn, `Draw` calls `_hud.Update(...)` an
 `Renderer.BeginFrame` saves the state and `Renderer.EndFrame` restores it before the HUD draws.
 
 The stats values come from `Renderer.DrawCalls`, `Renderer.Triangles` and `Renderer.Meshes`.
+`Renderer.Meshes` counts drawn mesh **parts**, so a mesh with four submeshes contributes four.
 `DebugOverlay` computes FPS over a half-second window.
+
+## Capturing a frame
+
+Desktop capture can show a black surface for the game window on some multi-GPU setups. Use the
+`--capture <path>` option instead: after a few frames the game copies the back buffer to a PNG and
+keeps running (combine with `--smoke-test` to exit automatically).
+
+```powershell
+dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Alb_Door_Closed_L1 --smoke-test --capture shot.png
+```
 
 ## Layout and styling notes
 

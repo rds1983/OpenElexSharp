@@ -13,9 +13,8 @@ public class MeshConsoleTests
         var meshData = TestGmshBuilder.Create(
             [new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 0)],
             [0, 1, 2],
-            [new(0, 0, 7, 0), new(1, 0, 15, 1)],
-            [new(0, 1, 0, 12), new(1, 1, 36, 12)],
-            [[1, 0, 2, 2, 40, 1, 0x81d1b3f7, 1, 64, 72]]);
+            normals: [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+            textureCoordinates: [new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 1)]);
         var hash = ResourceDatabase.FormatHash(Djb2Hash.Compute("TEST_MESH"));
         File.WriteAllBytes(
             Path.Combine(temp.Root, "data", "compiled", "0_na_msh", "0", "1", $"w_msh_0_na_{hash}.rom"),

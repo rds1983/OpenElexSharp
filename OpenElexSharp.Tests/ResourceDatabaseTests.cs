@@ -23,6 +23,14 @@ public class ResourceDatabaseTests
         Assert.Equal(24, database.Entries[0].Offset);
         Assert.Equal(24 + database.Entries[0].Size, database.Entries[1].Offset);
         Assert.Equal(data.Length, database.Entries[1].Offset + database.Entries[1].Size);
+        foreach (var entry in database.Entries)
+        {
+            Assert.True(entry.ClassBlockSize >= 8);
+            Assert.Equal("GEC2", Encoding.ASCII.GetString(data, entry.ClassBlockOffset, 4));
+            Assert.Equal(
+                entry.ClassBlockOffset + entry.ClassBlockSize,
+                entry.Offset + entry.Size);
+        }
     }
 
     [Fact]

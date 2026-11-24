@@ -8,7 +8,14 @@ namespace OpenElexSharp.Assets;
 /// <param name="Name">Logical resource name.</param>
 /// <param name="Offset">Offset of the full database record.</param>
 /// <param name="Size">Size of the full database record.</param>
-public sealed record ResourceDatabaseEntry(string Name, int Offset, int Size);
+/// <param name="ClassBlockOffset">Offset of the record's <c>GEC2</c> class block.</param>
+/// <param name="ClassBlockSize">Size of the class block starting at <paramref name="ClassBlockOffset"/>.</param>
+public sealed record ResourceDatabaseEntry(
+    string Name,
+    int Offset,
+    int Size,
+    int ClassBlockOffset,
+    int ClassBlockSize);
 
 /// <summary>
 /// Parser for the <c>RT02</c> resource databases stored as <c>w_&lt;type&gt;_&lt;generation&gt;_&lt;language&gt;.db</c>.
@@ -83,13 +90,23 @@ public sealed class ResourceDatabase
             position++; // Separator (observed as ',').
 
             var searchStart = position;
-            var recordEnd = FindRecordEnd(data, searchStart, index + 1 == header.ResourceCount);
+            var recordEnd = FindRecordEnd(
+                data,
+                searchStart,
+                index + 1 == header.ResourceCount,
+                out var classBlockOffset,
+                out var classBlockSize);
             if (recordEnd < 0)
             {
                 throw new Gar5FormatException($"Database record {index} has no valid GEC2 class block.");
             }
 
-            entries.Add(new ResourceDatabaseEntry(name, recordStart, recordEnd - recordStart));
+            entries.Add(new ResourceDatabaseEntry(
+                name,
+                recordStart,
+                recordEnd - recordStart,
+                classBlockOffset,
+                classBlockSize));
             position = recordEnd;
         }
 
@@ -102,8 +119,15 @@ public sealed class ResourceDatabase
         return new ResourceDatabase(header.ClassHash, header.ClassTag, [.. entries]);
     }
 
-    private static int FindRecordEnd(byte[] data, int searchStart, bool lastRecord)
+    private static int FindRecordEnd(
+        byte[] data,
+        int searchStart,
+        bool lastRecord,
+        out int classBlockOffset,
+        out int classBlockSize)
     {
+        classBlockOffset = 0;
+        classBlockSize = 0;
         var search = searchStart;
         while (search < data.Length)
         {
@@ -139,11 +163,15 @@ public sealed class ResourceDatabase
             {
                 if (endOffset == data.Length)
                 {
+                    classBlockOffset = magicOffset;
+                    classBlockSize = (int)blockSize;
                     return endOffset;
                 }
             }
             else if (IsPlausibleRecordStart(data, endOffset))
             {
+                classBlockOffset = magicOffset;
+                classBlockSize = (int)blockSize;
                 return endOffset;
             }
 

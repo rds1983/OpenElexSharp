@@ -17,7 +17,8 @@ Format knowledge is derived **only** from game assets — never from `ELEX.exe` 
 | [Formats/Objects.md](Formats/Objects.md) | implemented | T005 |
 | [Formats/Templates.md](Formats/Templates.md) | implemented | T006 |
 | [Formats/Textures.md](Formats/Textures.md) | implemented | T007 |
-| [Formats/Meshes.md](Formats/Meshes.md) | draft | T008 |
+| [Formats/Meshes.md](Formats/Meshes.md) | implemented | T008/T008b |
+| [Formats/Materials.md](Formats/Materials.md) | implemented | T008b |
 | Formats/Skeletons.md | planned | T009 |
 | Formats/Worlds.md | planned | T010 |
 | Formats/Collision.md | planned | T011 |

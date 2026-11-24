@@ -54,7 +54,7 @@ dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh in the test scene. Both scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. Full materials, skeletons and world rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. Both scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. `--capture <path>` writes the rendered back buffer to a PNG. Full materials, skeletons and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -66,11 +66,12 @@ dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_q
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properties --decode
-dotnet run --project OpenElexSharp -- assets meshes Obj_Dmy_MaterialCube_1_L1 --properties
+dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties
+dotnet run --project OpenElexSharp -- assets materials AS_AlbSigns_1 --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -82,9 +83,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 45 | 7428 | 6434 | 265.0 KB |
-| Tests | 39 | 4915 | 4120 | 158.8 KB |
-| **Total** | **84** | **12343** | **10554** | **423.8 KB** |
+| Engine | 50 | 9092 | 7874 | 325.8 KB |
+| Tests | 42 | 5536 | 4645 | 181.4 KB |
+| **Total** | **92** | **14628** | **12519** | **507.1 KB** |
 
 ## Credits
 

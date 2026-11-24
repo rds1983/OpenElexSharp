@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T008b**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009**.
 
 ---
 
@@ -98,9 +98,25 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Confirming coordinate handedness/unit scale and skinned vertex streams.
   Completed 2026-11-24 — GMSH geometry parser, DigitalRiseModel mesh parts, renderer statistics, Myra HUD and mesh inspector.
 
-- [ ] **T008b · Mesh attributes, materials and LODs**
+- [x] **T008b · Mesh attributes, materials and LODs**
   Decode the GMSH v2 vertex streams and material references, including normal/UV/tangent/color layouts, `eEGfxFormat2` format codes, mesh→`eCMaterialResource2` resolution, texture bindings, LOD/submesh ranges and the coordinate system.
   Done when: representative meshes of every observed layout render with real normals/UVs and material textures, LOD0 selection matches the data, and malformed attribute streams fail with actionable diagnostics.
+  **Completed 2026-11-24 — GMSH GPU index/vertex streams, all six retail layouts, DB submesh/material/LOD metadata, the material/texture chain and textured multi-part rendering.**
+  - Decoded the real GPU index buffer at `GMSH+0x40` (16- or 32-bit, selected by buffer-descriptor field 3) and the vertex base at `align16(0x40 + indexCount × elementSize)`.
+  - Decoded contiguous vertex streams and all five retail formats: `R32G32B32_Float` (4), `R16G16B16A16_Float` (7), `R10G10B10A2_UNorm` (15), `R16G16_Float` (23) and `B8G8R8A8_UNorm` (58). Usage map: 0 position, 1 normal, 2 tangent, 3 color, 4 texcoord.
+  - Added `MeshMetadata` for the `eCMeshResource2` DB class block: submesh index ranges, material names, `LoDRangeStart` and bounds. LODs are separate `_L1/_L2/_L3` resources with `LoDRangeStart` 0/5000/10000.
+  - Added `ElexMaterial`/`MaterialMetadata` and `MaterialLibrary`; the submesh material name resolves through `w_mat` to its texture entries and primary image. The runtime material reference is stored in `DrMeshPartTag`.
+  - `MeshLoader` builds one `DrMesh` part per submesh with real normals and UV0; the renderer draws each part with its uploaded texture and reports per-part statistics.
+  - Added the `assets materials` inspector, decoded mesh layout output and a `--capture` back-buffer PNG option.
+  - Coordinate system: objects are Y-up with centimetre-like units; no axis conversion or scale is applied.
+  - All 5,868 meshes parse with zero diagnostics and 13,406 submeshes; packed positions match the widened `float3` copy exactly (maximum deviation 0). All 1,726 materials parse.
+  - Verified visually: door (4 submeshes/materials), mixer (5 submeshes, 92k vertices), cathedral (9 submeshes, 327k vertices, 32-bit indices), stone (5/4 layout), box, axe, shadowhull and material cube. 372 tests, Debug/Release warning-free.
+  **Deferred:**
+  - Material parameter blocks (shader colors/scalars and multi-pass selection) — T401.
+  - Per-triangle cluster block and GAR5 trailer before the resource table — T011/T102 investigation.
+  - Vertex-color and tangent rendering (stock `BasicEffect` supports lighting or vertex colors, not both) — T102/T401.
+  - Automatic LOD switching by `LoDRangeStart` — T406.
+  - Exact triangle winding/handedness — T102.
 
 - [ ] **T009 · Skeletons and animations**
   Parse bone hierarchies, bind poses, animation clips and compression. Record the maximum bone count in ELEX assets and whether stock `SkinnedEffect` suffices.
@@ -111,7 +127,7 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Done when: a level's instance graph can be dumped as text (position, rotation, template, mesh) and matches what the game data implies.
 
 - [ ] **T011 · Collision and navigation data**
-  Extract collision geometry suitable for BepuPhysics2 static bodies, plus navigation mesh data for NPC pathing. Document both formats.
+  Extract collision geometry suitable for BepuPhysics2 static bodies, plus navigation mesh data for NPC pathing. Document both formats. Also investigate the GMSH per-triangle cluster block and GAR5 trailer as potential occlusion/collision data.
   Done when: a level's collision can be rendered as a wireframe/debug shape and matches visible geometry closely enough for movement.
 
 - [ ] **T012 · Audio assets**
@@ -135,7 +151,7 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   Done when: the app runs for minutes without leaks or device-lost crashes, and the overlay can be toggled.
 
 - [ ] **T102 · Mesh renderer**
-  Upload parsed meshes to GPU buffers, map materials/textures, and draw with `BasicEffect`; provide checker/placeholder materials for missing data. Add a model-viewer scene.
+  Upload parsed meshes to GPU buffers, map materials/textures, and draw with `BasicEffect`; provide checker/placeholder materials for missing data. Add a model-viewer scene. Include vertex-color and tangent rendering and resolve triangle winding/handedness.
   Done when: static meshes render with correct proportions, normals and UVs, and the viewer can cycle any mesh in the catalog.
 
 - [ ] **T103 · Camera, transforms and culling**
@@ -239,7 +255,7 @@ Exit criteria: scripts, quests, dialogue, activities, progression and audio work
 Exit criteria: visuals and UI are close enough to the original that differences are deliberate and documented.
 
 - [ ] **T401 · Material shaders**
-  Normal/specular/emissive materials, terrain layer blending and the remaining feature-specific effects, matching the original look.
+  Normal/specular/emissive materials, terrain layer blending and the remaining feature-specific effects, matching the original look. Decode the material parameter blocks (shader colors/scalars and multi-pass selection) first.
   Done when: side-by-side comparisons show no systemic material differences.
 
 - [ ] **T402 · Post-processing**
@@ -259,7 +275,7 @@ Exit criteria: visuals and UI are close enough to the original that differences 
   Done when: conversations, combat and traversal animations match the original's feel.
 
 - [ ] **T406 · Performance parity**
-  LOD, occlusion, instancing, batching and streaming budgets.
+  Automatic LOD selection using `LoDRangeStart`, occlusion, instancing, batching and streaming budgets.
   Done when: frame times at reference settings are within an agreed tolerance of the original on the same hardware.
 
 - [ ] **T407 · Audio parity**
@@ -278,7 +294,6 @@ Not committed to a milestone; revisit after T308.
 - Asset export/screenshot tools for documentation.
 - Editor support for inspecting templates and worlds.
 - Upload volume textures as `Texture3D`, cubemaps and texture arrays; add an HDR float pipeline instead of clamping BC6H/16F/32F data.
-- Resolve texture roles and sRGB intent from material metadata once T008 binds textures to meshes.
 - ELEX 2 support if its formats are close enough.
 
 ## Known risks

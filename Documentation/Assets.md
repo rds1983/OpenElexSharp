@@ -83,14 +83,26 @@ dotnet run --project OpenElexSharp -- assets textures --all
 
 ### `meshes`
 
-Builds the logical resource index, finds `msh` resources and parses their GMSH v2 header, index
-buffer, positions and vertex attribute/stream declarations. Prints name, vertex count, triangle
-count, attribute/stream/material counts, bounds and ROM path. `--properties` prints the raw
-attribute and stream records plus material-reference values.
+Builds the logical resource index, finds `msh` resources and parses their GMSH v2 geometry: the GPU
+index buffer, vertex streams, attribute formats and buffer descriptors. Prints name, vertex count,
+triangle count, attribute/stream/descriptor counts, bounds and ROM path. `--properties` prints the
+decoded stream layout, formats, buffer descriptors, the maximum deviation between packed and widened
+positions, and the `eCMeshResource2` submesh/material/LOD metadata from the database.
 
 ```powershell
-dotnet run --project OpenElexSharp -- assets meshes Obj_Dmy_MaterialCube_1_L1 --properties
+dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties
 dotnet run --project OpenElexSharp -- assets meshes --all
+```
+
+### `materials`
+
+Parses `mat` resources, their texture entries and the `InstanceMaterial` shader name from the
+material database. Prints name, texture count, template name, shader, primary texture and ROM path.
+`--properties` lists every texture with its inferred role.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets materials AS_AlbSigns_1 --properties
+dotnet run --project OpenElexSharp -- assets materials --all
 ```
 
 ### `export`
@@ -114,10 +126,13 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
 | `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
 | `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
-| `GmshMesh` | GMSH v2 headers, indices, positions and vertex/material declarations. |
-| `MeshLoader` / `DrMeshPartTag` | DigitalRiseModel `DrMeshPart` creation, generated normals and bounding-sphere metadata. |
+| `GmshMesh` | GMSH v2 geometry, GPU indices, packed vertex streams and buffer descriptors. |
+| `MeshMetadata` / `ResourceClassBlockReader` | `eCMeshResource2` submesh ranges, material names and LOD distances from `w_msh` databases. |
+| `ElexMaterial` / `MaterialMetadata` | Material payload texture entries and `InstanceMaterial` shader names. |
+| `MeshLoader` / `DrMeshPartTag` | DigitalRiseModel `DrMesh`/`DrMeshPart` creation with real normals, UVs, submesh ranges and material references. |
+| `ElexMaterial` / `MaterialLibrary` | Material payload parsing, runtime shader/texture attachment and a shared upload cache. |
 | `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |
-| `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh count and the Escape control hint. |
+| `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh/part count and the Escape control hint. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 
@@ -129,7 +144,9 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets textures --all` parses all 9,631 image headers in roughly 20-30 seconds including resource-database discovery. Decoding every mip-0 texture with `--decode` takes several minutes and is intended as a diagnostic rather than an interactive command.
 
-`assets meshes --all` parses all 5,868 static meshes in roughly 10 seconds including resource-database discovery.
+`assets meshes --all` parses all 5,868 static meshes and their database metadata; `--properties` takes about 35 seconds including resource-database discovery and 13,406 submesh records.
+
+`assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -147,7 +164,8 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Object properties and class data are preserved raw; type-specific decoding and nested `GEC2` objects are not implemented yet.
 - `assets textures --all --decode` is intentionally a diagnostic path: decoding every mip-0 texture in the retail set takes several minutes. Normal browsing should use a filter or omit `--decode`.
 - Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
-- GMSH meshes currently expose positions, triangle indices and raw attribute/stream/material declarations. Normal/UV stream decoding, material resolution and LOD/submesh data are not implemented; the viewer generates smooth normals and uses a placeholder texture.
+- GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
+- Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 
 ## Related tasks
 

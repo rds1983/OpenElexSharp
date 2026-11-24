@@ -17,6 +17,9 @@ public sealed class LaunchOptions
     /// <summary>The argument that loads a mesh resource for the static-mesh test scene.</summary>
     public const string MeshArgument = "--mesh";
 
+    /// <summary>The argument that writes the rendered back buffer to a PNG file.</summary>
+    public const string CaptureArgument = "--capture";
+
     /// <summary>
     /// Gets a value indicating whether the engine should open a window, render a few frames
     /// and exit successfully. Intended for verifying that the graphics stack works.
@@ -40,6 +43,11 @@ public sealed class LaunchOptions
     public string? Mesh { get; private init; }
 
     /// <summary>
+    /// Gets the PNG path that receives a copy of the rendered back buffer after a few frames.
+    /// </summary>
+    public string? CapturePath { get; private init; }
+
+    /// <summary>
     /// Parses command-line arguments.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="args"/> is <see langword="null"/>.</exception>
@@ -52,6 +60,7 @@ public sealed class LaunchOptions
         string? elexPath = null;
         string? texture = null;
         string? mesh = null;
+        string? capturePath = null;
 
         for (var index = 0; index < args.Count; index++)
         {
@@ -105,6 +114,22 @@ public sealed class LaunchOptions
                     argument[(MeshArgument.Length + 1)..],
                     nameof(args));
             }
+            else if (string.Equals(argument, CaptureArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                if (index + 1 >= args.Count)
+                {
+                    throw new ArgumentException($"{CaptureArgument} requires a value.", nameof(args));
+                }
+
+                capturePath = ParseValue(CaptureArgument, args[++index], nameof(args));
+            }
+            else if (argument.StartsWith(CaptureArgument + "=", StringComparison.OrdinalIgnoreCase))
+            {
+                capturePath = ParseValue(
+                    CaptureArgument,
+                    argument[(CaptureArgument.Length + 1)..],
+                    nameof(args));
+            }
             else
             {
                 throw new ArgumentException($"Unknown command-line argument '{argument}'.", nameof(args));
@@ -117,6 +142,7 @@ public sealed class LaunchOptions
             ElexPath = elexPath,
             Texture = texture,
             Mesh = mesh,
+            CapturePath = capturePath,
         };
     }
 

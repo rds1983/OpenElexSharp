@@ -107,6 +107,30 @@ public class LaunchOptionsTests
     }
 
     [Fact]
+    public void Parse_CaptureWithSeparateArgument_SetsPath()
+    {
+        var options = LaunchOptions.Parse(["--capture", @"C:\Temp\shot.png"]);
+
+        Assert.Equal(@"C:\Temp\shot.png", options.CapturePath);
+    }
+
+    [Fact]
+    public void Parse_CaptureWithEquals_SetsPath()
+    {
+        var options = LaunchOptions.Parse([@"--capture=C:\Temp\shot.png"]);
+
+        Assert.Equal(@"C:\Temp\shot.png", options.CapturePath);
+    }
+
+    [Fact]
+    public void Parse_MissingCaptureValue_Throws()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--capture"]));
+
+        Assert.Contains("--capture", exception.Message);
+    }
+
+    [Fact]
     public void Parse_TextureWithEquals_SetsValue()
     {
         var options = LaunchOptions.Parse(["--texture=AS_AlbSigns_1_Nm"]);
