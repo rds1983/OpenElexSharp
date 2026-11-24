@@ -126,7 +126,7 @@ dotnet run --project OpenElexSharp -- assets skeletons --all
 
 Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count, clip count, posed-clip count, simple-transition count, state-name count, hierarchical-path count, candidate binary-graph count and ROM path. `--properties` lists every readable name, each clip's tracks/poses, then every transition, state, graph node, the first 16 state paths, the first 16 binary graph blocks and the first quantized quaternion runs. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
 
-The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), derives simple transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names, exposes `|`-separated names as hierarchical state paths, probes candidate binary graph blocks and reports runs of quantized `int16` quaternions. Binary graph edges, transition timing and sample-track decoding are not implemented yet; see [Formats/Animations.md](Formats/Animations.md).
+The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), derives simple transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names, exposes `|`-separated names as hierarchical state paths, probes candidate binary graph blocks, reports runs of quantized `int16` quaternions and decodes 16-byte sample tracks with interpolation. Binary graph edges, transition timing, position scale and sample/bone mapping are not implemented yet; see [Formats/Animations.md](Formats/Animations.md).
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets animations Chest --properties
@@ -179,6 +179,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionStatePath` | Hierarchical `A|B|...|ConditionGroup|Condition` path with segments and condition. |
 | `MotionGraphNode` | Candidate binary state-graph block with five-value records and references. |
 | `MotionSampleProbe` | Diagnostic scanner for runs of quantized `int16` quaternions. |
+| `MotionSampleTrack` | 16-byte quantized sample track with interpolation. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
 | `MotionTransitionSampler` | Timed one-shot/ping-pong blends between two clip poses. |
 | `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
@@ -200,7 +201,7 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
-`assets animations --all` parses all 34 motion networks in roughly 9 seconds. The 59.6 MB `Male` network dominates the readable-name, transition and quantized-sample scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
+`assets animations --all` parses all 34 motion networks in roughly 15 seconds. The 59.6 MB `Male` network dominates the readable-name, transition, quantized-sample and sample-track scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -221,7 +222,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources; 1,045 expose decoded bind transforms, 225 expose names/parents only, and 50 creature/female/hologram tails use an unrecognized layout. Skinned mesh rendering is still T106/T102.
-- `net` motion networks expose readable names, one static pose per clip, name-derived transitions, hierarchical paths, candidate binary blocks and quantized-quaternion runs; graph edges, transition timing and sample-track decoding are not implemented.
+- `net` motion networks expose readable names, one static pose per clip, name-derived transitions, hierarchical paths, candidate binary blocks, quantized-quaternion runs and interpolated sample tracks; graph edges, transition timing, position scale and sample/bone mapping are not implemented.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks

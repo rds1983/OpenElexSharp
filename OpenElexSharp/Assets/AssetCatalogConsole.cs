@@ -637,6 +637,13 @@ public static class AssetCatalogConsole
 							$"\tquantized\t{network.QuantizedQuaternionRuns.Count}\t" +
 							$"{string.Join(',', network.QuantizedQuaternionRuns.Take(8).Select(run => $"{run.Offset}:{run.Count}"))}");
 					}
+
+					if (network.SampleTracks.Count > 0)
+					{
+						output.WriteLine(
+							$"\tsamples\t{network.SampleTracks.Count}\t" +
+							$"{string.Join(',', network.SampleTracks.Take(8).Select(track => $"{track.TrackIndex}/{track.BoneIndex}:{track.SampleCount}@{track.Duration:0.##}"))}");
+					}
 				}
 			});
 	}

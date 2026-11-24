@@ -147,9 +147,22 @@ The decoded clip blocks contain one raw unit-quaternion pose array per clip. A s
 
 No uncompressed per-track keyframe tracks were found in `net`. The clips therefore behave as static
 poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). The
-high-entropy blocks contain many runs of four `int16` values whose squared length is near
-`32767²`, i.e. candidate quantized quaternions. `MotionSampleProbe` reports these runs, but their
-track headers, sample times and mapping to skeleton bones remain undecoded (T009m).
+high-entropy blocks contain **quantized sample tracks** instead:
+
+| Offset | Type | Meaning |
+| ---: | --- | --- |
+| 0 | `uint32` | Sample data byte size (a multiple of 16). |
+| 4 | `uint32` | Stride, observed `16`. |
+| 8 | `float` | Duration in seconds. |
+| 12 | `float` | Sample rate, observed `60`. |
+| 16 | `uint32` | Track index (observed 54..82). |
+| 20 | `uint32` | Bone/second index (observed 54..82). |
+| 64 | `uint32` | Sample offset relative to the header. |
+| … | `Sample[]` | 16-byte samples: position `xyz` as `int16` plus a rotation `xyzw` as `int16`. |
+
+`Male` contains 1,006 decoded sample tracks (95–98 samples each). `MotionSampleTrack.SampleAt`
+interpolates raw positions and slerps rotations over the duration. The position scale, track/bone
+mapping and graph semantics remain open (T009n).
 
 ### Binary graph probe
 
@@ -273,7 +286,7 @@ The `animations` command prints the readable-name count, `BONE_`-prefixed names,
 posed-clip count, simple-transition count, state-name count, hierarchical-path count and candidate
 binary-graph count. `--properties` also lists each clip's track table and first pose quaternions,
 followed by every transition, state, graph node, the first 16 state paths, the first 16 binary
-graph blocks and the first quantized quaternion runs.
+graph blocks, the first quantized quaternion runs and the first sample tracks.
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -291,6 +304,7 @@ per-target delta counts and the first two position/normal deltas.
 | `Male` simple transitions | 0 (hierarchical paths) |
 | Hierarchical state paths | 10,000 (`Male`, cap) |
 | Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
+| Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
 | `bln` resources parsed | 270 / 270 |
 | `bln` delta sets decoded | 270 / 270 |
 | Total blend-shape deltas | 63,541,940 |
@@ -322,10 +336,11 @@ per-target delta counts and the first two position/normal deltas.
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
 | Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
+| Sample-track codec | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -339,6 +354,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009h - Morpheme binary graph blocks.
 - T009i - binary state record layout.
 - T009l - quantized quaternion sample probe.
-- T009m - animation sample codec and graph semantics.
+- T009m - sample-track codec and interpolation.
+- T009n - sample/bone mapping and graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

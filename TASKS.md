@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009m**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009n**.
 
 ---
 
@@ -269,9 +269,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Track headers, sample times, mapping to skeleton bones and graph semantics.
   - Full sample-track decoding and playback.
 
-- [ ] **T009m · Animation sample codec and graph semantics**
-  Decode quantized sample track headers/times, map them to skeleton tracks, and map binary graph record values to states, edges and transition durations.
-  Done when: representative compressed samples decode into poses and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009m · Sample-track codec and interpolation**
+  Decode the quantized 16-byte animation sample tracks and interpolate them over time.
+  Done when: sample headers and records decode and `SampleAt` interpolates positions/rotations.
+  **Completed 2026-11-25 — `MotionSampleTrack`, 1,006 `Male` tracks and sample interpolation.**
+  - Header: byte size, stride 16, duration, 60 Hz rate, track/bone index and relative sample offset.
+  - Record: `int16` position xyz + `int16` rotation xyzw; `SampleAt` lerps positions and slerps rotations.
+  - 4 new tests; 435 tests, Debug/Release warning-free.
+  **Deferred to T009n:**
+  - Position scale and track/bone mapping.
+  - Graph record semantics and transition durations.
+
+- [ ] **T009n · Sample/bone mapping and graph semantics**
+  Determine the sample position scale, map sample tracks to skeleton bones/clips, and map binary graph records to states, edges and transition durations.
+  Done when: representative sample tracks drive a posed skeleton and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
