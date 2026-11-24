@@ -30,6 +30,9 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
 			AssetCommandKind.World => Worlds(command, catalog, assets, output, error),
 			AssetCommandKind.Scene => Scenes(command, catalog, assets, output, error),
+			AssetCommandKind.Collision => Collisions(command, catalog, assets, output, error),
+			AssetCommandKind.Occlusion => Occlusions(command, catalog, assets, output, error),
+			AssetCommandKind.Navigation => Navigations(command, catalog, assets, output, error),
 			AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
@@ -436,6 +439,7 @@ public static class AssetCatalogConsole
 					$"{entity.MeshFileName ?? "-"}\t" +
 					$"{entity.TemplateGuid?.ToString("D") ?? "-"}\t" +
 					$"{entity.NetworkResource ?? "-"}\t" +
+					$"{(entity.CollisionShapes.Count == 0 ? "-" : string.Join(';', entity.CollisionShapes.Select(shape => shape.ResourceName ?? "inline")))}\t" +
 					$"{(entity.IsTransformFinite ? "ok" : "non-finite")}");
 				foreach (var reference in entity.References)
 				{
@@ -444,11 +448,249 @@ public static class AssetCatalogConsole
 						$"\t\tref\t{reference.PropertySet}\t{reference.Property}\t" +
 						$"{reference.TypeName}\t{value}");
 				}
+
+				foreach (var shape in entity.CollisionShapes)
+				{
+					var translation = shape.LocalPose.Translation;
+					output.WriteLine(
+						$"\t\tcollision\t{shape.ResourceName ?? "-"}\t" +
+						$"{translation.X:0.###},{translation.Y:0.###},{translation.Z:0.###}");
+				}
 			}
 		}
 
 		error.WriteLine($"Showing {shown} of {matches.Count:N0} scene(s); parsed {parsed:N0}.");
 		return 0;
+	}
+
+	private static int Collisions(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Collision warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "col", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			ElexCollisionMesh mesh;
+			try
+			{
+				mesh = ElexCollisionMesh.Parse(resource.Name, resource.VirtualPath, ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping collision mesh '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			var min = mesh.BoundsMin;
+			var max = mesh.BoundsMax;
+			output.WriteLine(
+				$"{mesh.Name}\t{mesh.Vertices.Count}\t{mesh.TriangleCount}\t" +
+				$"{min.X:0.###},{min.Y:0.###},{min.Z:0.###}\t" +
+				$"{max.X:0.###},{max.Y:0.###},{max.Z:0.###}\t{mesh.SourcePath}");
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} collision mesh(es); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static int Occlusions(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Occlusion warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "ocm", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			ElexOcclusionMesh mesh;
+			try
+			{
+				mesh = ElexOcclusionMesh.Parse(resource.Name, resource.VirtualPath, ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping occlusion mesh '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			var min = mesh.BoundsMin;
+			var max = mesh.BoundsMax;
+			output.WriteLine(
+				$"{mesh.Name}\t{mesh.Vertices.Count}\t{mesh.TriangleCount}\t" +
+				$"{min.X:0.###},{min.Y:0.###},{min.Z:0.###}\t" +
+				$"{max.X:0.###},{max.Y:0.###},{max.Z:0.###}\t{mesh.SourcePath}");
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} occlusion mesh(es); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static int Navigations(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Navigation warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "sec", StringComparison.OrdinalIgnoreCase) &&
+			resource.Name.Contains("Nav", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			ElexScene scene;
+			try
+			{
+				scene = ElexScene.Parse(resource.Name, resource.VirtualPath, ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping navigation sector '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			var flexPaths = 0;
+			var connectors = 0;
+			var helpers = 0;
+			foreach (var entity in scene.Entities)
+			{
+				var kind = GetNavigationKind(entity);
+				if (kind is null)
+				{
+					continue;
+				}
+
+				if (kind == "flex")
+				{
+					flexPaths++;
+				}
+				else if (kind == "connector")
+				{
+					connectors++;
+				}
+				else
+				{
+					helpers++;
+				}
+			}
+
+			output.WriteLine(
+				$"{scene.Name}\t{flexPaths}\t{connectors}\t{helpers}\t" +
+				$"{scene.Entities.Count}\t{scene.SourcePath}");
+			if (!command.ShowProperties)
+			{
+				continue;
+			}
+
+			foreach (var entity in scene.Entities)
+			{
+				var kind = GetNavigationKind(entity);
+				if (kind is null)
+				{
+					continue;
+				}
+
+				var position = entity.WorldPosition;
+				output.WriteLine(
+					$"\tnav\t{kind}\t{entity.Name}\t" +
+					$"{position.X:0.###},{position.Y:0.###},{position.Z:0.###}");
+			}
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} navigation sector(s); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static string? GetNavigationKind(ElexSceneEntity entity)
+	{
+		foreach (var propertySet in entity.PropertySets)
+		{
+			var name = GenomeNameTable.GetNameOrHash(propertySet.ClassHash);
+			if (string.Equals(name, "class gCNavFlexPath_PS", StringComparison.Ordinal))
+			{
+				return "flex";
+			}
+
+			if (string.Equals(name, "class gCNavOffMeshConnector_PS", StringComparison.Ordinal))
+			{
+				return "connector";
+			}
+
+			if (string.Equals(name, "class gCAIHelper_FreePoint_PS", StringComparison.Ordinal))
+			{
+				return "helper";
+			}
+		}
+
+		return null;
 	}
 
 	private static byte[] ReadAsset(AssetFileSystem assets, ElexResource resource)

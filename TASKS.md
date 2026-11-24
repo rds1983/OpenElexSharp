@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T011**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T012**.
 
 ---
 
@@ -355,9 +355,26 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Resolve NPC species/gender to a visual template/mesh.
   - Confirm world units and the 36-byte `wrl` trailer.
 
-- [ ] **T011 · Collision and navigation data**
+- [x] **T011 · Collision and navigation data**
   Extract collision geometry suitable for BepuPhysics2 static bodies, plus navigation mesh data for NPC pathing. Document both formats. Also investigate the GMSH per-triangle cluster block and GAR5 trailer as potential occlusion/collision data.
   Done when: a level's collision can be rendered as a wireframe/debug shape and matches visible geometry closely enough for movement.
+  **Completed 2026-11-25 — collision/occlusion triangles, scene shape links and nav annotations.**
+  - `ElexCollisionMesh` parses 2,138 of 2,141 `col` resources (16/32-bit indices); 3 `_CV` convex
+    resources use an unsupported layout.
+  - `ElexOcclusionMesh` parses all 299 `ocm` resources (48-byte header, `float4` vertices, `uint16`
+    indices).
+  - `ElexSceneEntity.CollisionShapes` links entities to `col` resources through
+    `eCPhysicsActor_PS.Shapes` / `eCCollisionShapeMesh.MeshResource`.
+  - Navigation is not baked: 17 `*_Nav` sectors contain flex paths, off-mesh connectors and helper
+    points; the walkable mesh is generated from collision at runtime.
+  - `--collision` draws a green wireframe (metres scaled by 100); trapdoor and castle captures match
+    the visible geometry.
+  - GMSH cluster block and GAR5 trailer are not collision/occlusion data.
+  - 12 new tests; 479 tests, Debug/Release warning-free.
+  **Open follow-ups:**
+  - Decode the remaining `SEBD` header fields and the `_CV` convex layout.
+  - Remove the collision vertex-array scan by finding its stored offset.
+  - Resolve the 36-byte `ocm` trailer and nav flag/cost semantics.
 
 - [ ] **T012 · Audio assets**
   Identify and document audio containers (FMOD banks/streams and any wrappers), including sample metadata and decoding requirements. Playback itself is scheduled in M3.

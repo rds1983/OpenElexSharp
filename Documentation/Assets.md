@@ -14,6 +14,9 @@ dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--
 dotnet run --project OpenElexSharp -- assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets world [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets scene [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets collision [substring] [--limit <n>|--all] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets occlusion [substring] [--limit <n>|--all] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets navigation [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -87,8 +90,9 @@ dotnet run --project OpenElexSharp -- assets world World --properties
 
 Parses `sec` static scene sectors. Prints the sector name, total entity count, number of entities with
 a mesh, and ROM path. `--properties` prints the entity graph depth-first as tab-separated rows with
-depth, name, world position, world rotation quaternion, mesh name, template GUID, animation network and
-a transform flag. Decoded GUID and resource references follow each entity as `ref` rows.
+depth, name, world position, world rotation quaternion, mesh name, template GUID, animation network,
+attached collision resources and a transform flag. Decoded GUID/resource references and collision poses
+follow each entity as `ref` and `collision` rows.
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets scene ABE_AbessaCity_Items --limit 1 --properties
@@ -96,6 +100,36 @@ dotnet run --project OpenElexSharp -- assets scene XAC_Interacts --limit 1 --pro
 ```
 
 See [Formats/Worlds.md](Formats/Worlds.md).
+
+### `collision`
+
+Parses `col` collision meshes. Prints name, vertex count, triangle count, local bounds and ROM path.
+2,138 of 2,141 resources parse; the three `_CV` convex variants use a different layout.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets collision Castle --limit 5
+```
+
+### `occlusion`
+
+Parses `ocm` occlusion meshes with the same output columns. All 299 resources parse.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets occlusion Palisade --limit 5
+```
+
+### `navigation`
+
+Summarizes `*_Nav` scene sectors. Prints name, flex-path count, off-mesh-connector count, helper count,
+entity count and ROM path. `--properties` lists each nav annotation with its kind and world position.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets navigation Converter --properties
+dotnet run --project OpenElexSharp -- assets navigation --all
+```
+
+There is no baked nav-mesh resource; the walkable mesh is built from collision at runtime. See
+[Formats/Collision.md](Formats/Collision.md).
 
 ### `textures`
 
@@ -191,7 +225,9 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `GenomeObject` / `GenomeHeaderDocument` / `GenomeStringTable` | GEC2 objects, DT01 documents and GENOMFLE string tables. |
 | `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
 | `ElexWorld` | `wrl` terrain path and ordered sector list. |
-| `ElexScene` / `ElexSceneEntity` | `sec` entity trees, local/world transforms, mesh/template/network links. |
+| `ElexScene` / `ElexSceneEntity` | `sec` entity trees, local/world transforms, mesh/template/network/collision links. |
+| `ElexCollisionMesh` | `col` triangle collision mesh with 16- or 32-bit indices. |
+| `ElexOcclusionMesh` | `ocm` occlusion triangle mesh. |
 | `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
 | `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
 | `GmshMesh` | GMSH v2 geometry, GPU indices, packed vertex streams and buffer descriptors. |
@@ -231,7 +267,7 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
-`assets world --all --properties` lists all four worlds and 436 sectors in roughly 3 seconds. `assets scene --all` parses all 481 sectors with 376,186 entities in roughly 15 seconds.
+`assets world --all --properties` lists all four worlds and 436 sectors in roughly 3 seconds. `assets scene --all` parses all 481 sectors with 376,186 entities in roughly 15 seconds. `assets collision --all` parses 2,138 collision meshes in roughly 5 seconds; `assets occlusion --all` parses all 299 occlusion meshes and `assets navigation --all` the 17 nav sectors in roughly 3 seconds each.
 
 `assets animations --all` parses all 34 motion networks in roughly 15 seconds. The 59.6 MB `Male` network dominates the readable-name, transition, quantized-sample and sample-track scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
 
@@ -255,7 +291,9 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources; 1,045 expose decoded bind transforms, 225 expose names/parents only, and 50 creature/female/hologram tails use an unrecognized layout. Skinned mesh rendering is still T106/T102.
 - `net` motion networks expose readable names, static clip poses, transitions, hierarchical paths, binary state-machine blocks with named states where available, timed transition records, quantized sample tracks and duration-group sampled poses; state-name tables with inline GUIDs and the semantics of the state template values remain open.
-- `wrl`/`sec` worlds and sectors decode the sector list, entity tree, row-major transforms, mesh/template GUIDs and animation-network references. The 6-byte entity field, 133-byte dynamic-entity tail, world units and NPC species-to-visual resolution remain open.
+- `wrl`/`sec` worlds and sectors decode the sector list, entity tree, row-major transforms, mesh/template GUIDs, animation networks and attached collision shapes. The 6-byte entity field, 133-byte dynamic-entity tail, world units and NPC species-to-visual resolution remain open.
+- `col` collision meshes parse 2,138 of 2,141 resources; the three `_CV` convex variants and the `SEBD` header fields beyond the counts remain open. `ocm` occlusion meshes parse all 299 resources.
+- Navigation has no baked mesh resource; the 17 `*_Nav` sectors contain flex-path and off-mesh-connector annotations, while the walkable mesh is generated from collision at runtime.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks

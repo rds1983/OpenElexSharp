@@ -17,6 +17,11 @@ public sealed record ElexSceneReference(
 	Guid? ReferenceGuid,
 	string? Resource);
 
+/// <summary>One collision shape attached to a scene entity.</summary>
+/// <param name="ResourceName">Collision mesh resource name, when the shape references one.</param>
+/// <param name="LocalPose">Shape pose relative to the entity.</param>
+public sealed record ElexCollisionShape(string? ResourceName, Matrix4x4 LocalPose);
+
 /// <summary>
 /// One <c>eCDynamicEntity</c> in a scene-sector resource. The local transform is the leading
 /// <c>bCMatrix</c> of its <c>eCDynamicEntity</c> class data; the world transform is composed with the
@@ -34,6 +39,7 @@ public sealed record ElexSceneEntity(
 	IReadOnlyList<ElexSceneEntity> Children,
 	string? MeshFileName,
 	string? NetworkResource,
+	IReadOnlyList<ElexCollisionShape> CollisionShapes,
 	IReadOnlyList<ElexSceneReference> References)
 {
 	/// <summary>World-space translation.</summary>
@@ -94,6 +100,24 @@ public sealed class ElexScene
 
 	/// <summary>Hash of <c>class bCGuid</c>.</summary>
 	public const uint GuidTypeHash = 0x101D3889;
+
+	/// <summary>Hash of <c>class bCMatrix</c>.</summary>
+	public const uint MatrixTypeHash = 0x98E8DA35;
+
+	/// <summary>Hash of <c>class eCPhysicsActor_PS</c>.</summary>
+	public const uint PhysicsActorClassHash = 0xC9D6C7C1;
+
+	/// <summary>Hash of the <c>Shapes</c> property.</summary>
+	public const uint ShapesPropertyHash = 0xD10C4009;
+
+	/// <summary>Hash of <c>class eCCollisionShapeMesh</c>.</summary>
+	public const uint CollisionShapeMeshClassHash = 0x89063DED;
+
+	/// <summary>Hash of the <c>MeshResource</c> property.</summary>
+	public const uint MeshResourcePropertyHash = 0xF2E29A7A;
+
+	/// <summary>Hash of the <c>LocalPose</c> property.</summary>
+	public const uint LocalPosePropertyHash = 0xA6736447;
 
 	private const int Gar5WrapperSize = 44;
 	private const int MatrixSize = 64;
@@ -247,6 +271,7 @@ public sealed class ElexScene
 
 		var meshFileName = FindStringProperty(propertySets, MeshFileNamePropertyHash, allowResource: false);
 		var networkResource = FindStringProperty(propertySets, NetworkResourcePropertyHash, allowResource: true);
+		var collisionShapes = CollectCollisionShapes(propertySets);
 		var references = CollectReferences(propertySets);
 		var entity = new ElexSceneEntity(
 			entityName,
@@ -260,6 +285,7 @@ public sealed class ElexScene
 			children,
 			meshFileName,
 			networkResource,
+			collisionShapes,
 			references);
 		return (entity, genomeObject.Offset + genomeObject.Size);
 	}
@@ -326,6 +352,65 @@ public sealed class ElexScene
 	private static bool IsResourceProxyType(uint typeHash) =>
 		GenomeNameTable.GetNameOrHash(typeHash)
 			.StartsWith("class eTResourceProxy", StringComparison.Ordinal);
+
+	private static ElexCollisionShape[] CollectCollisionShapes(
+		IReadOnlyList<GenomeObject> propertySets)
+	{
+		var shapes = new List<ElexCollisionShape>();
+		foreach (var propertySet in propertySets)
+		{
+			if (propertySet.ClassHash != PhysicsActorClassHash)
+			{
+				continue;
+			}
+
+			foreach (var property in propertySet.Properties)
+			{
+				if (property.NameHash != ShapesPropertyHash || property.Data.Length < 4)
+				{
+					continue;
+				}
+
+				var count = BinaryPrimitives.ReadUInt32LittleEndian(property.Data);
+				if (count > 4096)
+				{
+					throw new GenomeFormatException("Scene collision shape list is too large.");
+				}
+
+				var position = 4;
+				for (var index = 0; index < count; index++)
+				{
+					var shape = GenomeObject.Parse(property.Data, position);
+					position += shape.Size;
+					if (shape.ClassHash != CollisionShapeMeshClassHash)
+					{
+						continue;
+					}
+
+					string? resource = null;
+					var localPose = Matrix4x4.Identity;
+					foreach (var shapeProperty in shape.Properties)
+					{
+						if (shapeProperty.NameHash == MeshResourcePropertyHash &&
+							IsResourceProxyType(shapeProperty.TypeHash))
+						{
+							resource = ReadString(shapeProperty.Data);
+						}
+						else if (shapeProperty.NameHash == LocalPosePropertyHash &&
+							shapeProperty.TypeHash == MatrixTypeHash &&
+							shapeProperty.Data.Length >= MatrixSize)
+						{
+							localPose = ReadMatrix(shapeProperty.Data).Matrix;
+						}
+					}
+
+					shapes.Add(new ElexCollisionShape(resource, localPose));
+				}
+			}
+		}
+
+		return [.. shapes];
+	}
 
 	private static ElexSceneReference[] CollectReferences(IReadOnlyList<GenomeObject> propertySets)
 	{

@@ -20,6 +20,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that loads a motion network and displays a skeleton pose.</summary>
 	public const string AnimationArgument = "--animation";
 
+	/// <summary>The argument that loads a collision mesh and draws it as a wireframe.</summary>
+	public const string CollisionArgument = "--collision";
+
 	/// <summary>The argument that writes the rendered back buffer to a PNG file.</summary>
 	public const string CaptureArgument = "--capture";
 
@@ -52,6 +55,11 @@ public sealed class LaunchOptions
 	public string? Animation { get; private init; }
 
 	/// <summary>
+	/// Gets the collision resource name (or substring) drawn as a wireframe in the test scene.
+	/// </summary>
+	public string? Collision { get; private init; }
+
+	/// <summary>
 	/// Gets the PNG path that receives a copy of the rendered back buffer after a few frames.
 	/// </summary>
 	public string? CapturePath { get; private init; }
@@ -70,6 +78,7 @@ public sealed class LaunchOptions
 		string? texture = null;
 		string? mesh = null;
 		string? animation = null;
+		string? collision = null;
 		string? capturePath = null;
 
 		for (var index = 0; index < args.Count; index++)
@@ -140,6 +149,22 @@ public sealed class LaunchOptions
 					argument[(AnimationArgument.Length + 1)..],
 					nameof(args));
 			}
+			else if (string.Equals(argument, CollisionArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				if (index + 1 >= args.Count)
+				{
+					throw new ArgumentException($"{CollisionArgument} requires a value.", nameof(args));
+				}
+
+				collision = ParseValue(CollisionArgument, args[++index], nameof(args));
+			}
+			else if (argument.StartsWith(CollisionArgument + "=", StringComparison.OrdinalIgnoreCase))
+			{
+				collision = ParseValue(
+					CollisionArgument,
+					argument[(CollisionArgument.Length + 1)..],
+					nameof(args));
+			}
 			else if (string.Equals(argument, CaptureArgument, StringComparison.OrdinalIgnoreCase))
 			{
 				if (index + 1 >= args.Count)
@@ -169,6 +194,7 @@ public sealed class LaunchOptions
 			Texture = texture,
 			Mesh = mesh,
 			Animation = animation,
+			Collision = collision,
 			CapturePath = capturePath,
 		};
 	}

@@ -30,6 +30,8 @@ public sealed class OpenElexGame : Game
 	private Texture2D? _texture;
 	private Texture2D? _fallback;
 	private DrMesh? _mesh;
+	private ElexCollisionMesh? _collision;
+	private VertexPositionColor[]? _collisionLines;
 	private MaterialLibrary? _materials;
 	private Skeleton? _skeleton;
 	private MotionNetwork? _network;
@@ -106,7 +108,25 @@ public sealed class OpenElexGame : Game
 			{
 				Console.Error.WriteLine($"Mesh warning: {exception.Message}");
 			}
+		}
 
+		if (!string.IsNullOrWhiteSpace(_options.Collision))
+		{
+			try
+			{
+				LoadCollision(_options.Collision);
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or Gar5FormatException or NotSupportedException or
+					IOException or UnauthorizedAccessException or AssetNotFoundException or
+					InvalidOperationException or ArgumentException)
+			{
+				Console.Error.WriteLine($"Collision warning: {exception.Message}");
+			}
+		}
+
+		if (_mesh is not null || _collisionLines is not null)
+		{
 			return;
 		}
 
@@ -165,7 +185,7 @@ public sealed class OpenElexGame : Game
 		{
 			DrawSkeleton(gameTime);
 		}
-		else if (_mesh is not null)
+		else if (_mesh is not null || _collisionLines is not null)
 		{
 			DrawMesh(gameTime);
 		}
@@ -367,8 +387,11 @@ public sealed class OpenElexGame : Game
 
 	private void DrawMesh(GameTime gameTime)
 	{
-		var mesh = _mesh!;
-		var box = ComputeMeshBounds(mesh);
+		var box = _mesh is not null ?
+			ComputeMeshBounds(_mesh) :
+			new BoundingBox(
+				new Vector3(_collision!.BoundsMin.X, _collision.BoundsMin.Y, _collision.BoundsMin.Z),
+				new Vector3(_collision.BoundsMax.X, _collision.BoundsMax.Y, _collision.BoundsMax.Z));
 		var center = (box.Min + box.Max) * 0.5f;
 		var radius = Math.Max(0.001f, Vector3.Distance(center, box.Max));
 		var time = (float)gameTime.TotalGameTime.TotalSeconds;
@@ -385,7 +408,16 @@ public sealed class OpenElexGame : Game
 
 		_renderer!.BeginFrame(view, projection);
 		_renderer.Clear(new Color(16, 18, 24));
-		_renderer.DrawMesh(mesh, Matrix.Identity);
+		if (_mesh is not null)
+		{
+			_renderer.DrawMesh(_mesh, Matrix.Identity);
+		}
+
+		if (_collisionLines is not null)
+		{
+			_renderer.DrawLines(_collisionLines, Matrix.Identity, depthTest: false);
+		}
+
 		_renderer.EndFrame();
 	}
 
@@ -447,6 +479,38 @@ public sealed class OpenElexGame : Game
 
 		return result;
 	}
+
+	private void LoadCollision(string query)
+	{
+		var resources = BuildResourceIndex();
+		var resource = FindResource(resources, query, "col");
+		_collision = ElexCollisionMesh.Parse(
+			resource.Name,
+			resource.VirtualPath,
+			ReadAll(resource.VirtualPath));
+		var vertices = _collision.Vertices;
+		var indices = _collision.Indices;
+		var lines = new VertexPositionColor[indices.Count * 2];
+		var cursor = 0;
+		for (var triangle = 0; triangle < indices.Count; triangle += 3)
+		{
+			for (var edge = 0; edge < 3; edge++)
+			{
+				var from = indices[triangle + edge];
+				var to = indices[triangle + (edge + 1) % 3];
+				lines[cursor++] = new VertexPositionColor(ToXna(vertices[from]) * 100f, Color.Lime);
+				lines[cursor++] = new VertexPositionColor(ToXna(vertices[to]) * 100f, Color.Lime);
+			}
+		}
+
+		_collisionLines = lines;
+		Console.WriteLine(
+			$"Collision: {resource.Name} vertices={vertices.Count} triangles={_collision.TriangleCount} " +
+			$"lines={_collision.TriangleCount * 3} scale=100 (metres to mesh units)");
+	}
+
+	private static Vector3 ToXna(System.Numerics.Vector3 value) =>
+		new(value.X, value.Y, value.Z);
 
 	private static BoundingBox ComputeMeshBounds(DrMesh mesh)
 	{

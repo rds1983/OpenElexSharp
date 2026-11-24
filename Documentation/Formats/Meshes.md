@@ -284,7 +284,9 @@ ranges: 0+180, 180+168, 348+1440, 1788+222 = 2,010 indices
 
 ## Open questions
 
-- Meaning of the per-triangle cluster block before the `0xFEEDFACE` sentinel.
+- Meaning of the per-triangle cluster block before the `0xFEEDFACE` sentinel. T011 found no reference
+  from collision (`col`) or occlusion (`ocm`) resources, so it is render-side metadata rather than
+  physics data.
 - Meaning of the 44-byte GAR5 trailer and its offsets.
 - Semantics of attribute field 12 (observed shader-slot values) and the unused 2 bits of packed normals.
 - Whether more than two UV sets can share a stream and how `UsageOffset` scales for them.

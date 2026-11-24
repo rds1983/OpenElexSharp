@@ -68,6 +68,15 @@ internal static class Gec2TestBuilder
 		return data;
 	}
 
+	public static byte[] WrapRaw(byte[] payload)
+	{
+		var data = new byte[44 + payload.Length];
+		"GAR5"u8.CopyTo(data);
+		BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(4), 0x20);
+		payload.CopyTo(data, 44);
+		return data;
+	}
+
 	public static byte[] Wrap(byte[] payload, string? resourceName = null)
 	{
 		var outer = new byte[44];

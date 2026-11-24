@@ -55,7 +55,7 @@ dotnet run --project OpenElexSharp
 dotnet run --project OpenElexSharp -- --mesh Mesh_Male_FullBody_Alb_High_01_L1 --animation Male
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. `--mesh <skn resource> --animation <net resource>` displays a decoded skeleton driven by the largest duration-grouped sample set (falling back to a blend between the two largest clips); add `--smoke-test`/`--capture <path>` for automated checks. All scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. Full materials, skinned meshes and world rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. `--mesh <skn resource> --animation <net resource>` displays a decoded skeleton driven by the largest duration-grouped sample set (falling back to a blend between the two largest clips). `--collision <col resource>` draws a collision wireframe (scaled from metres to mesh centimetres) and can be combined with `--mesh`; add `--smoke-test`/`--capture <path>` for automated checks. All scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. Full materials, skinned meshes and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -74,10 +74,13 @@ dotnet run --project OpenElexSharp -- assets animations Chest --properties
 dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1 --properties
 dotnet run --project OpenElexSharp -- assets world World --properties
 dotnet run --project OpenElexSharp -- assets scene ABE_AbessaCity_Items --limit 1 --properties
+dotnet run --project OpenElexSharp -- assets collision Castle --limit 5
+dotnet run --project OpenElexSharp -- assets occlusion Palisade --limit 5
+dotnet run --project OpenElexSharp -- assets navigation --all --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/Formats/Animations.md](Documentation/Formats/Animations.md), [Documentation/Formats/Worlds.md](Documentation/Formats/Worlds.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/Formats/Materials.md](Documentation/Formats/Materials.md), [Documentation/Formats/Skeletons.md](Documentation/Formats/Skeletons.md), [Documentation/Formats/Animations.md](Documentation/Formats/Animations.md), [Documentation/Formats/Worlds.md](Documentation/Formats/Worlds.md), [Documentation/Formats/Collision.md](Documentation/Formats/Collision.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -89,9 +92,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 68 | 13116 | 11385 | 409.1 KB |
-| Tests | 57 | 7507 | 6328 | 220.1 KB |
-| **Total** | **125** | **20623** | **17713** | **629.2 KB** |
+| Engine | 70 | 13980 | 12136 | 436.4 KB |
+| Tests | 59 | 7763 | 6548 | 227.9 KB |
+| **Total** | **129** | **21743** | **18684** | **664.3 KB** |
 
 ## Credits
 

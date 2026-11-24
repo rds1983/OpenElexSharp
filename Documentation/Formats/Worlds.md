@@ -116,7 +116,8 @@ hundred-thousands.
 | Template | `class gCItem_PS` (`0xF3C909F6`) | `ItemInventory` (`0xBE2D6DC2`) | 16-byte `eCTemplateEntityProxy` GUID. |
 | Template | `class gCRecipe_PS` (`0xA8AE257F`) | `ResultItem` (`0xCA639773`) | 16-byte `eCTemplateEntityProxy` GUID. |
 | Animation network | `class eCAnimation3Controller_PS` (`0xD256AADC`) | `NetworkResource` (`0xE186AC77`) | `eTResourceProxy` string, for example `Male`. |
-| Collision | `class gCLadder_PS` | `Mesh` | `eTResourceProxy` mesh name. |
+| Collision | `class eCPhysicsActor_PS` (`0xC9D6C7C1`) | `Shapes` (`0xD10C4009`) | Embedded `eCCollisionShapeMesh` list; each has a `MeshResource` (`col`) and `LocalPose`. |
+| Ladder collision | `class gCLadder_PS` | `Mesh` | `eTResourceProxy` mesh name. |
 | Entity/template proxies | any property set | various | `class eCEntityProxy`, `class eCTemplateEntityProxy`, `class bCGuid`. |
 
 Static decorations, buildings and items carry an `eCMesh_PS` directly, so no separate template lookup
@@ -177,9 +178,10 @@ dotnet run --project OpenElexSharp -- assets scene XAC_Interacts --limit 1 --pro
 `world` prints name, sector count, terrain path and source; `--properties` lists every sector name.
 `scene` prints name, entity count, mesh count and source; `--properties` prints one tab-separated row
 per entity with depth, name, world position, world rotation quaternion, mesh, template GUID,
-animation network and a transform flag, followed by decoded GUID/resource references. `EDA_Decals`
-contains entities whose matrix has non-finite components; the parser replaces those components with
-zero, keeps the entity in the graph and marks the transform as `non-finite`.
+animation network, attached collision resources and a transform flag, followed by decoded
+GUID/resource and collision reference rows. `EDA_Decals` contains entities whose matrix has non-finite
+components; the parser replaces those components with zero, keeps the entity in the graph and marks
+the transform as `non-finite`.
 
 ## Related tasks
 

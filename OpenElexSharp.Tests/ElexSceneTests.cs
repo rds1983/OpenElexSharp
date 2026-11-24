@@ -108,6 +108,36 @@ public class ElexSceneTests
 	}
 
 	[Fact]
+	public void Parse_ReadsCollisionShapes()
+	{
+		var shape = Gec2TestBuilder.Object(
+			ElexScene.CollisionShapeMeshClassHash,
+			3,
+			[],
+			[
+				(0xE859C8C9, ElexScene.MeshResourcePropertyHash,
+					Gec2TestBuilder.String("Test_COL")),
+				(ElexScene.MatrixTypeHash, ElexScene.LocalPosePropertyHash,
+					Gec2TestBuilder.Matrix(Matrix4x4.CreateTranslation(1, 2, 3))),
+			]);
+		var shapesData = new List<byte>();
+		WriteUInt32(shapesData, 1);
+		shapesData.AddRange(shape);
+		var physics = Gec2TestBuilder.PropertySet(
+			ElexScene.PhysicsActorClassHash,
+			1,
+			(0x8905C29C, ElexScene.ShapesPropertyHash, [.. shapesData]));
+		var child = BuildEntity("Collider", Guid.NewGuid(), Matrix4x4.Identity, [physics], []);
+		var root = BuildEntity("", Guid.Empty, Matrix4x4.Identity, [], [child]);
+
+		var scene = ElexScene.Parse("Collision", "test.rom", BuildScene(root));
+
+		var collisionShape = Assert.Single(scene.Entities[1].CollisionShapes);
+		Assert.Equal("Test_COL", collisionShape.ResourceName);
+		Assert.Equal(new Vector3(1, 2, 3), collisionShape.LocalPose.Translation);
+	}
+
+	[Fact]
 	public void Parse_SanitizesNonFiniteTransform()
 	{
 		var matrix = Matrix4x4.Identity;

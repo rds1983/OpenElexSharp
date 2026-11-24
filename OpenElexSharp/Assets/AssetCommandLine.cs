@@ -12,6 +12,9 @@ public enum AssetCommandKind
 	Templates,
 	World,
 	Scene,
+	Collision,
+	Occlusion,
+	Navigation,
 	Textures,
 	Meshes,
 	Materials,
@@ -37,6 +40,9 @@ public sealed class AssetCommandLine
           OpenElexSharp assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets world [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets scene [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets collision [substring] [--limit <n>|--all] [--elex-path <path>]
+          OpenElexSharp assets occlusion [substring] [--limit <n>|--all] [--elex-path <path>]
+          OpenElexSharp assets navigation [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
           OpenElexSharp assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -53,6 +59,9 @@ public sealed class AssetCommandLine
         templates      Lists entity/item templates and inheritance information.
         world          Lists world definitions (wrl) and their scene sectors.
         scene          Lists scene sectors (sec) and their entity graph.
+        collision      Inspects collision meshes (col) and their triangles.
+        occlusion      Inspects occlusion meshes (ocm) and their triangles.
+        navigation     Summarizes navigation annotations in Nav sectors.
         textures       Inspects DDS image resources and texture metadata.
         meshes         Inspects GMSH static meshes and vertex layouts.
         materials      Inspects material resources, shaders and texture bindings.
@@ -152,6 +161,20 @@ public sealed class AssetCommandLine
 			case "sector":
 			case "sectors":
 				kind = AssetCommandKind.Scene;
+				break;
+			case "collision":
+			case "collisions":
+			case "col":
+				kind = AssetCommandKind.Collision;
+				break;
+			case "occlusion":
+			case "occlusions":
+			case "ocm":
+				kind = AssetCommandKind.Occlusion;
+				break;
+			case "navigation":
+			case "nav":
+				kind = AssetCommandKind.Navigation;
 				break;
 			case "textures":
 				kind = AssetCommandKind.Textures;

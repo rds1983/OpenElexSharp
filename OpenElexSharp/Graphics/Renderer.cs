@@ -157,9 +157,12 @@ public sealed class Renderer : IDisposable
 	}
 
 	/// <summary>Draws a list of colored line segments.</summary>
+	/// <param name="vertices">Line-list vertices.</param>
+	/// <param name="world">World matrix.</param>
+	/// <param name="depthTest">Whether the lines should be occluded by existing geometry.</param>
 	/// <exception cref="ArgumentNullException"><paramref name="vertices"/> is <see langword="null"/>.</exception>
 	/// <exception cref="ArgumentException">The vertex count is not even.</exception>
-	public void DrawLines(VertexPositionColor[] vertices, Matrix world)
+	public void DrawLines(VertexPositionColor[] vertices, Matrix world, bool depthTest = true)
 	{
 		EnsureFrameOpen(nameof(DrawLines));
 		ArgumentNullException.ThrowIfNull(vertices);
@@ -174,14 +177,27 @@ public sealed class Renderer : IDisposable
 		}
 
 		_lineEffect.World = world;
-		foreach (var pass in _lineEffect.CurrentTechnique.Passes)
+		var savedDepthState = _device.DepthStencilState;
+		if (!depthTest)
 		{
-			pass.Apply();
-			_device.DrawUserPrimitives(
-				PrimitiveType.LineList,
-				vertices,
-				0,
-				vertices.Length / 2);
+			_device.DepthStencilState = DepthStencilState.None;
+		}
+
+		try
+		{
+			foreach (var pass in _lineEffect.CurrentTechnique.Passes)
+			{
+				pass.Apply();
+				_device.DrawUserPrimitives(
+					PrimitiveType.LineList,
+					vertices,
+					0,
+					vertices.Length / 2);
+			}
+		}
+		finally
+		{
+			_device.DepthStencilState = savedDepthState;
 		}
 
 		++DrawCalls;
