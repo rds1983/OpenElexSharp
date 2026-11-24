@@ -1,11 +1,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using OpenElexSharp.Assets;
 
 namespace OpenElexSharp;
 
 /// <summary>
-/// The MonoGame application. For now it only opens a window, clears it and handles the
-/// smoke-test exit; world loading and rendering are added by later tasks.
+/// The MonoGame application. For now it opens a window, clears it and handles the smoke-test exit;
+/// world loading and rendering are added by later tasks.
 /// </summary>
 public sealed class OpenElexGame : Game
 {
@@ -15,11 +16,13 @@ public sealed class OpenElexGame : Game
     private readonly LaunchOptions _options;
     private int _updateCount;
 
-    public OpenElexGame(LaunchOptions options)
+    public OpenElexGame(LaunchOptions options, AssetFileSystem assets)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(assets);
 
         _options = options;
+        Assets = assets;
         _graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1280,
@@ -32,6 +35,9 @@ public sealed class OpenElexGame : Game
         Window.AllowUserResizing = true;
         Window.Title = "OpenElexSharp";
     }
+
+    /// <summary>The mounted game assets.</summary>
+    public AssetFileSystem Assets { get; }
 
     protected override void Update(GameTime gameTime)
     {

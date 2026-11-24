@@ -2,7 +2,7 @@
 
 An open-source, from-scratch C# implementation of the **ELEX** engine and game runtime (Piranha Bytes, 2017), built on MonoGame.
 
-> **Status: pre-alpha.** Repository foundation and asset-format research. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
+> **Status: pre-alpha.** Asset mounting and asset-format research. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
 
 OpenElexSharp reads assets from a local ELEX installation. **No game assets or game code are distributed with this project.**
 
@@ -47,12 +47,13 @@ Machine-specific settings (such as the local ELEX installation path) live in `AG
 ## Development
 
 ```powershell
+$env:ELEX_INSTALL_PATH = 'C:\Games\ELEX'   # or pass --elex-path <path>
 dotnet build OpenElexSharp.slnx
 dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-At this stage the app only opens a MonoGame window and clears it. Pass `--smoke-test` to render a few frames and exit with code 0 (used for automated verification). Game assets are not accessed yet; mounting arrives with T002.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders from `mount_packed.xml` and opens an empty window; PAK contents and rendering arrive in later tasks. See [Documentation/Mounts.md](Documentation/Mounts.md) for the mount model.
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -64,9 +65,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 3 | 117 | 97 | 3.2 KB |
-| Tests | 1 | 48 | 39 | 1.2 KB |
-| **Total** | **4** | **165** | **136** | **4.4 KB** |
+| Engine | 13 | 885 | 743 | 31.8 KB |
+| Tests | 8 | 962 | 792 | 29.5 KB |
+| **Total** | **21** | **1847** | **1535** | **61.3 KB** |
 
 ## Credits
 

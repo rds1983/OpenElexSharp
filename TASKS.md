@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T002**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T003**.
 
 ---
 
@@ -32,16 +32,17 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Done when: `dotnet build OpenElexSharp.slnx` and `dotnet test OpenElexSharp.slnx` pass with zero warnings; the app opens a MonoGame window and exits cleanly.
   Completed 2026-11-24 — Debug/Release build warning-free, 9 tests pass, local `--smoke-test` exits 0.
 
-- [ ] **T002 · Asset location and mount system**
+- [x] **T002 · Asset location and mount system**
   Resolve the ELEX installation from `ELEX_INSTALL_PATH` (and an equivalent launch argument), parse `data/ini/mount_packed.xml`, and expose a virtual file system that merges loose folders and packed volumes. Normalize virtual paths (case-insensitive), support enumeration and existence checks, and surface clear errors when the installation is missing.
-  Done when: unit tests with synthetic mount files pass, and the engine can list and open loose files from a real installation without embedding absolute paths.
+  Done when: unit tests with synthetic mount files pass, and the engine can list and open loose files from a real installation without embedding absolute paths. See `Documentation/Mounts.md`.
+  Completed 2026-11-24 — mount parsing, macro/path resolution and layered loose VFS; 99 tests; verified against the retail installation.
 
 - [ ] **T003 · PAK archive reader**
   Implement the G3V0 container / GAR5 entry archive format used by `data/packed/*.pak`: header, entry table, per-entry metadata, compression (if present) and streamed reads. Write `Documentation/Formats/Pak.md` first, covering layout, field semantics and open questions.
-  Done when: every file in the shipped archives can be listed, and payloads can be extracted and re-read consistently; synthetic fixtures cover headers, compressed/uncompressed entries and corrupt data.
+  Done when: every file in the shipped archives can be listed, and payloads can be extracted and re-read consistently; synthetic fixtures cover headers, compressed/uncompressed entries and corrupt data; `PackedMount` folders from T002 expose their contents through `AssetFileSystem`.
 
 - [ ] **T004 · Asset catalog and inspector**
-  Build an index of all virtual assets (path, size, mount, extension) with fast lookup, plus a developer tool (CLI or in-engine panel) to search paths, show statistics by extension, and export a single file for inspection. This is the main research instrument for the tasks below.
+  Build an index of all virtual assets (path, size, mount, extension) with fast lookup, plus a developer tool (CLI or in-engine panel) to search paths, show statistics by extension, and export a single file for inspection. This is the main research instrument for the tasks below. Note that some mounts expose the application folder, so binaries may appear in the index; report them separately and never open executable formats.
   Done when: listing the full archive index takes only a few seconds and the developer can inspect any asset without writing throwaway code.
 
 - [ ] **T005 · Genome object serialization**
@@ -242,3 +243,4 @@ Not committed to a milestone; revisit after T308.
 - **World streaming and occlusion** data may be only partially recoverable from assets.
 - **Archive performance**: the retail archives are multi-gigabyte; random access and indexing must be efficient.
 - **Save compatibility** with the original game is out of scope; OpenElexSharp defines its own save format.
+- **Mount semantics**: the meaning of `$(app)` and of `#Volume:/path` references is inferred from the retail layout; revisit if assets fail to resolve.
