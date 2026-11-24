@@ -185,6 +185,21 @@ The detector finds only this one block in `Weapons`; the other state offsets (`0
 `0x3E28`) begin directly with 40-byte record arrays. The five 64-bit slots are exposed but their
 state/edge/duration semantics are not mapped yet.
 
+### State record groups
+
+`Weapons` also exposes four state groups of 16 records plus a 24-byte trailer:
+
+```text
+Active  -> 16 records
+Aim     -> 16 records
+Shoot   -> 16 records
+Reload  -> 16 records
+```
+
+Each record is five `uint64` values; the first value is usually a small node reference or
+`0xFFFFFFFF`. `MotionGraphState` maps the groups to the state-name table in order. Transition
+durations and the node/edge semantics remain open (T009q).
+
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
 | `Crawler-Rig` | 176 | 3 |
@@ -307,6 +322,7 @@ per-target delta counts and the first two position/normal deltas.
 | `Male` simple transitions | 0 (hierarchical paths) |
 | Hierarchical state paths | 10,000 (`Male`, cap) |
 | Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
+| Mapped state groups (`Weapons`) | 4 (`Active`, `Aim`, `Shoot`, `Reload`) |
 | Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
 | Sample duration groups (`Male`) | 253 (largest 0.8 s / 85 tracks) |
 | Inferred sample position scale | `raw / 32767 × 100` model units |
@@ -340,13 +356,14 @@ per-target delta counts and the first two position/normal deltas.
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
+| State record groups | `OpenElexSharp/Assets/MotionGraphState.cs` |
 | Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
 | Sample-track codec | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
 | Sample grouping and sampled poses | `OpenElexSharp/Assets/MotionSampleGroup.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionGraphStateTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -363,6 +380,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009m - sample-track codec and interpolation.
 - T009n - sample scale and track-name mapping.
 - T009o - sample grouping and sampled poses.
-- T009p - graph semantics.
+- T009p - state record groups.
+- T009q - transition durations and sample/state association.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

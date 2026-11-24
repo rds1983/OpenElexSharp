@@ -651,6 +651,13 @@ public static class AssetCatalogConsole
 							$"\tgroups\t{network.SampleGroups.Count}\t" +
 							$"{string.Join(',', network.SampleGroups.Take(8).Select(group => $"{group.Duration:0.###}:{group.Tracks.Count}"))}");
 					}
+
+					foreach (var state in network.GraphStates)
+					{
+						output.WriteLine(
+							$"\tstate\t{state.Name}\trecords={state.Records.Count}\t" +
+							$"first={string.Join(',', state.Records.Take(4).Select(record => record[0]))}");
+					}
 				}
 			});
 	}

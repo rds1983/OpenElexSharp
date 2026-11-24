@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009p**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009q**.
 
 ---
 
@@ -301,9 +301,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Mapping binary graph records to states, edges and transition durations.
   - Reliable clip/state association for the sample groups.
 
-- [ ] **T009p · Graph semantics and state mapping**
-  Map binary graph record values to states, edges and transition durations, and associate sample groups with clips/states.
-  Done when: graph records map to states/durations and sample groups can be selected by state in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009p · Graph state record groups**
+  Map 40-byte binary graph records to named states.
+  Done when: state groups decode and the inspector exposes them.
+  **Completed 2026-11-25 — `MotionGraphState` maps 16-record groups to `Active`, `Aim`, `Shoot`, `Reload`.**
+  - State groups are 16 five-value records plus a 24-byte trailer; the state-name table order maps to the groups.
+  - `assets animations --properties` prints every mapped state and its first references.
+  - 4 new tests; 443 tests, Debug/Release warning-free.
+  **Deferred to T009q:**
+  - Transition durations and node/edge semantics.
+  - Association of sample groups with states/clips.
+
+- [ ] **T009q · Transition durations and sample/state association**
+  Decode transition durations and node/edge semantics, and associate duration-grouped sample tracks with states and clips.
+  Done when: transitions carry durations and a sample group can be selected by state in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

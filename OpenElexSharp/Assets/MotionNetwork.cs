@@ -31,6 +31,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<MotionQuaternionRun> quantizedQuaternionRuns,
 		IReadOnlyList<MotionSampleTrack> sampleTracks,
 		IReadOnlyList<MotionSampleGroup> sampleGroups,
+		IReadOnlyList<MotionGraphState> graphStates,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -44,6 +45,7 @@ public sealed class MotionNetwork
 		QuantizedQuaternionRuns = quantizedQuaternionRuns;
 		SampleTracks = sampleTracks;
 		SampleGroups = sampleGroups;
+		GraphStates = graphStates;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -75,6 +77,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Sample tracks grouped into animations by shared duration.</summary>
 	public IReadOnlyList<MotionSampleGroup> SampleGroups { get; }
+
+	/// <summary>Binary state groups mapped to state names, when recognized.</summary>
+	public IReadOnlyList<MotionGraphState> GraphStates { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -224,6 +229,7 @@ public sealed class MotionNetwork
 
 		var sampleTracks = MotionSampleTrack.FindAll(data, Gar5WrapperSize, mainEnd);
 		var sampleGroups = MotionSampleGroup.GroupByDuration(sampleTracks);
+		var graphStates = FindGraphStates(data, allTables, mainEnd);
 
 		return new MotionNetwork(
 			name,
@@ -235,6 +241,7 @@ public sealed class MotionNetwork
 			MotionSampleProbe.FindQuaternionRuns(data, Gar5WrapperSize, mainEnd),
 			sampleTracks,
 			sampleGroups,
+			graphStates,
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);
@@ -336,6 +343,35 @@ public sealed class MotionNetwork
 
 	private static bool IsBlendShapeTable(StringTable table) =>
 		table.Names.Exists(value => value.StartsWith("blendShape", StringComparison.OrdinalIgnoreCase));
+
+	private static IReadOnlyList<MotionGraphState> FindGraphStates(
+		byte[] data,
+		List<StringTable> tables,
+		int mainEnd)
+	{
+		foreach (var table in tables)
+		{
+			if (table.Names.Count < 2 || table.Names.Count > 16 ||
+				IsClipTable(table) || IsTransitionTable(table) || IsEventTable(table) ||
+				IsBlendShapeTable(table) ||
+				table.Names.Exists(name => name.Length == 0 || name.Contains(' ') || name.Contains('|')))
+			{
+				continue;
+			}
+
+			var names = table.Names.ToArray();
+			var searchEnd = Math.Min(mainEnd, table.StringEnd + 0x2000);
+			for (var start = table.StringEnd; start + names.Length * MotionGraphState.StateSize <= searchEnd; start += 4)
+			{
+				if (MotionGraphState.TryRead(data, start, names, out var states))
+				{
+					return states;
+				}
+			}
+		}
+
+		return [];
+	}
 
 	private static List<string> ReadStrings(byte[] data)
 	{
