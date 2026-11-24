@@ -569,6 +569,7 @@ public static class AssetCatalogConsole
 				output.WriteLine(
 					$"{resource.Name}\t{network.Strings.Count}\t{network.BoneNames.Count}\t" +
 					$"{network.Clips.Count}\t{network.Clips.Count(clip => clip.HasPose)}\t" +
+					$"{network.Transitions.Count}\t{network.StateNames.Count}\t" +
 					$"{resource.VirtualPath}");
 				if (showProperties)
 				{
@@ -595,6 +596,24 @@ public static class AssetCatalogConsole
 								$"\t\ttrack\t{clip.TrackNames[track]}\t" +
 								$"{value.X:F5},{value.Y:F5},{value.Z:F5},{value.W:F5}");
 						}
+					}
+
+					foreach (var transition in network.Transitions)
+					{
+						output.WriteLine(
+							$"\ttransition\t{transition.Source}\t{transition.Target}\t" +
+							$"{transition.Condition}\t{transition.Name}");
+					}
+
+					if (network.StateNames.Count > 0)
+					{
+						output.WriteLine($"\tstates\t{string.Join(',', network.StateNames)}");
+					}
+
+					if (network.NodeNames.Count > 0)
+					{
+						output.WriteLine(
+							$"\tnodes\t{string.Join(',', network.NodeNames.Take(16))}");
 					}
 				}
 			});

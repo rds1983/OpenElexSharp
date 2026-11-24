@@ -7,13 +7,15 @@ namespace OpenElexSharp.Assets;
 /// <summary>
 /// A <c>net</c> motion-network resource (<c>class eCMotionNetworkDefResource2</c>). The payload is a
 /// Morpheme network definition; the parser exposes readable node, track, bone, condition and event
-/// names plus the decoded clip poses. Keyframe curves are not decoded yet.
+/// names, decoded clip poses and name-derived transitions. Binary graph edges and keyframe curves
+/// are not decoded yet.
 /// </summary>
 public sealed class MotionNetwork
 {
 	private const int Gar5WrapperSize = 44;
 	private const int MinStringLength = 4;
 	private const int MaxStrings = 100_000;
+	private const int MaxTransitions = 20_000;
 	private const int MaxTracks = 4096;
 	private const int MaxNameLength = 512;
 	private const int MaxPoseSearch = 0x20_000;
@@ -22,11 +24,17 @@ public sealed class MotionNetwork
 		string name,
 		IReadOnlyList<string> strings,
 		IReadOnlyList<MotionClip> clips,
+		IReadOnlyList<MotionTransition> transitions,
+		IReadOnlyList<string> stateNames,
+		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
 	{
 		Name = name;
 		Strings = strings;
 		Clips = clips;
+		Transitions = transitions;
+		StateNames = stateNames;
+		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
 	}
 
@@ -38,6 +46,15 @@ public sealed class MotionNetwork
 
 	/// <summary>Decoded animation clips with track names and pose quaternions.</summary>
 	public IReadOnlyList<MotionClip> Clips { get; }
+
+	/// <summary>Transitions decoded from <c>Source_Target|ConditionGroup|Condition</c> names.</summary>
+	public IReadOnlyList<MotionTransition> Transitions { get; }
+
+	/// <summary>Graph names that appear as transition endpoints.</summary>
+	public IReadOnlyList<string> StateNames { get; }
+
+	/// <summary>Remaining graph names, for example motion nodes or event-track names.</summary>
+	public IReadOnlyList<string> NodeNames { get; }
 
 	/// <summary>Offset of the GAR5 payload.</summary>
 	public int PayloadOffset { get; }
@@ -62,7 +79,8 @@ public sealed class MotionNetwork
 
 		var strings = ReadStrings(data);
 		var mainEnd = FindMainPayloadEnd(data, Gar5WrapperSize);
-		var tables = FindStringTables(data, Gar5WrapperSize, mainEnd)
+		var allTables = FindStringTables(data, Gar5WrapperSize, mainEnd);
+		var tables = allTables
 			.Where(table => table.Names.Count > 0 &&
 				string.Equals(table.Names[0], "CharacterWorldSpaceTM", StringComparison.Ordinal))
 			.ToList();
@@ -98,8 +116,177 @@ public sealed class MotionNetwork
 				poseOffset));
 		}
 
-		return new MotionNetwork(name, strings, clips, Gar5WrapperSize);
+		var transitions = new List<MotionTransition>();
+		var graphNames = new List<string>();
+		var knownNames = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var table in allTables)
+		{
+			if (IsClipTable(table) || IsTransitionTable(table) || IsEventTable(table) || IsBlendShapeTable(table))
+			{
+				continue;
+			}
+
+			foreach (var graphName in table.Names)
+			{
+				if (knownNames.Add(graphName))
+				{
+					graphNames.Add(graphName);
+				}
+			}
+		}
+
+		foreach (var value in strings)
+		{
+			if (IsGraphIdentifier(value))
+			{
+				knownNames.Add(value);
+			}
+		}
+
+		var transitionNames = new List<string>();
+		var seenTransitions = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var table in allTables.Where(IsTransitionTable))
+		{
+			foreach (var transitionName in table.Names)
+			{
+				if (seenTransitions.Add(transitionName))
+				{
+					transitionNames.Add(transitionName);
+				}
+			}
+		}
+
+		foreach (var transitionName in ReadTransitionNames(data, Gar5WrapperSize, mainEnd))
+		{
+			if (seenTransitions.Add(transitionName))
+			{
+				transitionNames.Add(transitionName);
+			}
+		}
+
+		foreach (var transitionName in transitionNames)
+		{
+			transitions.Add(MotionTransition.Parse(transitionName, knownNames));
+		}
+
+		var endpoints = transitions
+			.Where(transition => transition.Target.Length > 0)
+			.SelectMany(transition => new[] { transition.Source, transition.Target })
+			.ToHashSet(StringComparer.Ordinal);
+		var nodeNames = graphNames.Where(name => !endpoints.Contains(name)).ToList();
+		var stateNames = transitions
+			.Where(transition => transition.Target.Length > 0)
+			.SelectMany(transition => new[] { transition.Source, transition.Target })
+			.Where(name => name.Length > 0 && !nodeNames.Contains(name))
+			.Distinct(StringComparer.Ordinal)
+			.ToList();
+
+		return new MotionNetwork(
+			name,
+			strings,
+			clips,
+			transitions,
+			stateNames,
+			nodeNames,
+			Gar5WrapperSize);
 	}
+
+	private static List<string> ReadTransitionNames(byte[] data, int start, int end)
+	{
+		var names = new List<string>();
+		var seen = new HashSet<string>(StringComparer.Ordinal);
+		var position = start;
+		while (position < end && names.Count < MaxTransitions)
+		{
+			if (!IsPrintableByte(data[position]))
+			{
+				position++;
+				continue;
+			}
+
+			var runStart = position;
+			while (position < end && IsPrintableByte(data[position]))
+			{
+				position++;
+			}
+
+			if (position - runStart < 8)
+			{
+				continue;
+			}
+
+			var value = Encoding.Latin1.GetString(data, runStart, position - runStart);
+			if (IsTransitionName(value) && seen.Add(value))
+			{
+				names.Add(value);
+			}
+		}
+
+		return names;
+	}
+
+	private static bool IsTransitionName(string value)
+	{
+		var parts = value.Split('|');
+		if (parts.Length != 3 || !string.Equals(parts[1], "ConditionGroup", StringComparison.Ordinal))
+		{
+			return false;
+		}
+
+		return IsNameToken(parts[0]) && parts[0].Length >= 3 &&
+			parts[0].Contains('_') && IsNameToken(parts[2]);
+	}
+
+	private static bool IsNameToken(string value)
+	{
+		if (value.Length == 0 || value[0] == '_')
+		{
+			return false;
+		}
+
+		foreach (var character in value)
+		{
+			if (!char.IsAsciiLetterOrDigit(character) && character != '_' &&
+				character != '.' && character != '-')
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static bool IsGraphIdentifier(string value)
+	{
+		if (value.Length < 2 || value.Length > 64)
+		{
+			return false;
+		}
+
+		foreach (var character in value)
+		{
+			if (character < 0x20 || character >= 0x7F || character == '|' ||
+				character == '/' || character == ' ')
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static bool IsClipTable(StringTable table) =>
+		table.Names.Count > 0 &&
+		string.Equals(table.Names[0], "CharacterWorldSpaceTM", StringComparison.Ordinal);
+
+	private static bool IsTransitionTable(StringTable table) =>
+		table.Names.Exists(value => value.Contains('|'));
+
+	private static bool IsEventTable(StringTable table) =>
+		table.Names.Exists(value => value.Contains("EventTrack", StringComparison.OrdinalIgnoreCase));
+
+	private static bool IsBlendShapeTable(StringTable table) =>
+		table.Names.Exists(value => value.StartsWith("blendShape", StringComparison.OrdinalIgnoreCase));
 
 	private static List<string> ReadStrings(byte[] data)
 	{

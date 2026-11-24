@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009e**; **T009d** and **T009f** open.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009d**; **T009f** and **T009g** open.
 
 ---
 
@@ -165,13 +165,25 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Decode the `bln` per-target delta data, map targets to the base mesh, and drive morph weights from animation.
   Done when: facial/body blend shapes can be weighted and rendered, and the delta layout/quantization is documented.
 
-- [ ] **T009e · Morpheme state graph and keyframe curves**
-  Decode the network graph: states, transitions, conditions, transition durations and the per-track keyframe/curve data behind each clip.
-  Done when: transitions can be sampled over time, and the curve/compression format is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009e · Morpheme state graph**
+  Decode the network graph names: states, transitions and conditions used by the state machine.
+  Done when: state transitions and names decode and the graph layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+  **Completed 2026-11-24 — name-derived state transitions, state/node classification and `assets animations` graph output.**
+  - Added `MotionTransition`, which parses `Source_Target|ConditionGroup|Condition` names and resolves the longest split whose source and target are known graph names.
+  - Added state/node classification: transition endpoints become `StateNames`; remaining graph tables become `NodeNames`. Both are exposed by `assets animations`, and `--properties` prints every transition, state and node.
+  - Retail validation: 34/34 networks parse and 1,086 simple transitions are extracted; for example `Chest` has 4 transitions and 2 states, `Crawler-Rig` 176/3, `Weapons` 20/5 and `Troll-Rig` 227/3. `Male` uses long hierarchical paths and exposes no simple three-segment transitions yet.
+  - 406 tests, Debug/Release warning-free.
+  **Deferred to T009g:**
+  - Binary graph records (GUIDs, edges, transition durations) and nested hierarchical paths used by `Male`.
+  - Per-track keyframe/curve data and compression: the large tail of `Male` (about 54 MB) contains mixed float, index and high-entropy blocks whose layout is not decoded.
 
 - [ ] **T009f · Body bind poses and the pose viewer**
   Finish the `skn` bind-pose leftovers (body/creature transforms and the 50 unrecognized tails), then render a skinned character driven by a decoded clip and a blended transition.
   Done when: a representative character displays a decoded pose and a two-clip blend in the app.
+
+- [ ] **T009g · Morpheme binary graph and keyframe curves**
+  Decode the binary graph records (GUIDs, edges, transition durations) and the per-track keyframe/curve data and compression behind each network state, including the hierarchical `Male` paths.
+  Done when: transitions can be sampled over time, the large `net` tail is decoded, and the curve/compression layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

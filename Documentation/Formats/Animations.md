@@ -100,6 +100,39 @@ the rotations with the skeleton's bind-pose translations and parent indices, and
 `ComputeWorldMatrices` composes the hierarchy. Bind-pose translations are used when the `skn`
 skeleton exposes them; body skeletons still lack them, so their world positions are zero.
 
+## State graph
+
+The network also stores the state-machine names. Simple transitions use the convention
+
+```text
+<Source>_<Target>|ConditionGroup|<Condition>
+```
+
+for example `Closed_Opened|ConditionGroup|MessageCondition` or
+`Shoot_Enabled_Idle|ConditionGroup|FractionThroughSource`. The parser resolves the longest split of
+the first segment whose two sides are known graph names, giving `Source`, `Target` and `Condition`.
+Names that only occur inside a transition label (for example `chst_bsk1_open`) stay unresolved and
+are kept as the raw source label.
+
+Graph name tables that are not clip, transition, event or blend-shape tables are classified as
+follows:
+
+- names that occur as transition endpoints become **state names**;
+- the remaining names become **node names** (motion nodes, mesh/bone names and other graph labels).
+
+| Resource | Simple transitions | State names |
+| --- | ---: | ---: |
+| `Crawler-Rig` | 176 | 3 |
+| `Troll-Rig` | 227 | 3 |
+| `Weapons` | 20 | 5 |
+| `Chest` | 4 | 2 |
+| `Items` | 2 | 2 |
+
+`Male` uses long hierarchical path names such as
+`Main|Animation|Animation|Locomotion|Locomotion|Walk|...|ConditionGroup|MessageCondition` rather than
+simple three-segment transitions, so it currently exposes no simple transitions. Transition
+durations and binary graph edges are not decoded yet.
+
 ## Blend shapes (`bln`)
 
 A `bln` payload starts with a compact blend-shape header. Field offsets are relative to the payload
@@ -135,6 +168,8 @@ quantization are **not decoded yet**; the current parser exposes the header and 
 - Retail resource databases list 34 `net` and 270 `bln` resources; every one parses with the current
   header/name readers.
 - The 34 networks contain 61 clips and all 61 expose a pose array.
+- State transitions resolve from names: `Weapons` yields 20 transitions and 5 states, `Crawler-Rig`
+  176/3, `Troll-Rig` 227/3, `Chest` 4/2.
 - `Male` full-body clips contain 61 tracks that match the 61 `skn` skeleton bones exactly; the
   partial clips map 25. `Chest` clips map `BONE_Root`/`BONE_Lid` to `Root`/`Lid` after prefix
   stripping.
@@ -155,10 +190,11 @@ dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1
 dotnet run --project OpenElexSharp -- assets blendshapes --all
 ```
 
-The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count and
-posed-clip count; `--properties` also lists each clip's track table and first pose quaternions. The
-`blendshapes` command prints the target count, base vertex count, unresolved header fields and the
-first target names.
+The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
+posed-clip count, simple-transition count and state-name count. `--properties` also lists each
+clip's track table and first pose quaternions, followed by every transition, state and graph node.
+The `blendshapes` command prints the target count, base vertex count, unresolved header fields and
+the first target names.
 
 ## Retail validation
 
@@ -168,6 +204,9 @@ first target names.
 | `net` clips decoded | 61 |
 | Clips with a pose | 61 / 61 |
 | `Male` full-body track mapping | 61 / 61 skeleton bones |
+| Simple transitions (all networks) | 1,086 |
+| Simple transitions (`Crawler-Rig` / `Weapons` / `Chest`) | 176 / 20 / 4 |
+| `Male` simple transitions | 0 (hierarchical paths, not decoded) |
 | `bln` resources parsed | 270 / 270 |
 | Largest network | `Male`, 59.6 MB |
 | Maximum readable names (cap) | 100,000 |
@@ -175,9 +214,10 @@ first target names.
 
 ## Open questions
 
-- Morpheme network graph: node types, connections, state machines and transition timing.
+- Morpheme network graph: binary node records, GUIDs, edges and transition durations.
+- Nested hierarchical state paths (used by `Male`) and their condition paths.
 - Keyframe curves, time bases and compression; clips currently expose one pose each.
-- Mapping clips and transitions to state names, and the meaning of clip `field0`/`field1`.
+- The large `Male` tail: about 54 MB of mixed float, index and high-entropy blocks is not decoded.
 - Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
 - `bln` delta layout, quantization, per-target vertex ranges and the meaning of header fields
   8/12/16.
@@ -191,18 +231,20 @@ first target names.
 | --- | --- |
 | Motion-network, clip and pose parser | `OpenElexSharp/Assets/MotionNetwork.cs`, `MotionClip.cs` |
 | Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
+| State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
 - T009a - skeletons and skinned meshes.
 - T009b - animation data discovery.
-- T009c - motion clips and pose sampling (this specification, partial).
+- T009c - motion clips and pose sampling.
 - T009d - blend-shape deltas and morph playback.
-- T009e - Morpheme state graph, transition timing and keyframe curves.
+- T009e - Morpheme state graph names and transitions.
 - T009f - body bind poses and the pose viewer.
+- T009g - binary graph edges and keyframe curves.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.
