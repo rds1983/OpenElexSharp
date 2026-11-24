@@ -28,6 +28,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<MotionTransition> transitions,
 		IReadOnlyList<MotionStatePath> statePaths,
 		IReadOnlyList<MotionGraphNode> graphNodes,
+		IReadOnlyList<MotionQuaternionRun> quantizedQuaternionRuns,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -38,6 +39,7 @@ public sealed class MotionNetwork
 		Transitions = transitions;
 		StatePaths = statePaths;
 		GraphNodes = graphNodes;
+		QuantizedQuaternionRuns = quantizedQuaternionRuns;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -60,6 +62,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Candidate binary state-graph blocks found in the payload.</summary>
 	public IReadOnlyList<MotionGraphNode> GraphNodes { get; }
+
+	/// <summary>Runs of 8-byte quantized quaternions found in the high-entropy payload regions.</summary>
+	public IReadOnlyList<MotionQuaternionRun> QuantizedQuaternionRuns { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -214,6 +219,7 @@ public sealed class MotionNetwork
 			transitions,
 			statePaths,
 			MotionGraphNode.FindAll(data, Gar5WrapperSize, mainEnd),
+			MotionSampleProbe.FindQuaternionRuns(data, Gar5WrapperSize, mainEnd),
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);

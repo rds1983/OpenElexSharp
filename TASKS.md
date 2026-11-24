@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009l**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009m**.
 
 ---
 
@@ -258,9 +258,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Compressed pose/curve codec in the high-entropy blocks.
   - Semantics of the binary graph record values and transition durations.
 
-- [ ] **T009l · Compressed pose/curve codec and graph semantics**
-  Decode the high-entropy pose/curve blocks and map binary graph records to states, edges and transition durations.
-  Done when: representative compressed poses/curves are decoded or the format is conclusively documented, and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009l · Quantized quaternion sample probe**
+  Identify candidate compressed animation samples in the high-entropy `net` regions.
+  Done when: quantized sample runs are detected and documented.
+  **Completed 2026-11-25 — `MotionSampleProbe`, `assets animations` output and the sample survey.**
+  - Added a diagnostic scanner for runs of four `int16` values whose squared length is near `32767²`; the `Male` payload reaches the 10,000-run cap.
+  - `assets animations --properties` prints the first quantized runs.
+  - 431 tests, Debug/Release warning-free.
+  **Deferred to T009m:**
+  - Track headers, sample times, mapping to skeleton bones and graph semantics.
+  - Full sample-track decoding and playback.
+
+- [ ] **T009m · Animation sample codec and graph semantics**
+  Decode quantized sample track headers/times, map them to skeleton tracks, and map binary graph record values to states, edges and transition durations.
+  Done when: representative compressed samples decode into poses and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

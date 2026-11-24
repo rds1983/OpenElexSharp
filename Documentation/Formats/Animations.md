@@ -146,8 +146,10 @@ The decoded clip blocks contain one raw unit-quaternion pose array per clip. A s
 - high-entropy float/index blocks whose layout has not been identified.
 
 No uncompressed per-track keyframe tracks were found in `net`. The clips therefore behave as static
-poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). Compressed pose
-or curve data in the high-entropy blocks remains possible; that codec is tracked as T009l.
+poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). The
+high-entropy blocks contain many runs of four `int16` values whose squared length is near
+`32767²`, i.e. candidate quantized quaternions. `MotionSampleProbe` reports these runs, but their
+track headers, sample times and mapping to skeleton bones remain undecoded (T009m).
 
 ### Binary graph probe
 
@@ -270,8 +272,8 @@ dotnet run --project OpenElexSharp -- assets blendshapes --all
 The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
 posed-clip count, simple-transition count, state-name count, hierarchical-path count and candidate
 binary-graph count. `--properties` also lists each clip's track table and first pose quaternions,
-followed by every transition, state, graph node, the first 16 state paths and the first 16 binary
-graph blocks.
+followed by every transition, state, graph node, the first 16 state paths, the first 16 binary
+graph blocks and the first quantized quaternion runs.
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -319,10 +321,11 @@ per-target delta counts and the first two position/normal deltas.
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Hierarchical state paths | `OpenElexSharp/Assets/MotionStatePath.cs` |
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
+| Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -335,7 +338,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009g - Morpheme hierarchical state paths.
 - T009h - Morpheme binary graph blocks.
 - T009i - binary state record layout.
-- T009k - keyframe data survey (no uncompressed keyframe tracks found).
-- T009l - compressed pose/curve codec.
+- T009l - quantized quaternion sample probe.
+- T009m - animation sample codec and graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

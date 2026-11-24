@@ -630,6 +630,13 @@ public static class AssetCatalogConsole
 							$"\tgraph\t{node.Offset}\ttype={node.Type}\tsize={node.Size}\t" +
 							$"count={node.Count}\trefs={string.Join(',', node.References.Take(12))}");
 					}
+
+					if (network.QuantizedQuaternionRuns.Count > 0)
+					{
+						output.WriteLine(
+							$"\tquantized\t{network.QuantizedQuaternionRuns.Count}\t" +
+							$"{string.Join(',', network.QuantizedQuaternionRuns.Take(8).Select(run => $"{run.Offset}:{run.Count}"))}");
+					}
 				}
 			});
 	}
