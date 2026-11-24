@@ -33,6 +33,7 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Collision => Collisions(command, catalog, assets, output, error),
 			AssetCommandKind.Occlusion => Occlusions(command, catalog, assets, output, error),
 			AssetCommandKind.Navigation => Navigations(command, catalog, assets, output, error),
+			AssetCommandKind.Sounds => Sounds(command, catalog, assets, output, error),
 			AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
@@ -691,6 +692,82 @@ public static class AssetCatalogConsole
 		}
 
 		return null;
+	}
+
+	private static int Sounds(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Sound warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "snd", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(resource.TypeToken, "dlg", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.TypeToken, StringComparer.OrdinalIgnoreCase)
+			.ThenBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			FsbSoundBank bank;
+			try
+			{
+				bank = FsbSoundBank.Parse(
+					resource.Name,
+					resource.VirtualPath,
+					resource.TypeToken,
+					ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping sound bank '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			var first = bank.Samples[0];
+			var duration = bank.Samples.Sum(sample => sample.Duration);
+			output.WriteLine(
+				$"{bank.Name}\t{bank.TypeToken}\t{bank.Version}\t{bank.CodecName}\t" +
+				$"{bank.Samples.Count}\t{first.Channels}\t{first.SampleRate}\t" +
+				$"{duration:0.###}\t{bank.SampleDataSize}\t{bank.SourcePath}");
+			if (!command.ShowProperties)
+			{
+				continue;
+			}
+
+			foreach (var sample in bank.Samples)
+			{
+				var loop = sample.HasLoop ?
+					$"{sample.LoopStart}-{sample.LoopEnd}" :
+					"-";
+				output.WriteLine(
+					$"\tsample\t{sample.Index}\t{sample.Name ?? "-"}\t{sample.Channels}\t" +
+					$"{sample.SampleRate}\t{sample.SampleCount}\t{sample.Duration:0.###}\t" +
+					$"{sample.DataSize}\t{loop}");
+			}
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} sound bank(s); parsed {parsed:N0}.");
+		return 0;
 	}
 
 	private static byte[] ReadAsset(AssetFileSystem assets, ElexResource resource)

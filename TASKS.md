@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T012**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T013**.
 
 ---
 
@@ -376,9 +376,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Remove the collision vertex-array scan by finding its stored offset.
   - Resolve the 36-byte `ocm` trailer and nav flag/cost semantics.
 
-- [ ] **T012 · Audio assets**
+- [x] **T012 · Audio assets**
   Identify and document audio containers (FMOD banks/streams and any wrappers), including sample metadata and decoding requirements. Playback itself is scheduled in M3.
   Done when: every audio asset type in the data is identified and at least its metadata can be listed.
+  **Completed 2026-11-25 — all 35,018 FSB5 banks parse; metadata is listed by `assets sounds`.**
+  - Every `snd`/`dlg` resource is a GAR5-wrapped FSB5 v1 bank with one FADPCM sample.
+  - 31,494 dialogue and 3,524 sound banks; 34,563 mono / 455 stereo; 48/44.1/22.05 kHz.
+  - Total declared duration 38.01 hours and 4.33 GB of encoded audio; longest bank 433.656 s.
+  - `FsbSoundBank` exposes codec, channels, rate, frame count, duration, data size and loops.
+  - 7 new tests; 486 tests, Debug/Release warning-free.
+  **Open follow-ups:**
+  - FADPCM decoding for M3 playback.
+  - Why some names exist in both `snd` and `dlg` with separate payloads.
+  - The 36-byte trailer after the FSB5 sample data.
 
 - [ ] **T013 · Text and localization**
   Parse string tables, `strings.csvt`, `loc.ini` and related localization data into a lookup API used by UI, dialogue and item names.

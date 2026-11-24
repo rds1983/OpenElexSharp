@@ -35,3 +35,4 @@ This folder documents the binary formats used by ELEX assets. Each specification
 - [Animations.md](Animations.md) — Morpheme motion networks (`net`), clips/poses, transitions and blend shapes (`bln`) (T009b/T009c/T009d/T009e, partial).
 - [Worlds.md](Worlds.md) — world definitions (`wrl`), scene sectors (`sec`), entity trees and transforms (T010).
 - [Collision.md](Collision.md) — collision (`col`), occlusion (`ocm`) and navigation annotations (T011).
+- [Audio.md](Audio.md) — FSB5 sound banks (`snd`/`dlg`) and FADPCM metadata (T012).
