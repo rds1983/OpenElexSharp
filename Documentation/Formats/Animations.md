@@ -145,11 +145,11 @@ A binary state-node block is observed in `Weapons` at payload offset `0x40C0`:
 | 12 | `uint32` | Zero. |
 | 16 | `uint32` | Header size, observed `24`. |
 | 20 | `uint32` | Zero. |
-| 24 | `Record[count]` | 40 bytes per record; the first `uint32` is a node reference or `0xFFFFFFFF`. |
+| 24 | `Record[count]` | 40 bytes per record: five little-endian `uint64` values; the first value is a node reference or `0xFFFFFFFF`. |
 
 The detector finds only this one block in `Weapons`; the other state offsets (`0x38F8`, `0x3B90`,
-`0x3E28`) begin directly with 40-byte record arrays. Node references, edges and transition durations
-are not mapped to states yet.
+`0x3E28`) begin directly with 40-byte record arrays. The five 64-bit slots are exposed but their
+state/edge/duration semantics are not mapped yet.
 
 | Resource | Simple transitions | State names |
 | --- | ---: | ---: |
@@ -317,6 +317,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009f - body bind poses and the pose viewer.
 - T009g - Morpheme hierarchical state paths.
 - T009h - Morpheme binary graph blocks.
-- T009i - keyframe curves and graph semantics.
+- T009i - binary state record layout.
+- T009j - keyframe curves and graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

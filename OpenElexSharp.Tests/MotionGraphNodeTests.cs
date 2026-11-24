@@ -25,6 +25,8 @@ public class MotionGraphNodeTests
 		Assert.Equal(2, node.Count);
 		Assert.Equal(24, node.HeaderSize);
 		Assert.Equal([7u], node.References);
+		Assert.Equal(2, node.Records.Count);
+		Assert.Equal(7ul, node.Records[0][0]);
 	}
 
 	[Fact]

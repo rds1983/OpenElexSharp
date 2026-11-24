@@ -177,7 +177,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionClip` | One clip: track names and per-track quaternion pose. |
 | `MotionTransition` | Parsed `Source_Target|ConditionGroup|Condition` graph transition. |
 | `MotionStatePath` | Hierarchical `A|B|...|ConditionGroup|Condition` path with segments and condition. |
-| `MotionGraphNode` | Candidate binary state-graph block with reference words. |
+| `MotionGraphNode` | Candidate binary state-graph block with five-value records and references. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
 | `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
 | `ElexBlendShapeTarget` / `ElexBlendShapeDelta` | Named target with sparse position/normal deltas. |

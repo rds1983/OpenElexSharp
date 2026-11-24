@@ -18,7 +18,8 @@ public sealed record MotionGraphNode(
 	int Size,
 	int Count,
 	int HeaderSize,
-	IReadOnlyList<uint> References)
+	IReadOnlyList<uint> References,
+	IReadOnlyList<IReadOnlyList<ulong>> Records)
 {
 	private const int MaxNodes = 1024;
 	private const int MaxCount = 64;
@@ -49,6 +50,7 @@ public sealed record MotionGraphNode(
 			}
 
 			var references = new List<uint>(count);
+			var records = new List<IReadOnlyList<ulong>>(count);
 			var valid = true;
 			for (var index = 0; index < count; index++)
 			{
@@ -59,10 +61,18 @@ public sealed record MotionGraphNode(
 					break;
 				}
 
-				var value = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(record));
-				if (value != uint.MaxValue)
+				var values = new ulong[5];
+				for (var value = 0; value < values.Length; value++)
 				{
-					references.Add(value);
+					values[value] = BinaryPrimitives.ReadUInt64LittleEndian(
+						data.AsSpan(record + value * 8));
+				}
+
+				records.Add(values);
+				var reference = (uint)values[0];
+				if (reference != uint.MaxValue)
+				{
+					references.Add(reference);
 				}
 			}
 
@@ -71,7 +81,8 @@ public sealed record MotionGraphNode(
 				continue;
 			}
 
-			nodes.Add(new MotionGraphNode(offset, type, size, count, headerSize, references));
+			nodes.Add(new MotionGraphNode(
+				offset, type, size, count, headerSize, references, records));
 			offset += size - 4;
 		}
 

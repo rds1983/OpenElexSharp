@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009i**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009j**.
 
 ---
 
@@ -225,8 +225,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Per-track keyframe/curve data and compression; the large `Male` tail (about 54 MB) remains undecoded.
   - The other state arrays that start directly with 40-byte records.
 
-- [ ] **T009i · Morpheme keyframe curves and graph semantics**
-  Decode the 40-byte state record arrays, map references/edges and transition durations to state names, and decode the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
+- [x] **T009i · Morpheme binary state records**
+  Decode the fixed 40-byte records inside candidate binary graph blocks.
+  Done when: each record's value layout is exposed and documented.
+  **Completed 2026-11-24 — five 64-bit value slots per record, reference list and CLI output.**
+  - `MotionGraphNode` now exposes all five `uint64` values of each 40-byte record; the first value is also surfaced as a reference when it is not `0xFFFFFFFF`.
+  - `assets animations` prints the candidate blocks and their first references.
+  - 425 tests, Debug/Release warning-free.
+  **Deferred to T009j:**
+  - Mapping the five values to state/edge semantics and transition durations.
+  - Per-track keyframe/curve data and compression; the large `Male` tail remains undecoded.
+
+- [ ] **T009j · Morpheme keyframe curves and graph semantics**
+  Map binary graph record values to states, edges and transition durations, and decode the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
   Done when: graph edges and transition durations can be followed, representative curves sample over time, and the binary/curve layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
