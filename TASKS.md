@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009d**; **T009f** and **T009g** open.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009f**; **T009g** open.
 
 ---
 
@@ -161,9 +161,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Body/creature bind-pose transforms and a rendered pose viewer → T009f.
   - The 50 unrecognized `skn` tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) → T009f.
 
-- [ ] **T009d · Blend-shape deltas and morph playback**
+- [x] **T009d · Blend-shape deltas and morph playback**
   Decode the `bln` per-target delta data, map targets to the base mesh, and drive morph weights from animation.
   Done when: facial/body blend shapes can be weighted and rendered, and the delta layout/quantization is documented.
+  **Completed 2026-11-24 — full `bln` delta decoding, sparse target masks, weighted morph application and updated format spec.**
+  - Decoded the `bln` layout: vertex remap, `affectedCount` 16-byte sparse descriptors (`startDelta` + 96-bit target mask) and 12-byte quantized delta records (position `xyz` + normal `xyz` as `int16`).
+  - Position deltas scale by `header[16] / 1000`; normals scale by `1 / 32767`. Added `ElexBlendShapeTarget`, `ElexBlendShapeDelta` and `ApplyWeights` for weighted morph playback.
+  - Retail validation: 270/270 sets decode; 63,541,940 delta records total. The sampled head has 83 targets, 7,707 affected vertices and 135,564 deltas; the spellarm has 5 targets and 24,445 deltas.
+  - The sampled head's `bln` and `skn` share 9,975 vertices and a hash suffix, confirming direct base-mesh vertex mapping.
+  - `assets blendshapes` now reports decoded delta counts and per-target sample deltas; 6 new tests (412 total), Debug/Release warning-free.
+  **Deferred:**
+  - Exact game unit and normal-normalization convention.
+  - GPU/rendering integration for morph targets → T106/T102.
+  - Drive weights from facial animation/state machine → T009g.
 
 - [x] **T009e · Morpheme state graph**
   Decode the network graph names: states, transitions and conditions used by the state machine.

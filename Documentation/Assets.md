@@ -136,14 +136,14 @@ The network graph, state transitions and keyframe curves are not decoded yet; ea
 
 ### `blendshapes`
 
-Parses `bln` resources (blend-shape target sets). Prints name, target count, base-mesh vertex count, name count, the three unresolved header fields, the first target names and ROM path. `--properties` lists every target with its relative name offset.
+Parses `bln` resources (blend-shape target sets). Prints name, target count, base-mesh vertex count, name count, header fields, decoded delta count, whether deltas were decoded, the first target names and ROM path. `--properties` lists every target with its relative name offset, delta count and the first two position/normal deltas.
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets blendshapes CH_Head_F_Ambient_01_L1 --properties
 dotnet run --project OpenElexSharp -- assets blendshapes --all
 ```
 
-The per-target delta data is not decoded yet; see [Formats/Animations.md](Formats/Animations.md).
+The vertex remap, sparse per-vertex target masks and quantized position/normal deltas are decoded; `ElexBlendShapeSet.ApplyWeights` applies weights to a base-mesh buffer. See [Formats/Animations.md](Formats/Animations.md).
 
 ### `export`
 
@@ -176,7 +176,8 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionClip` | One clip: track names and per-track quaternion pose. |
 | `MotionTransition` | Parsed `Source_Target|ConditionGroup|Condition` graph transition. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
-| `ElexBlendShapeSet` | `bln` blend-shape header, name offsets and `blendShape1.*` target names. |
+| `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
+| `ElexBlendShapeTarget` / `ElexBlendShapeDelta` | Named target with sparse position/normal deltas. |
 | `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |
 | `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh/part count and the Escape control hint. |
 
@@ -194,7 +195,7 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
-`assets animations --all` parses all 34 motion networks in roughly 5 seconds. The 59.6 MB `Male` network dominates the readable-name and transition scans (names capped at 100,000). `assets blendshapes --all` parses all 270 blend-shape sets in roughly 5 seconds.
+`assets animations --all` parses all 34 motion networks in roughly 5 seconds. The 59.6 MB `Male` network dominates the readable-name and transition scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -216,7 +217,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources. The remaining 50 creature/female/hologram tails use an unrecognized layout; body bind-pose transforms are not decoded yet.
 - `net` motion networks expose readable names, one static pose per clip, and name-derived simple transitions/state names; binary graph edges, hierarchical `Male` paths, transition timing, keyframe curves and compression are not decoded.
-- `bln` blend shapes expose the header and target names only: the per-target delta layout and quantization are not decoded.
+- `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks
 

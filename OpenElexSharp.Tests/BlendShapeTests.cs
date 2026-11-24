@@ -56,6 +56,97 @@ public class BlendShapeTests
 	}
 
 	[Fact]
+	public void Parse_DecodesSparsePositionAndNormalDeltas()
+	{
+		var data = CreateBlendShapeWithDeltas();
+
+		var set = ElexBlendShapeSet.Parse("Test", data);
+
+		Assert.True(set.DeltasDecoded);
+		Assert.Equal(2, set.Targets.Count);
+		var first = Assert.Single(set.Targets[0].Deltas);
+		Assert.Equal(0, first.VertexIndex);
+		Assert.Equal(1000f / 32767f, first.Position.X, 5);
+		Assert.Equal(2000f / 32767f, first.Position.Y, 5);
+		Assert.Equal(-3000f / 32767f, first.Position.Z, 5);
+		Assert.Equal(100f / 32767f, first.Normal.X, 5);
+
+		Assert.Equal(2, set.Targets[1].Deltas.Count);
+		Assert.Equal(0, set.Targets[1].Deltas[0].VertexIndex);
+		Assert.Equal(short.MaxValue / 32767f, set.Targets[1].Deltas[0].Position.Y, 5);
+		Assert.Equal(short.MinValue / 32767f, set.Targets[1].Deltas[0].Normal.X, 5);
+		Assert.Equal(2, set.Targets[1].Deltas[1].VertexIndex);
+		Assert.Equal(short.MaxValue / 32767f, set.Targets[1].Deltas[1].Normal.Y, 5);
+	}
+
+	[Fact]
+	public void Parse_InvalidVertexMap_DoesNotDecodeDeltas()
+	{
+		var data = CreateBlendShapeWithDeltas();
+		var mapStart = 44 + 28 + 4;
+		mapStart += Encoding.Latin1.GetByteCount("blendShape1.A") + 1 +
+			Encoding.Latin1.GetByteCount("blendShape1.B") + 1;
+		BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(mapStart), 3u);
+
+		var set = ElexBlendShapeSet.Parse("Test", data);
+
+		Assert.False(set.DeltasDecoded);
+		Assert.Empty(set.Targets);
+	}
+
+	[Fact]
+	public void Parse_TruncatedDeltas_DoesNotDecode()
+	{
+		var data = CreateBlendShapeWithDeltas();
+		var truncated = data[..^4];
+
+		var set = ElexBlendShapeSet.Parse("Test", truncated);
+
+		Assert.False(set.DeltasDecoded);
+		Assert.Empty(set.Targets);
+	}
+
+	[Fact]
+	public void ApplyWeights_BlendsPositionAndNormalDeltas()
+	{
+		var set = ElexBlendShapeSet.Parse("Test", CreateBlendShapeWithDeltas());
+		var positions = new System.Numerics.Vector3[3];
+		var normals = new System.Numerics.Vector3[3];
+
+		set.ApplyWeights([1f, 0.5f], positions, normals);
+
+		var expectedX = 1000f / 32767f;
+		var expectedY = 2000f / 32767f + 0.5f;
+		var expectedZ = -3000f / 32767f;
+		Assert.Equal(expectedX, positions[0].X, 5);
+		Assert.Equal(expectedY, positions[0].Y, 5);
+		Assert.Equal(expectedZ, positions[0].Z, 5);
+		Assert.Equal(0.5f * -1000f / 32767f, positions[2].X, 5);
+		Assert.Equal(0.5f * 1000f / 32767f, positions[2].Z, 5);
+		Assert.Equal(100f / 32767f + 0.5f * short.MinValue / 32767f, normals[0].X, 4);
+	}
+
+	[Fact]
+	public void ApplyWeights_WrongWeightCount_Throws()
+	{
+		var set = ElexBlendShapeSet.Parse("Test", CreateBlendShapeWithDeltas());
+		var positions = new System.Numerics.Vector3[3];
+		var normals = new System.Numerics.Vector3[3];
+
+		Assert.Throws<ArgumentException>(() => set.ApplyWeights([1f], positions, normals));
+		Assert.Throws<ArgumentException>(() => set.ApplyWeights([1f, 0f], positions[..2], normals));
+	}
+
+	[Fact]
+	public void ApplyWeights_UndecodedDeltas_Throws()
+	{
+		var set = ElexBlendShapeSet.Parse("Test", CreateBlendShape(["Aaa"], 1));
+
+		Assert.Throws<InvalidOperationException>(
+			() => set.ApplyWeights([0f], new System.Numerics.Vector3[1], new System.Numerics.Vector3[1]));
+	}
+
+	[Fact]
 	public void Parse_NoGar5_Throws()
 	{
 		var data = CreateBlendShape(["Aaa"], 1);
@@ -75,6 +166,63 @@ public class BlendShapeTests
 	{
 		Assert.Throws<ArgumentNullException>(() => ElexBlendShapeSet.Parse("Test", null!));
 		Assert.Throws<ArgumentNullException>(() => ElexBlendShapeSet.Parse(null!, []));
+	}
+
+	internal static byte[] CreateBlendShapeWithDeltas()
+	{
+		using var output = new MemoryStream();
+		using var writer = new BinaryWriter(output, Encoding.Latin1, leaveOpen: true);
+		var names = new[] { "blendShape1.A", "blendShape1.B" };
+		writer.Write(Gar5Header.Magic);
+		writer.Write(0x20u);
+		writer.Write(new byte[36]);
+		writer.Write(2u); // targets
+		writer.Write(3u); // vertices
+		writer.Write(2u); // affected vertices
+		writer.Write(3u); // deltas
+		writer.Write(1000u); // position scale (1.0)
+		writer.Write(2u);
+		writer.Write(0u);
+		writer.Write((uint)(names[0].Length + 1));
+		foreach (var name in names)
+		{
+			writer.Write(Encoding.Latin1.GetBytes(name));
+			writer.Write((byte)0);
+		}
+
+		// Base vertex -> compact index (0 = unaffected).
+		writer.Write(1u);
+		writer.Write(0u);
+		writer.Write(2u);
+		// Descriptor: (startDelta, targetMask)
+		writer.Write(0u);
+		writer.Write(3u); // targets 0 and 1
+		writer.Write(0u);
+		writer.Write(0u);
+		writer.Write(2u);
+		writer.Write(2u); // target 1
+		writer.Write(0u);
+		writer.Write(0u);
+		// Delta records: position xyz + normal xyz.
+		writer.Write((short)1000);
+		writer.Write((short)2000);
+		writer.Write((short)-3000);
+		writer.Write((short)100);
+		writer.Write((short)200);
+		writer.Write((short)300);
+		writer.Write((short)0);
+		writer.Write(short.MaxValue);
+		writer.Write((short)0);
+		writer.Write(short.MinValue);
+		writer.Write((short)0);
+		writer.Write((short)0);
+		writer.Write((short)-1000);
+		writer.Write((short)0);
+		writer.Write((short)1000);
+		writer.Write((short)0);
+		writer.Write(short.MaxValue);
+		writer.Write((short)0);
+		return output.ToArray();
 	}
 
 	internal static byte[] CreateBlendShape(string[] names, int vertexCount)

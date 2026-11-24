@@ -1,18 +1,21 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace OpenElexSharp.Assets;
 
 /// <summary>
-/// Parsed <c>bln</c> blend-shape set (<c>class eCBlendShapeResource2</c>). The payload starts with a
-/// small header, a table of name offsets and a NUL-terminated list of <c>blendShape1.*</c> target
-/// names. The per-target delta data after the names is not decoded yet.
+/// Parsed <c>bln</c> blend-shape set (<c>class eCBlendShapeResource2</c>). The payload contains a
+/// header, target-name table, a base-vertex remap, a per-vertex sparse-target descriptor and
+/// quantized position/normal deltas.
 /// </summary>
 public sealed class ElexBlendShapeSet
 {
 	private const int Gar5WrapperSize = 44;
 	private const int HeaderSize = 28;
 	private const int MaxTargetCount = 4096;
+	private const int MaxVertexCount = 1_000_000;
+	private const int MaxDeltaCount = 10_000_000;
 	private const int MaxNameLength = 256;
 
 	private ElexBlendShapeSet(
@@ -25,6 +28,8 @@ public sealed class ElexBlendShapeSet
 		int secondCount,
 		IReadOnlyList<uint> nameOffsets,
 		IReadOnlyList<string> names,
+		IReadOnlyList<ElexBlendShapeTarget> targets,
+		bool deltasDecoded,
 		int nameTableOffset)
 	{
 		Name = name;
@@ -36,6 +41,8 @@ public sealed class ElexBlendShapeSet
 		SecondCount = secondCount;
 		NameOffsets = nameOffsets;
 		Names = names;
+		Targets = targets;
+		DeltasDecoded = deltasDecoded;
 		NameTableOffset = nameTableOffset;
 	}
 
@@ -68,6 +75,56 @@ public sealed class ElexBlendShapeSet
 
 	/// <summary>Blend-shape target names in table order.</summary>
 	public IReadOnlyList<string> Names { get; }
+
+	/// <summary>Decoded targets with sparse position and normal deltas; empty when not decoded.</summary>
+	public IReadOnlyList<ElexBlendShapeTarget> Targets { get; }
+
+	/// <summary>Whether the vertex remap, descriptor and delta arrays were decoded.</summary>
+	public bool DeltasDecoded { get; }
+
+	/// <summary>
+	/// Applies blend-shape weights to base-mesh positions and normals. Each target delta is scaled by
+	/// its weight; normals are accumulated, not normalized.
+	/// </summary>
+	/// <exception cref="ArgumentNullException"><paramref name="weights"/> is <see langword="null"/>.</exception>
+	/// <exception cref="InvalidOperationException">Deltas were not decoded.</exception>
+	/// <exception cref="ArgumentException">A weight or buffer count is wrong.</exception>
+	public void ApplyWeights(
+		IReadOnlyList<float> weights,
+		Span<Vector3> positions,
+		Span<Vector3> normals)
+	{
+		ArgumentNullException.ThrowIfNull(weights);
+		if (!DeltasDecoded)
+		{
+			throw new InvalidOperationException("Blend-shape deltas were not decoded.");
+		}
+
+		if (weights.Count != TargetCount)
+		{
+			throw new ArgumentException("One weight per target is required.", nameof(weights));
+		}
+
+		if (positions.Length != VertexCount || normals.Length != VertexCount)
+		{
+			throw new ArgumentException("Position and normal buffers must match the vertex count.");
+		}
+
+		for (var targetIndex = 0; targetIndex < Targets.Count; targetIndex++)
+		{
+			var weight = weights[targetIndex];
+			if (weight == 0f)
+			{
+				continue;
+			}
+
+			foreach (var delta in Targets[targetIndex].Deltas)
+			{
+				positions[delta.VertexIndex] += delta.Position * weight;
+				normals[delta.VertexIndex] += delta.Normal * weight;
+			}
+		}
+	}
 
 	/// <summary>Offset of the name table in the payload.</summary>
 	public int NameTableOffset { get; }
@@ -122,6 +179,7 @@ public sealed class ElexBlendShapeSet
 		}
 
 		var names = new List<string>(targetCount);
+		var namesEnd = (long)nameTable;
 		for (var index = 0; index < targetCount; index++)
 		{
 			var relative = index == 0 ? 0u : nameOffsets[index - 1];
@@ -154,19 +212,151 @@ public sealed class ElexBlendShapeSet
 			}
 
 			names.Add(Encoding.Latin1.GetString(data, (int)start, (int)(end - start - 1)));
+			namesEnd = Math.Max(namesEnd, end);
 		}
+
+		var vertexCount = (int)ReadUInt32(data, payload + 4);
+		var field0 = (int)ReadUInt32(data, payload + 8);
+		var field1 = (int)ReadUInt32(data, payload + 12);
+		var field2 = (int)ReadUInt32(data, payload + 16);
+		var targets = TryDecodeDeltas(
+			data,
+			(int)namesEnd,
+			targetCount,
+			vertexCount,
+			field0,
+			field1,
+			field2,
+			names);
 
 		return new ElexBlendShapeSet(
 			name,
 			targetCount,
-			(int)ReadUInt32(data, payload + 4),
-			(int)ReadUInt32(data, payload + 8),
-			(int)ReadUInt32(data, payload + 12),
-			(int)ReadUInt32(data, payload + 16),
+			vertexCount,
+			field0,
+			field1,
+			field2,
 			(int)ReadUInt32(data, payload + 20),
 			nameOffsets,
 			names,
+			targets,
+			targets.Count > 0,
 			nameTable);
+	}
+
+	private static IReadOnlyList<ElexBlendShapeTarget> TryDecodeDeltas(
+		byte[] data,
+		int nameEnd,
+		int targetCount,
+		int vertexCount,
+		int affectedVertexCount,
+		int deltaCount,
+		int positionScaleRaw,
+		IReadOnlyList<string> names)
+	{
+		if (vertexCount <= 0 || vertexCount > MaxVertexCount ||
+			affectedVertexCount <= 0 || affectedVertexCount > vertexCount ||
+			deltaCount < 0 || deltaCount > MaxDeltaCount)
+		{
+			return [];
+		}
+
+		var mapStart = nameEnd;
+		var mapBytes = checked(vertexCount * 4);
+		var descriptorStart = mapStart + mapBytes;
+		var descriptorBytes = checked(affectedVertexCount * 16);
+		var deltaStart = descriptorStart + descriptorBytes;
+		var deltaBytes = checked(deltaCount * 12);
+		if (deltaStart + deltaBytes > data.Length)
+		{
+			return [];
+		}
+
+		var inverse = new int[affectedVertexCount];
+		Array.Fill(inverse, -1);
+		for (var vertex = 0; vertex < vertexCount; vertex++)
+		{
+			var compact = ReadUInt32(data, mapStart + vertex * 4);
+			if (compact == 0)
+			{
+				continue;
+			}
+
+			if (compact > affectedVertexCount)
+			{
+				return [];
+			}
+
+			inverse[compact - 1] = vertex;
+		}
+
+		if (inverse.Any(vertex => vertex < 0))
+		{
+			return [];
+		}
+
+		var deltas = new List<ElexBlendShapeDelta>[targetCount];
+		for (var target = 0; target < deltas.Length; target++)
+		{
+			deltas[target] = [];
+		}
+
+		var positionScale = positionScaleRaw > 0 ? positionScaleRaw / 1000f : 1f;
+		for (var descriptor = 0; descriptor < affectedVertexCount; descriptor++)
+		{
+			var offset = descriptorStart + descriptor * 16;
+			var startDelta = ReadUInt32(data, offset);
+			var mask0 = ReadUInt32(data, offset + 4);
+			var mask1 = ReadUInt32(data, offset + 8);
+			var mask2 = ReadUInt32(data, offset + 12);
+			var ordinal = 0u;
+			for (var word = 0; word < 3; word++)
+			{
+				var mask = word switch
+				{
+					0 => mask0,
+					1 => mask1,
+					_ => mask2,
+				};
+				while (mask != 0)
+				{
+					var bit = BitOperations.TrailingZeroCount(mask);
+					var target = word * 32 + bit;
+					mask &= mask - 1;
+					if (target >= targetCount)
+					{
+						return [];
+					}
+
+					var deltaIndex = startDelta + ordinal;
+					if (deltaIndex >= deltaCount)
+					{
+						return [];
+					}
+
+					var deltaOffset = deltaStart + (int)deltaIndex * 12;
+					var px = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset));
+					var py = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset + 2));
+					var pz = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset + 4));
+					var nx = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset + 6));
+					var ny = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset + 8));
+					var nz = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(deltaOffset + 10));
+					deltas[target].Add(new ElexBlendShapeDelta(
+						inverse[descriptor],
+						new Vector3(px, py, pz) * (positionScale / 32767f),
+						new Vector3(nx, ny, nz) / 32767f));
+					ordinal++;
+				}
+			}
+		}
+
+		var targets = new ElexBlendShapeTarget[targetCount];
+		for (var target = 0; target < targets.Length; target++)
+		{
+			targets[target] = new ElexBlendShapeTarget(names[target], deltas[target]);
+		}
+
+		return targets;
 	}
 
 	private static int FindNameTable(byte[] data, int searchStart, uint[] nameOffsets, int targetCount)

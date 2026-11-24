@@ -634,13 +634,28 @@ public static class AssetCatalogConsole
 				output.WriteLine(
 					$"{resource.Name}\t{set.TargetCount}\t{set.VertexCount}\t{set.Names.Count}\t" +
 					$"{set.Field0}\t{set.Field1}\t{set.Field2}\t" +
+					$"{set.Targets.Sum(target => target.Deltas.Count)}\t{set.DeltasDecoded}\t" +
 					$"{string.Join(',', set.Names.Take(4))}\t{resource.VirtualPath}");
 				if (showProperties)
 				{
 					for (var index = 0; index < set.Names.Count; index++)
 					{
+						var target = set.Targets.Count > index ? set.Targets[index] : null;
 						output.WriteLine(
-							$"\ttarget\t{index}\toffset={(index == 0 ? 0 : set.NameOffsets[index - 1])}\t{set.Names[index]}");
+							$"\ttarget\t{index}\toffset={(index == 0 ? 0 : set.NameOffsets[index - 1])}\t" +
+							$"deltas={target?.Deltas.Count ?? 0}\t{set.Names[index]}");
+						if (target is null)
+						{
+							continue;
+						}
+
+						foreach (var delta in target.Deltas.Take(2))
+						{
+							output.WriteLine(
+								$"\t\tdelta\tvertex={delta.VertexIndex}\t" +
+								$"position={delta.Position.X:F4},{delta.Position.Y:F4},{delta.Position.Z:F4}\t" +
+								$"normal={delta.Normal.X:F4},{delta.Normal.Y:F4},{delta.Normal.Z:F4}");
+						}
 					}
 				}
 			});

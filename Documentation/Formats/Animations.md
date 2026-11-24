@@ -142,32 +142,61 @@ start (`0x2C` in the file):
 | ---: | --- | --- |
 | 0 | `uint32` | Target count (83 for the sampled head). |
 | 4 | `uint32` | Base-mesh vertex count (9,975 for the sampled head). |
-| 8 | `uint32` | Unresolved (7,707 for the head). |
-| 12 | `uint32` | Unresolved (135,564). |
-| 16 | `uint32` | Unresolved (2,925). |
+| 8 | `uint32` | Affected vertex count (7,707; the number of entries in the descriptor table). |
+| 12 | `uint32` | Delta record count (135,564). |
+| 16 | `uint32` | Position quantization range (2,925; positions scale by this / 1,000). |
 | 20 | `uint32` | Repeated target count. |
 | 24 | `uint32` | Reserved, observed `0`. |
 | 28 | `uint32[targetCount - 1]` | End offsets of targets `0..targetCount-2`, relative to the first name. |
-| … | bytes | A further block before the names (layout undecoded; 332 bytes for the sampled head). |
+| … | bytes | Optional block before the names (332 bytes for the sampled head). |
 | … | names | NUL-terminated `blendShape1.*` target names. |
-| … | bytes | Per-target delta data (not decoded). |
+| … | `uint32[vertexCount]` | Vertex remap: `0` for an unaffected vertex, otherwise compact index `1..affectedCount`. |
+| … | `AffectedCount × 16` | Sparse descriptors: `startDelta`, `targetMask[3]`. |
+| … | `deltaCount × 12` | Quantized deltas: six `int16` values (position `xyz`, normal `xyz`). |
 
 Target 0 starts at relative offset 0. Target `i` in `1..targetCount-1` starts at entry `i-1` of the
 offset array; there is no trailing length entry. Because the name table is not at a fixed offset
-(a block of undecoded bytes precedes it), the parser scans for the first position where every name
-derived from the offsets is printable and NUL-terminated, which rejects printable metadata bytes
-immediately before the table. For the sampled head the first targets are
-`blendShape1.mouth_left_up_lip_up`, `..._lip_down`, `..._right_up_lip_up`, `..._jaw_open`, and so on
-(mouth, jaw, tongue, lids, cheeks, nose, brows); the name table itself is 2,257 bytes.
+(a block of undecoded bytes can precede it), the parser scans for the first position where every
+name derived from the offsets is printable and NUL-terminated. For the sampled head the first targets
+are `blendShape1.mouth_left_up_lip_up`, `..._lip_down`, `..._right_up_lip_up`, `..._jaw_open`, and so
+on (mouth, jaw, tongue, lids, cheeks, nose, brows); the name table itself is 2,257 bytes.
 
-The delta data after the name table is the actual morph geometry. Its layout, compression and
-quantization are **not decoded yet**; the current parser exposes the header and target names.
+### Delta layout
+
+For each descriptor entry, `startDelta` is the first delta record and `targetMask[0..2]` is a
+96-bit mask. Set bits are processed in ascending target order; the delta record for a set bit is at
+`startDelta + ordinal`, where `ordinal` counts the set bits before it. This makes the deltas sparse:
+a vertex only stores records for the targets that move it.
+
+Each 12-byte delta record holds six little-endian `int16` values:
+
+```text
+position.x, position.y, position.z, normal.x, normal.y, normal.z
+```
+
+Positions are scaled with `value / 32767 * (field16 / 1000)`. Normals are scaled with
+`value / 32767`; they are deltas and are not unit length. `ElexBlendShapeSet.ApplyWeights` multiplies
+each target's deltas by its weight and accumulates positions and normals on a base-mesh buffer; the
+caller normalizes the resulting normals.
+
+| Resource | Targets | Vertices | Affected | Delta records | Range |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `CH_Head_F_Ambient_01_L1` | 83 | 9,975 | 7,707 | 135,564 | 2,925 |
+| `Mesh_It_Spellarm_Fire_L1` | 5 | 4,889 | 4,889 | 24,445 | 164 |
+| All 270 resources | — | — | — | 63,541,940 | — |
+
+The sampled head's largest position delta is about 4.72 units; the spellarm's is about 0.22 units,
+which supports the `field16 / 1000` scale. The matching `skn` head has the same 9,975 vertices and the
+same resource hash suffix (`00c90d41`), so the deltas index the skinned mesh's vertex stream directly;
+other resource pairs should be checked the same way.
 
 ## Evidence
 
-- Retail resource databases list 34 `net` and 270 `bln` resources; every one parses with the current
-  header/name readers.
+- Retail resource databases list 34 `net` and 270 `bln` resources; every one parses, and all 270
+  blend-shape sets decode their vertex maps, descriptors and deltas.
 - The 34 networks contain 61 clips and all 61 expose a pose array.
+- Blend-shape sets contain 63,541,940 sparse delta records in total. The sampled head's `bln` and
+  `skn` both have 9,975 vertices and the same hash suffix, confirming the direct vertex mapping.
 - State transitions resolve from names: `Weapons` yields 20 transitions and 5 states, `Crawler-Rig`
   176/3, `Troll-Rig` 227/3, `Chest` 4/2.
 - `Male` full-body clips contain 61 tracks that match the 61 `skn` skeleton bones exactly; the
@@ -193,8 +222,9 @@ dotnet run --project OpenElexSharp -- assets blendshapes --all
 The `animations` command prints the readable-name count, `BONE_`-prefixed names, clip count,
 posed-clip count, simple-transition count and state-name count. `--properties` also lists each
 clip's track table and first pose quaternions, followed by every transition, state and graph node.
-The `blendshapes` command prints the target count, base vertex count, unresolved header fields and
-the first target names.
+The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
+decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
+per-target delta counts and the first two position/normal deltas.
 
 ## Retail validation
 
@@ -208,9 +238,11 @@ the first target names.
 | Simple transitions (`Crawler-Rig` / `Weapons` / `Chest`) | 176 / 20 / 4 |
 | `Male` simple transitions | 0 (hierarchical paths, not decoded) |
 | `bln` resources parsed | 270 / 270 |
+| `bln` delta sets decoded | 270 / 270 |
+| Total blend-shape deltas | 63,541,940 |
+| Sampled head blend targets | 83 (9,975 vertices, 135,564 deltas) |
 | Largest network | `Male`, 59.6 MB |
 | Maximum readable names (cap) | 100,000 |
-| Sampled head blend targets | 83 (9,975 vertices) |
 
 ## Open questions
 
@@ -219,8 +251,8 @@ the first target names.
 - Keyframe curves, time bases and compression; clips currently expose one pose each.
 - The large `Male` tail: about 54 MB of mixed float, index and high-entropy blocks is not decoded.
 - Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
-- `bln` delta layout, quantization, per-target vertex ranges and the meaning of header fields
-  8/12/16.
+- Exact blend-shape game unit and whether blended normals should be normalized before rendering.
+- Whether every `bln` resource pairs with an `skn` of the same vertex count/order outside the sampled head.
 - Whether facial animation is driven by `bln` weights, Morpheme nodes or both.
 - Body bind-pose transforms, needed before a full skinned pose viewer can be rendered.
 - A playable pose/character viewer.
@@ -233,7 +265,7 @@ the first target names.
 | Clip retargeting and blending | `OpenElexSharp/Assets/MotionPose.cs` |
 | State-transition names | `OpenElexSharp/Assets/MotionTransition.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
-| Blend-shape header/name parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs` |
+| Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
 | Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `BlendShapeTests.cs` |
 
@@ -242,7 +274,7 @@ the first target names.
 - T009a - skeletons and skinned meshes.
 - T009b - animation data discovery.
 - T009c - motion clips and pose sampling.
-- T009d - blend-shape deltas and morph playback.
+- T009d - blend-shape deltas and morph weighting.
 - T009e - Morpheme state graph names and transitions.
 - T009f - body bind poses and the pose viewer.
 - T009g - binary graph edges and keyframe curves.
