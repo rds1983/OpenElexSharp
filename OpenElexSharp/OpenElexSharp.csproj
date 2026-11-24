@@ -9,7 +9,9 @@
 
   <ItemGroup>
     <PackageReference Include="BCnEncoder.Net" />
+    <PackageReference Include="DigitalRiseModel.MonoGame" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" />
+    <PackageReference Include="Myra" />
   </ItemGroup>
 
   <ItemGroup>

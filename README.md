@@ -2,7 +2,7 @@
 
 An open-source, from-scratch C# implementation of the **ELEX** engine and game runtime (Piranha Bytes, 2017), built on MonoGame.
 
-> **Status: pre-alpha.** Asset mounting, format parsing and texture loading. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
+> **Status: pre-alpha.** Asset mounting, format parsing, texture loading and static-mesh preview. There is no playable build yet; the roadmap lives in [TASKS.md](TASKS.md).
 
 OpenElexSharp reads assets from a local ELEX installation. **No game assets or game code are distributed with this project.**
 
@@ -54,7 +54,7 @@ dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture in the test scene; mesh and world rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh in the test scene. Both scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. Full materials, skeletons and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -66,10 +66,11 @@ dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_q
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properties --decode
+dotnet run --project OpenElexSharp -- assets meshes Obj_Dmy_MaterialCube_1_L1 --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md), [Documentation/Formats/Textures.md](Documentation/Formats/Textures.md), [Documentation/Formats/Meshes.md](Documentation/Formats/Meshes.md), [Documentation/UI.md](Documentation/UI.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -81,9 +82,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 36 | 6174 | 5335 | 222.1 KB |
-| Tests | 36 | 4545 | 3801 | 146.8 KB |
-| **Total** | **72** | **10719** | **9136** | **368.9 KB** |
+| Engine | 45 | 7428 | 6434 | 265.0 KB |
+| Tests | 39 | 4915 | 4120 | 158.8 KB |
+| **Total** | **84** | **12343** | **10554** | **423.8 KB** |
 
 ## Credits
 

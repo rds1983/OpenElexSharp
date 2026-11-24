@@ -29,6 +29,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.Objects => Objects(command, catalog, assets, output, error),
             AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
             AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
+            AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -409,6 +410,103 @@ public static class AssetCatalogConsole
         error.WriteLine(
             $"Showing {shown} of {matches.Count:N0} texture(s); parsed {parsed:N0}" +
             (command.Decode ? $", decode failures {decodeFailures:N0}" : string.Empty) + ".");
+        return 0;
+    }
+
+    private static int Meshes(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {
+        var resources = ElexResourceIndex.Build(catalog, assets);
+        foreach (var diagnostic in resources.Diagnostics.Take(5))
+        {
+            error.WriteLine($"Mesh warning: {diagnostic}");
+        }
+
+        IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+            string.Equals(resource.TypeToken, "msh", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(command.Filter))
+        {
+            query = query.Where(resource =>
+                resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = query
+            .OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+        var parsed = 0;
+        for (var index = 0; index < shown; index++)
+        {
+            var resource = matches[index];
+            GmshMesh mesh;
+            try
+            {
+                using var stream = assets.OpenRead(resource.VirtualPath);
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                mesh = GmshMesh.Parse(resource.Name, resource.VirtualPath, buffer.ToArray());
+                parsed++;
+            }
+            catch (Exception exception) when (
+                exception is GmshFormatException or IOException or UnauthorizedAccessException or
+                    AssetNotFoundException)
+            {
+                error.WriteLine($"Skipping mesh '{resource.Name}': {exception.Message}");
+                continue;
+            }
+
+            var min = mesh.Positions[0];
+            var max = mesh.Positions[0];
+            foreach (var position in mesh.Positions)
+            {
+                min = System.Numerics.Vector3.Min(min, position);
+                max = System.Numerics.Vector3.Max(max, position);
+            }
+
+            output.WriteLine(
+                $"{resource.Name}\t{mesh.Positions.Count}\t{mesh.TriangleCount}\t" +
+                $"{mesh.VertexAttributes.Count}\t{mesh.VertexStreams.Count}\t" +
+                $"{mesh.MaterialReferences.Count}\t" +
+                $"{min.X:0.###},{min.Y:0.###},{min.Z:0.###}\t" +
+                $"{max.X:0.###},{max.Y:0.###},{max.Z:0.###}\t{resource.VirtualPath}");
+
+            if (command.ShowProperties)
+            {
+                output.WriteLine(
+                    $"\tgmshOffset={mesh.GmshOffset}\tversion={mesh.Version}\t" +
+                    $"indexOffset={mesh.IndexOffset}\tindices={mesh.Indices.Count}\t" +
+                    $"isTriangleList={mesh.IsTriangleList}");
+                foreach (var attribute in mesh.VertexAttributes)
+                {
+                    output.WriteLine(
+                        $"\tattribute\t{attribute.UsageName}\t{attribute.UsageIndex}\t" +
+                        $"format={attribute.Format}\tstream={attribute.Stream}\t" +
+                        $"unknown={attribute.Unknown0:x8}/{attribute.Unknown1:x8}/{attribute.Unknown2:x8}");
+                }
+
+                foreach (var stream in mesh.VertexStreams)
+                {
+                    output.WriteLine(
+                        $"\tstream\t{stream.UsageName}\toffset={stream.Offset}\t" +
+                        $"stride={stream.Stride}\tunknown={stream.Unknown}");
+                }
+
+                for (var material = 0; material < mesh.MaterialReferences.Count; material++)
+                {
+                    var reference = mesh.MaterialReferences[material];
+                    output.WriteLine(
+                        $"\tmaterial\t{material}\t" +
+                        string.Join('/', reference.Raw.Select(value => value.ToString("x8"))));
+                }
+            }
+        }
+
+        error.WriteLine(
+            $"Showing {shown} of {matches.Count:N0} mesh(es); parsed {parsed:N0}.");
         return 0;
     }
 

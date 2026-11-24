@@ -173,6 +173,18 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_Meshes_ReadsFilterAndFlags()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "meshes", "Cube", "--limit", "3", "--properties"]);
+
+        Assert.Equal(AssetCommandKind.Meshes, command.Kind);
+        Assert.Equal("Cube", command.Filter);
+        Assert.Equal(3, command.Limit);
+        Assert.True(command.ShowProperties);
+    }
+
+    [Fact]
     public void Parse_Textures_ReadsFilterAndFlags()
     {
         var command = AssetCommandLine.Parse(

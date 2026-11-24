@@ -13,6 +13,7 @@ dotnet run --project OpenElexSharp -- assets resources [substring] [options]
 dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -80,6 +81,18 @@ dotnet run --project OpenElexSharp -- assets textures AS_DirtMasks_X3 --properti
 dotnet run --project OpenElexSharp -- assets textures --all
 ```
 
+### `meshes`
+
+Builds the logical resource index, finds `msh` resources and parses their GMSH v2 header, index
+buffer, positions and vertex attribute/stream declarations. Prints name, vertex count, triangle
+count, attribute/stream/material counts, bounds and ROM path. `--properties` prints the raw
+attribute and stream records plus material-reference values.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets meshes Obj_Dmy_MaterialCube_1_L1 --properties
+dotnet run --project OpenElexSharp -- assets meshes --all
+```
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -101,6 +114,10 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
 | `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
 | `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
+| `GmshMesh` | GMSH v2 headers, indices, positions and vertex/material declarations. |
+| `MeshLoader` / `DrMeshPartTag` | DigitalRiseModel `DrMeshPart` creation, generated normals and bounding-sphere metadata. |
+| `Renderer` | Low-level device state, stock effects, draw calls and mesh/texture statistics. |
+| `Hud` | Myra overlay showing FPS, draw calls, triangles, mesh count and the Escape control hint. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 
@@ -111,6 +128,8 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 `assets resources` additionally parses every `RT02` database; a cold run takes about 3.5 seconds and resolves 65,965 logical resources.
 
 `assets textures --all` parses all 9,631 image headers in roughly 20-30 seconds including resource-database discovery. Decoding every mip-0 texture with `--decode` takes several minutes and is intended as a diagnostic rather than an interactive command.
+
+`assets meshes --all` parses all 5,868 static meshes in roughly 10 seconds including resource-database discovery.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -128,6 +147,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Object properties and class data are preserved raw; type-specific decoding and nested `GEC2` objects are not implemented yet.
 - `assets textures --all --decode` is intentionally a diagnostic path: decoding every mip-0 texture in the retail set takes several minutes. Normal browsing should use a filter or omit `--decode`.
 - Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
+- GMSH meshes currently expose positions, triangle indices and raw attribute/stream/material declarations. Normal/UV stream decoding, material resolution and LOD/submesh data are not implemented; the viewer generates smooth normals and uses a placeholder texture.
 
 ## Related tasks
 

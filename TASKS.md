@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T008**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T008b**.
 
 ---
 
@@ -79,9 +79,28 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: DDS parser, format mapping, BC4/BC5/BC6H/BC7 CPU decoding, compressed/uncompressed upload, `--texture` test scene, fallback texture and `assets textures`; 325 tests; all 9,631 retail `img` resources parse, all 9,625 2D textures decode, 6 volume textures parsed but not uploaded.
   Completed 2026-11-24 — DDS image resources, BC1–BC7 upload/decoding, normal maps, fallback and texture inspector.
 
-- [ ] **T008 · Static meshes**
+- [x] **T008 · Static meshes (stage A: container and geometry preview)**
   Identify and parse static mesh assets: vertex layouts, index buffers, submeshes, materials, texture bindings and LODs. Document the vertex-stream combinations actually present in the data.
   Done when: representative meshes of every vertex layout load and render with stock effects; malformed data fails with actionable diagnostics.
+  **Done in this run:**
+  - GMSH v2 container/header, index block and float3 position block parsing.
+  - Vertex-attribute, vertex-stream and material-reference declarations exposed.
+  - Validation for malformed headers, truncated data, out-of-range indices and bad positions.
+  - `DrMeshPart`/`DrMeshPartTag` mesh storage, dedicated `Renderer` with draw-call/triangle statistics, generated smooth normals and fallback texture.
+  - Myra HUD with FPS/draw-call/triangle/mesh statistics and an `Escape - Exit` control hint; layouts authored in `.xmmp` and exported with `myra-export`.
+  - `assets meshes` inspector and `Documentation/Formats/Meshes.md`.
+  - All 5,868 retail meshes parse and the six observed attribute/stream layouts are catalogued.
+  - 340 tests, Debug/Release build warning-free.
+  **Not done (moved to T008b):**
+  - Decoding per-vertex normals, UVs, tangents and colors.
+  - Resolving material-reference records to `eCMaterialResource2` and binding real textures.
+  - Decoding LOD/submesh ranges and the data after the position block.
+  - Confirming coordinate handedness/unit scale and skinned vertex streams.
+  Completed 2026-11-24 — GMSH geometry parser, DigitalRiseModel mesh parts, renderer statistics, Myra HUD and mesh inspector.
+
+- [ ] **T008b · Mesh attributes, materials and LODs**
+  Decode the GMSH v2 vertex streams and material references, including normal/UV/tangent/color layouts, `eEGfxFormat2` format codes, mesh→`eCMaterialResource2` resolution, texture bindings, LOD/submesh ranges and the coordinate system.
+  Done when: representative meshes of every observed layout render with real normals/UVs and material textures, LOD0 selection matches the data, and malformed attribute streams fail with actionable diagnostics.
 
 - [ ] **T009 · Skeletons and animations**
   Parse bone hierarchies, bind poses, animation clips and compression. Record the maximum bone count in ELEX assets and whether stock `SkinnedEffect` suffices.

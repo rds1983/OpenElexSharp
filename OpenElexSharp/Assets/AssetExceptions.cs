@@ -79,6 +79,20 @@ public sealed class DdsFormatException : Exception
     }
 }
 
+/// <summary>A GMSH mesh resource is malformed or uses an unsupported variant.</summary>
+public sealed class GmshFormatException : Exception
+{
+    public GmshFormatException(string message)
+        : base(message)
+    {
+    }
+
+    public GmshFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
 /// <summary>A Genome GEC2 object or DT01 document is malformed.</summary>
 public sealed class GenomeFormatException : Exception
 {

@@ -83,6 +83,30 @@ public class LaunchOptionsTests
     }
 
     [Fact]
+    public void Parse_MeshWithSeparateArgument_SetsValue()
+    {
+        var options = LaunchOptions.Parse(["--mesh", "Obj_Dmy_MaterialCube_1_L1"]);
+
+        Assert.Equal("Obj_Dmy_MaterialCube_1_L1", options.Mesh);
+    }
+
+    [Fact]
+    public void Parse_MeshWithEquals_SetsValue()
+    {
+        var options = LaunchOptions.Parse(["--mesh=Obj_Dmy_MaterialCube_1_L1"]);
+
+        Assert.Equal("Obj_Dmy_MaterialCube_1_L1", options.Mesh);
+    }
+
+    [Fact]
+    public void Parse_MissingMeshValue_Throws()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--mesh"]));
+
+        Assert.Contains("--mesh", exception.Message);
+    }
+
+    [Fact]
     public void Parse_TextureWithEquals_SetsValue()
     {
         var options = LaunchOptions.Parse(["--texture=AS_AlbSigns_1_Nm"]);

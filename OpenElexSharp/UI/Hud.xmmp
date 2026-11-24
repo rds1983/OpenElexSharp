@@ -1,0 +1,4 @@
+<Project>
+  <Project.ExportOptions Namespace="OpenElexSharp.UI" Class="Hud" FieldsVisibility="Private" />
+  <Panel Id="_panelRoot" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+</Project>

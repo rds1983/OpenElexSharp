@@ -14,6 +14,9 @@ public sealed class LaunchOptions
     /// <summary>The argument that loads an image resource for the texture test scene.</summary>
     public const string TextureArgument = "--texture";
 
+    /// <summary>The argument that loads a mesh resource for the static-mesh test scene.</summary>
+    public const string MeshArgument = "--mesh";
+
     /// <summary>
     /// Gets a value indicating whether the engine should open a window, render a few frames
     /// and exit successfully. Intended for verifying that the graphics stack works.
@@ -32,6 +35,11 @@ public sealed class LaunchOptions
     public string? Texture { get; private init; }
 
     /// <summary>
+    /// Gets the mesh resource name (or name substring) to display in the static-mesh test scene.
+    /// </summary>
+    public string? Mesh { get; private init; }
+
+    /// <summary>
     /// Parses command-line arguments.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="args"/> is <see langword="null"/>.</exception>
@@ -43,6 +51,7 @@ public sealed class LaunchOptions
         var smokeTest = false;
         string? elexPath = null;
         string? texture = null;
+        string? mesh = null;
 
         for (var index = 0; index < args.Count; index++)
         {
@@ -80,6 +89,22 @@ public sealed class LaunchOptions
                     argument[(TextureArgument.Length + 1)..],
                     nameof(args));
             }
+            else if (string.Equals(argument, MeshArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                if (index + 1 >= args.Count)
+                {
+                    throw new ArgumentException($"{MeshArgument} requires a value.", nameof(args));
+                }
+
+                mesh = ParseValue(MeshArgument, args[++index], nameof(args));
+            }
+            else if (argument.StartsWith(MeshArgument + "=", StringComparison.OrdinalIgnoreCase))
+            {
+                mesh = ParseValue(
+                    MeshArgument,
+                    argument[(MeshArgument.Length + 1)..],
+                    nameof(args));
+            }
             else
             {
                 throw new ArgumentException($"Unknown command-line argument '{argument}'.", nameof(args));
@@ -91,6 +116,7 @@ public sealed class LaunchOptions
             SmokeTest = smokeTest,
             ElexPath = elexPath,
             Texture = texture,
+            Mesh = mesh,
         };
     }
 
