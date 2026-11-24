@@ -6,7 +6,11 @@ namespace OpenElexSharp.Assets;
 /// <summary>One quantized animation sample: raw position components and a normalized quaternion.</summary>
 /// <param name="RawPosition">Three raw <c>int16</c> position components.</param>
 /// <param name="Rotation">Normalized rotation decoded from four <c>int16</c> components.</param>
-public sealed record MotionSample(Vector3 RawPosition, Quaternion Rotation);
+public sealed record MotionSample(Vector3 RawPosition, Quaternion Rotation)
+{
+	/// <summary>Decodes the position using a model-unit scale (divide by 32767 and multiply by scale).</summary>
+	public Vector3 GetPosition(float scale) => RawPosition / 32767f * scale;
+}
 
 /// <summary>
 /// A sample track found in a <c>net</c> payload. The observed header stores a byte size, a 16-byte
@@ -36,6 +40,23 @@ public sealed record MotionSampleTrack(
 	private const int RecordSize = 16;
 	private const int MaxTracks = 4096;
 	private const int MaxSamples = 512;
+
+	/// <summary>Inferred model-unit scale for quantized sample positions.</summary>
+	public const float InferredPositionScale = 100f;
+
+	/// <summary>Returns the track name at <see cref="TrackIndex"/>, or <see langword="null"/>.</summary>
+	public string? GetTrackName(IReadOnlyList<string> trackNames)
+	{
+		ArgumentNullException.ThrowIfNull(trackNames);
+		return TrackIndex >= 0 && TrackIndex < trackNames.Count ? trackNames[TrackIndex] : null;
+	}
+
+	/// <summary>Returns the track name at <see cref="BoneIndex"/>, or <see langword="null"/>.</summary>
+	public string? GetBoneName(IReadOnlyList<string> trackNames)
+	{
+		ArgumentNullException.ThrowIfNull(trackNames);
+		return BoneIndex >= 0 && BoneIndex < trackNames.Count ? trackNames[BoneIndex] : null;
+	}
 
 	/// <summary>Samples the track at a time in seconds, clamping to the first/last sample.</summary>
 	public MotionSample SampleAt(float seconds)

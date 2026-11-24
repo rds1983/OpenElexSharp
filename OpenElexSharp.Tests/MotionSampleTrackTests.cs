@@ -24,6 +24,10 @@ public class MotionSampleTrackTests
 		Assert.Equal(-3000f, track.Samples[0].RawPosition.Z, 5);
 		Assert.Equal(1f, track.Samples[0].Rotation.W, 5);
 		Assert.Equal(-1000f, track.Samples[1].RawPosition.X, 5);
+		Assert.Equal(1000f / 32767f * 100f, track.Samples[0].GetPosition(100f).X, 5);
+		var names = Enumerable.Range(0, 8).Select(index => $"n{index}").ToArray();
+		Assert.Equal("n5", track.GetTrackName(names));
+		Assert.Equal("n7", track.GetBoneName(names));
 	}
 
 	[Fact]

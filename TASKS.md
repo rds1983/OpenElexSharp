@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009n**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009o**.
 
 ---
 
@@ -280,9 +280,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Position scale and track/bone mapping.
   - Graph record semantics and transition durations.
 
-- [ ] **T009n · Sample/bone mapping and graph semantics**
-  Determine the sample position scale, map sample tracks to skeleton bones/clips, and map binary graph records to states, edges and transition durations.
-  Done when: representative sample tracks drive a posed skeleton and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009n · Sample scale and track-name mapping**
+  Add the inferred sample position scale and resolve sample header indices against clip track names.
+  Done when: scaled positions and track/bone names are available and tested.
+  **Completed 2026-11-25 — `MotionSample.GetPosition`, `GetTrackName`/`GetBoneName` and the inferred 100-unit scale.**
+  - Sample positions use `raw / 32767 × 100` model units (inferred from body proportions).
+  - Track and bone index fields resolve against a clip's track list.
+  - 435 tests, Debug/Release warning-free.
+  **Deferred to T009o:**
+  - Grouping the 1,006 samples into clips/animations and mapping graph records to states/edges/durations.
+
+- [ ] **T009o · Sample grouping and graph semantics**
+  Group sample tracks into clips/animations, drive a posed skeleton from representative groups, and map binary graph records to states, edges and transition durations.
+  Done when: representative grouped samples animate a skeleton and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
