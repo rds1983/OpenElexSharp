@@ -1,0 +1,40 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+*.trx
+coverage*
+*.nupkg
+
+# IDE and editor state
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.DotSettings.user
+*.sln.docstates
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local machine configuration (absolute paths, personal settings)
+AGENTS.local.md
+*.local.md
+.env
+.env.*
+
+# Game content must never be committed
+*.pak
+GameData/
+Extracted/
+*.bik
+*.fsb
+
+# Logs and dumps
+*.log
+*.dmp
+*.nettrace

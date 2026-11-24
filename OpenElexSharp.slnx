@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="OpenElexSharp.Tests/OpenElexSharp.Tests.csproj" />
+  <Project Path="OpenElexSharp/OpenElexSharp.csproj" />
+</Solution>

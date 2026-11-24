@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore OpenElexSharp.slnx
+
+      - name: Build
+        run: dotnet build OpenElexSharp.slnx --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test OpenElexSharp.slnx --no-build --configuration Release --logger "console;verbosity=normal"
