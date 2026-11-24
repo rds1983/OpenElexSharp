@@ -27,6 +27,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.Export => Export(command, catalog, assets, output, error),
             AssetCommandKind.Resources => Resources(command, catalog, assets, output, error),
             AssetCommandKind.Objects => Objects(command, catalog, assets, output, error),
+            AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -249,6 +250,63 @@ public static class AssetCatalogConsole
         output.WriteLine(
             $"{name}\t0x{genomeObject.ClassHash:x8}\t{genomeObject.Version}\t{genomeObject.Size}\t" +
             $"{genomeObject.Properties.Count}\t{genomeObject.ClassData.Count}\t{genomeObject.NestedObjects.Count}");
+    }
+
+    private static int Templates(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {
+        var database = TemplateDatabase.Build(catalog, assets);
+        foreach (var diagnostic in database.Diagnostics.Take(5))
+        {
+            error.WriteLine($"Template warning: {diagnostic}");
+        }
+
+        IEnumerable<GenomeTemplate> query = database.Templates;
+        if (!string.IsNullOrEmpty(command.Filter))
+        {
+            query = query.Where(template =>
+                template.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase) ||
+                template.EntityName.Contains(command.Filter, StringComparison.OrdinalIgnoreCase) ||
+                template.Guid.ToString("D").Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = query.ToList();
+        var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+        for (var index = 0; index < shown; index++)
+        {
+            var template = matches[index];
+            var parent = template.Parent?.Name ??
+                         (template.ParentGuid == Guid.Empty ? "" : template.ParentGuid.ToString("D"));
+            output.WriteLine(
+                $"{template.Name}\t{template.Guid:D}\t{parent}\t{template.Depth}\t" +
+                $"{template.PropertySets.Count}\t{template.GetEffectivePropertySets().Count}\t" +
+                $"{template.GetAllPropertySets().Count}\t{template.Children.Count}");
+
+            if (command.ShowProperties)
+            {
+                foreach (var propertySet in template.GetAllPropertySets())
+                {
+                    var className = GenomeNameTable.GetNameOrHash(propertySet.ClassHash);
+                    output.WriteLine($"\t{className}\t{propertySet.Version}\t{propertySet.Properties.Count}");
+                    foreach (var property in propertySet.Properties)
+                    {
+                        var propertyName = GenomeNameTable.GetNameOrHash(property.NameHash);
+                        var decoded = GenomePropertyDecoder.Decode(property);
+                        output.WriteLine(
+                            $"\t\t{propertyName}\t{decoded.TypeName}\t{GenomePropertyDecoder.Format(decoded)}");
+                    }
+                }
+            }
+        }
+
+        error.WriteLine(
+            $"Showing {shown} of {matches.Count:N0} template(s); database has " +
+            $"{database.Templates.Count:N0} top-level and {database.AllTemplates.Count:N0} total templates.");
+        return 0;
     }
 
     private static int Export(

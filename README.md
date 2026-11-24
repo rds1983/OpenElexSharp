@@ -63,10 +63,11 @@ dotnet run --project OpenElexSharp -- assets list dds --limit 20
 dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
+dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md), [Documentation/Formats/Objects.md](Documentation/Formats/Objects.md), [Documentation/Formats/Templates.md](Documentation/Formats/Templates.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -78,9 +79,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 31 | 3933 | 3345 | 140.2 KB |
-| Tests | 27 | 3222 | 2676 | 105.1 KB |
-| **Total** | **58** | **7155** | **6021** | **245.3 KB** |
+| Engine | 33 | 4475 | 3809 | 160.5 KB |
+| Tests | 31 | 3562 | 2973 | 117.8 KB |
+| **Total** | **64** | **8037** | **6782** | **278.3 KB** |
 
 ## Credits
 

@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T006**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T007**.
 
 ---
 
@@ -67,9 +67,11 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: typed decoder for primitives/strings/GUIDs/vectors/enums/arrays/proxies, 18,855-entry name registry, gCInfo nested objects and `--properties`; 247 tests; all 25 retail `.hdr` documents parse and decode every property (48,493 nested gCInfo objects).
   Completed 2026-11-24 — property decoding, name registry and nested gCInfo objects.
 
-- [ ] **T006 · Templates (`tple`)**
+- [x] **T006 · Templates (`tple`)**
   Parse entity/item templates, their inheritance chains, default property values and cross-references into a queryable template database. Reuse `GenomeObject`, `GenomeHeaderDocument`, `GenomePropertyDecoder` and `GenomeNameTable` from T005/T005b; `GTP0` template documents are expected to use the same class model.
   Done when: any entity's full effective property set can be resolved by template name, and inheritance/override edge cases are covered by tests.
+  Implementation complete: GTP0/eCTemplateEntity parser, child composition and GUID inheritance, typed full property sets, `assets templates`; 261 tests; 8,678 top-level and 17,356 total retail templates parsed (max 15 property sets per composition).
+  Completed 2026-11-24 — template database, composition/inheritance resolution and typed property sets.
 
 - [ ] **T007 · Textures**
   Parse texture assets (DDS with BC1–BC7 and mipmaps, plus any engine container) into `Texture2D`, with sRGB handling, fallback textures and a documented on-disk spec.

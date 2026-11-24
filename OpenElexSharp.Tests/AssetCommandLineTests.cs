@@ -149,6 +149,18 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_Templates_ReadsFilterAndLimit()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "templates", "Axe", "--limit", "7", "--properties"]);
+
+        Assert.Equal(AssetCommandKind.Templates, command.Kind);
+        Assert.Equal("Axe", command.Filter);
+        Assert.Equal(7, command.Limit);
+        Assert.True(command.ShowProperties);
+    }
+
+    [Fact]
     public void Parse_ObjectsWithoutPath_Throws()
     {
         Assert.Throws<ArgumentException>(() => AssetCommandLine.Parse(["assets", "objects"]));

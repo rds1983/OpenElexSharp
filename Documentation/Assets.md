@@ -10,7 +10,8 @@ dotnet run --project OpenElexSharp -- assets stats
 dotnet run --project OpenElexSharp -- assets list [substring] [options]
 dotnet run --project OpenElexSharp -- assets find <substring> [options]
 dotnet run --project OpenElexSharp -- assets resources [substring] [options]
-dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -57,6 +58,14 @@ dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_q
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 ```
 
+### `templates`
+
+Builds the template database from `tpl` resources and prints name, GUID, resolved parent, inheritance depth, own/inherited/full-composition property-set counts and child count. `--properties` prints every property set in the full composition with typed values.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
+```
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -75,6 +84,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `AssetKinds` | Executable-extension classification. |
 | `ElexResourceIndex` / `ElexResource` | Logical name → hashed ROM resolution through `RT02` databases. |
 | `GenomeObject` / `GenomeHeaderDocument` / `GenomeStringTable` | GEC2 objects, DT01 documents and GENOMFLE string tables. |
+| `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 

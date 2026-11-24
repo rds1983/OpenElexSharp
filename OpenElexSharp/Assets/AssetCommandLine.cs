@@ -9,6 +9,7 @@ public enum AssetCommandKind
     Export,
     Resources,
     Objects,
+    Templates,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -25,6 +26,7 @@ public sealed class AssetCommandLine
           OpenElexSharp assets stats [--elex-path <path>]
           OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
@@ -32,6 +34,7 @@ public sealed class AssetCommandLine
         stats          Prints totals by extension and source.
         resources      Prints logical resources resolved through RT02 databases.
         objects        Lists GEC2 objects in a DT01 header document.
+        templates      Lists entity/item templates and inheritance information.
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -110,6 +113,9 @@ public sealed class AssetCommandLine
                 break;
             case "objects":
                 kind = AssetCommandKind.Objects;
+                break;
+            case "templates":
+                kind = AssetCommandKind.Templates;
                 break;
             case "export":
                 kind = AssetCommandKind.Export;
@@ -303,6 +309,7 @@ public sealed class AssetCommandLine
             TypeToken = typeToken,
             Limit = limit,
             IncludeBinaries = includeBinaries,
+            ShowProperties = showProperties,
             ElexPath = elexPath,
         };
     }
