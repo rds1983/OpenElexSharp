@@ -62,6 +62,7 @@ dotnet run --project OpenElexSharp -- assets stats
 dotnet run --project OpenElexSharp -- assets list dds --limit 20
 dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
+dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
@@ -77,9 +78,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 29 | 3408 | 2891 | 121.4 KB |
-| Tests | 25 | 2994 | 2487 | 97.4 KB |
-| **Total** | **54** | **6402** | **5378** | **218.8 KB** |
+| Engine | 31 | 3933 | 3345 | 140.2 KB |
+| Tests | 27 | 3222 | 2676 | 105.1 KB |
+| **Total** | **58** | **7155** | **6021** | **245.3 KB** |
 
 ## Credits
 
@@ -91,7 +92,7 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 Format-research credits — projects whose source or documentation informed a format specification:
 
-- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0) — Elex Resource Manager; reference for the G3V0 PAK header, directory tree, file attributes and DEFLATE compression (`mi_genomevolume.cpp`).
+- [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0) — Elex Resource Manager; reference for the G3V0 PAK header, directory tree, file attributes, DEFLATE compression (`mi_genomevolume.cpp`), to the Genome object/class model and to the embedded class/property name registry.
 - [GameExtractor](https://github.com/wattostudios/GameExtractor) (GPL-2.0-or-later) — `Plugin_PAK_G3V0_2` independently documents the Risen-family PAK layout reused by ELEX.
 - [G3Archive](https://github.com/gekonnn/G3Archive) (MIT) — Gothic 3 PAK header reference that clarified the G3V0 lineage.
 

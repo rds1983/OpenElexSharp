@@ -4,7 +4,7 @@ ELEX object data uses the Genome Engine GEL serialization family. The current im
 
 ## Reference implementation
 
-The primary reference is [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0), especially `mCRisenDoc::DocumentRisen3Class` in `mimicry/source/Mimicry/mi_risendoc.cpp` and `mCGenomeFile` in `mi_genomefile.cpp`. Name hashes use the case-sensitive DJB2 implementation from `mCRisenName` (`g_djb2`).
+The primary reference is [rmtools](https://github.com/Baltram/rmtools) (GPL-3.0), especially `mCRisenDoc::DocumentRisen3Class` in `mimicry/source/Mimicry/mi_risendoc.cpp` and `mCGenomeFile` in `mi_genomefile.cpp`. Name hashes use the case-sensitive DJB2 implementation from `mCRisenName` (`g_djb2`). The embedded 18,855-entry hash-to-name registry is generated from rmtools' `mi_risenname.cpp` and is attributed in `OpenElexSharp/Assets/Data/GenomeNames.json`.
 
 ## GEC2 object
 
@@ -32,7 +32,26 @@ uint32 dataSize
 byte[dataSize] data
 ```
 
-Unknown properties and unknown property types are preserved as raw bytes. Type-specific values currently known from the reference implementation include primitives, strings, GUIDs, vectors, matrices, quaternions, arrays and proxies; decoding them is a later step.
+Unknown properties and unknown property types are preserved as raw bytes. Common types are decoded:
+
+| Type family | Decoded representation |
+| --- | --- |
+| `bool`, integer and floating types | Native values. |
+| `class bCString` | String. |
+| `class bCGuid`, `eCEntityProxy`, `eCTemplateEntityProxy` | `Guid`. |
+| `bCVector`, `bCVector2`, `bCQuaternion`, `bCMatrix`, `bCBox`, `bCColor`/`bCFloatColor`, `bCRange1`, `bCEulerAngles` | Float arrays. |
+| `*LocString` | Four-byte prefix is skipped, then the string. |
+| String proxies (`eCScriptProxyScript`, quest/resource proxies, etc.) | String; versioned variants consume a 16-bit version first. |
+| `enum ...` | Member hash, integer value and resolved member name. |
+| `bT...Array<T>` / scene/ref arrays | Count plus recursively decoded elements. Elements whose layout is not known are kept as raw bytes. |
+| `class bCDateTime` | UTC date/time when the FILETIME is valid. |
+| `blob` | Raw bytes. |
+
+Arrays use the reference implementation's fixed-chunk split; variable-sized element arrays fall back to raw elements when a chunk cannot be decoded.
+
+### Nested objects
+
+`gCInfo` version 1 class data starts with a 16-bit command count and a 16-bit condition count, followed by nested `GEC2` objects. These are decoded recursively and exposed as `GenomeObject.NestedObjects`; the retail `w_info.hdr` contains 48,493 command/condition objects. Other classes' nested data remains raw until their layouts are documented.
 
 ### Class data
 
@@ -68,6 +87,8 @@ Verified examples:
 | `class eCDynamicEntity` | `0x36182D05` |
 
 Resource-name hashes from `RT02` databases use the same algorithm after lower-casing; see [Gar5.md](Gar5.md).
+
+The engine embeds an 18,855-entry hash-to-name registry generated from the rmtools name list. `GenomeNameTable.TryGet` resolves classes, property types, property names and enum members; unknown hashes remain printed as `0xXXXXXXXX`. This registry is data derived from GPL-3.0 sources and is tracked with its source URL in the JSON file.
 
 ## DT01 header documents
 
@@ -107,7 +128,7 @@ Sections and entries are validated for bounds, name lengths and object sizes. Th
 | `documents/w_cutscene.hdr` | 2 | 38 | two cutscene setup classes |
 | `documents/w_music.hdr` | 1 | 27 | music definition class |
 
-All 25 retail `.hdr` documents parse without errors. `w_info.hdr` contains 57,913 `GEC2` byte sequences in total; most are nested objects inside `gCInfo` class data and are intentionally preserved as raw blocks for now.
+All 25 retail `.hdr` documents parse without errors and every property decodes or falls back to raw bytes. `w_info.hdr` contains 57,913 `GEC2` byte sequences in total; 7,679 are top-level objects and 48,493 are nested `gCInfo` commands/conditions.
 
 ## GENOMFLE string table
 
@@ -133,24 +154,26 @@ Strings are referenced by 16-bit indices; embedded strings are `uint16 length` +
 | GEC2 object | `OpenElexSharp/Assets/GenomeObject.cs` |
 | DT01 document | `OpenElexSharp/Assets/GenomeHeaderDocument.cs` |
 | GENOMFLE string table | `OpenElexSharp/Assets/GenomeStringTable.cs` |
+| Property decoder | `OpenElexSharp/Assets/GenomePropertyDecoder.cs` |
+| Hash-to-name registry | `OpenElexSharp/Assets/GenomeNameTable.cs`, `Assets/Data/GenomeNames.json` |
 | Case-sensitive name hash | `OpenElexSharp/Assets/Djb2Hash.cs` |
 
 CLI inspection:
 
 ```powershell
-dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
+dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 ```
 
-Output columns: name, class hash, version, size, property count, class-data count.
+Output columns: name, class hash, version, size, property count, class-data count, nested count. With `--properties`, each property is printed with its resolved name, type and typed value.
 
 ## Open questions
 
-- Property-type decoding for primitives, strings, GUIDs, vectors, arrays and proxies.
-- Recursive decoding of nested `GEC2` objects inside class data.
-- Class/property hash → human-readable name tables (the reference implementation ships a large name list).
+- Recursive decoding of nested objects for classes other than `gCInfo`.
+- Variable-sized array elements and scene reference arrays need broader real-data coverage.
+- Class layouts for versions and classes beyond the quest/info documents.
 - DT01 variants and `GTP0` template documents.
 - Where `GENOMFLE` is used in the retail data set (none found so far).
-- Version-specific class layouts.
+- Whether the name registry covers every class/property in non-document assets.
 
 ## Related tasks
 

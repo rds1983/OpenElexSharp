@@ -24,7 +24,7 @@ public sealed class AssetCommandLine
           OpenElexSharp assets find <substring> [--ext <ext>] [--source <text>] [--language <code>] [--limit <n>|--all] [--include-binaries] [--elex-path <path>]
           OpenElexSharp assets stats [--elex-path <path>]
           OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
-          OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--elex-path <path>]
+          OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
@@ -58,6 +58,8 @@ public sealed class AssetCommandLine
     public int Limit { get; private init; } = 100;
 
     public bool IncludeBinaries { get; private init; }
+
+    public bool ShowProperties { get; private init; }
 
     public string? AssetPath { get; private init; }
 
@@ -128,6 +130,7 @@ public sealed class AssetCommandLine
         string? elexPath = null;
         var limit = 100;
         var includeBinaries = false;
+        var showProperties = false;
         var positionals = new List<string>();
 
         for (var index = 2; index < args.Count; index++)
@@ -208,6 +211,14 @@ public sealed class AssetCommandLine
 
                     includeBinaries = true;
                     break;
+                case "--properties":
+                    if (inlineValue is not null)
+                    {
+                        throw new ArgumentException("Option '--properties' does not take a value.", nameof(args));
+                    }
+
+                    showProperties = true;
+                    break;
                 case "--elex-path":
                     elexPath = TakeValue();
                     break;
@@ -252,6 +263,7 @@ public sealed class AssetCommandLine
                 Kind = kind,
                 AssetPath = positionals[0],
                 Limit = limit,
+                ShowProperties = showProperties,
                 ElexPath = elexPath,
             };
         }

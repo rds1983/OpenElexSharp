@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T005b**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T006**.
 
 ---
 
@@ -61,12 +61,14 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: `GenomeObject`, `GenomeHeaderDocument`, `GenomeStringTable`, `assets objects`; 228 tests; all 25 retail `.hdr` documents parse (749 `gCQuest`, 7,679 top-level `gCInfo` objects). Nested class-data objects and property type decoding remain raw.
   Completed 2026-11-24 — GEC2/DT01/GENOMFLE parsing and retail `.hdr` validation.
 
-- [ ] **T005b · Genome property decoding and nested objects**
+- [x] **T005b · Genome property decoding and nested objects**
   Decode common Genome property types (primitives, strings, GUIDs, vectors/matrices, arrays and proxies) and recursively enumerate nested `GEC2` objects inside class data. Build a practical class/property name table from hashes so object dumps are readable.
   Done when: representative `gCQuest`/`gCInfo` objects expose typed values, `gCInfo` commands/conditions are enumerable, and malformed values are rejected with clear diagnostics.
+  Implementation complete: typed decoder for primitives/strings/GUIDs/vectors/enums/arrays/proxies, 18,855-entry name registry, gCInfo nested objects and `--properties`; 247 tests; all 25 retail `.hdr` documents parse and decode every property (48,493 nested gCInfo objects).
+  Completed 2026-11-24 — property decoding, name registry and nested gCInfo objects.
 
 - [ ] **T006 · Templates (`tple`)**
-  Parse entity/item templates, their inheritance chains, default property values and cross-references into a queryable template database. Reuse `GenomeObject` and `GenomeHeaderDocument` from T005 and the property decoder from T005b; `GTP0` template documents are expected to use the same class model.
+  Parse entity/item templates, their inheritance chains, default property values and cross-references into a queryable template database. Reuse `GenomeObject`, `GenomeHeaderDocument`, `GenomePropertyDecoder` and `GenomeNameTable` from T005/T005b; `GTP0` template documents are expected to use the same class model.
   Done when: any entity's full effective property set can be resolved by template name, and inheritance/override edge cases are covered by tests.
 
 - [ ] **T007 · Textures**
@@ -249,6 +251,7 @@ Not committed to a milestone; revisit after T308.
 
 - Mod loading/overrides on top of the base mounts.
 - Persist PAK directory indexes to remove the ~2.4 s cold start at ~157k entries.
+- Generalize nested class-data object decoding beyond `gCInfo`.
 - Asset export/screenshot tools for documentation.
 - Editor support for inspecting templates and worlds.
 - ELEX 2 support if its formats are close enough.

@@ -140,6 +140,15 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_ObjectsProperties_SetsFlag()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "objects", "data/compiled/documents/w_quest.hdr", "--properties"]);
+
+        Assert.True(command.ShowProperties);
+    }
+
+    [Fact]
     public void Parse_ObjectsWithoutPath_Throws()
     {
         Assert.Throws<ArgumentException>(() => AssetCommandLine.Parse(["assets", "objects"]));

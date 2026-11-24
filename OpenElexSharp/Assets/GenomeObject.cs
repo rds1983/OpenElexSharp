@@ -14,6 +14,16 @@ public sealed record GenomeProperty(uint TypeHash, uint NameHash, byte[] Data);
 /// <param name="Data">Raw class-data payload.</param>
 public sealed record GenomeClassData(uint ClassHash, ushort Version, byte[] Data);
 
+/// <summary>Kind of a nested object found inside known class data.</summary>
+public enum GenomeNestedObjectKind
+{
+    Command,
+    Condition,
+}
+
+/// <summary>A nested object decoded from known class data.</summary>
+public sealed record GenomeNestedObject(GenomeNestedObjectKind Kind, GenomeObject Object);
+
 /// <summary>
 /// A Genome Engine GEC2 serialized object. Unknown properties and class data are preserved as raw
 /// bytes so later layers can decode formats that are not implemented yet.
@@ -23,11 +33,15 @@ public sealed class GenomeObject
     /// <summary>"GEC2" as a little-endian integer.</summary>
     public const uint Magic = 0x32434547;
 
+    /// <summary>Hash of <c>class gCInfo</c>; its class data contains nested command/condition objects.</summary>
+    public const uint InfoClassHash = 0x1BC7FE51;
+
     /// <summary>Bytes before the property count: magic, class hash, version and body size.</summary>
     public const int HeaderSize = 14;
 
     private const uint MaxBodySize = 256 * 1024 * 1024;
     private const uint MaxDataCount = 1_000_000;
+    private const int MaxNestedDepth = 16;
 
     private GenomeObject(
         int offset,
@@ -35,7 +49,8 @@ public sealed class GenomeObject
         ushort version,
         uint bodySize,
         GenomeProperty[] properties,
-        GenomeClassData[] classData)
+        GenomeClassData[] classData,
+        GenomeNestedObject[] nestedObjects)
     {
         Offset = offset;
         ClassHash = classHash;
@@ -43,6 +58,7 @@ public sealed class GenomeObject
         BodySize = bodySize;
         Properties = properties;
         ClassData = classData;
+        NestedObjects = nestedObjects;
     }
 
     /// <summary>Offset of the GEC2 magic in the source buffer.</summary>
@@ -66,10 +82,20 @@ public sealed class GenomeObject
     /// <summary>Attached class-data blocks in stream order.</summary>
     public IReadOnlyList<GenomeClassData> ClassData { get; }
 
+    /// <summary>Nested objects decoded from known class data (currently <c>gCInfo</c> commands/conditions).</summary>
+    public IReadOnlyList<GenomeNestedObject> NestedObjects { get; }
+
     /// <summary>Parses one object at <paramref name="offset"/>.</summary>
     /// <exception cref="GenomeFormatException">The object is malformed or truncated.</exception>
-    public static GenomeObject Parse(byte[] data, int offset)
+    public static GenomeObject Parse(byte[] data, int offset) => ParseCore(data, offset, depth: 0);
+
+    private static GenomeObject ParseCore(byte[] data, int offset, int depth)
     {
+        if (depth > MaxNestedDepth)
+        {
+            throw new GenomeFormatException("GEC2 nesting exceeds the supported depth.");
+        }
+
         ArgumentNullException.ThrowIfNull(data);
         if (offset < 0 || offset > data.Length - HeaderSize)
         {
@@ -169,6 +195,55 @@ public sealed class GenomeObject
                 $"GEC2 object ended at offset {position}, expected {end}.");
         }
 
-        return new GenomeObject(offset, classHash, version, bodySize, properties, classData);
+        var nestedObjects = DecodeNestedObjects(classData, depth);
+        return new GenomeObject(
+            offset,
+            classHash,
+            version,
+            bodySize,
+            properties,
+            classData,
+            nestedObjects);
+    }
+
+    private static GenomeNestedObject[] DecodeNestedObjects(GenomeClassData[] classData, int depth)
+    {
+        var nested = new List<GenomeNestedObject>();
+        foreach (var item in classData)
+        {
+            if (item.ClassHash != InfoClassHash || item.Version != 1)
+            {
+                continue;
+            }
+
+            if (item.Data.Length < 4)
+            {
+                throw new GenomeFormatException("gCInfo class data is missing its command counts.");
+            }
+
+            var commandCount = BinaryPrimitives.ReadUInt16LittleEndian(item.Data);
+            var conditionCount = BinaryPrimitives.ReadUInt16LittleEndian(item.Data.AsSpan(2));
+            var position = 4;
+            for (var index = 0; index < commandCount; index++)
+            {
+                var child = ParseCore(item.Data, position, depth + 1);
+                nested.Add(new GenomeNestedObject(GenomeNestedObjectKind.Command, child));
+                position += child.Size;
+            }
+
+            for (var index = 0; index < conditionCount; index++)
+            {
+                var child = ParseCore(item.Data, position, depth + 1);
+                nested.Add(new GenomeNestedObject(GenomeNestedObjectKind.Condition, child));
+                position += child.Size;
+            }
+
+            if (position != item.Data.Length)
+            {
+                throw new GenomeFormatException("gCInfo class data has trailing bytes.");
+            }
+        }
+
+        return [.. nested];
     }
 }

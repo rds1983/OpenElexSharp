@@ -213,10 +213,22 @@ public static class AssetCatalogConsole
                 {
                     var item = objects[index];
                     WriteObject(output, item.Name, item.Object);
+                    if (command.ShowProperties)
+                    {
+                        foreach (var property in item.Object.Properties)
+                        {
+                            var propertyName = GenomeNameTable.GetNameOrHash(property.NameHash);
+                            var decoded = GenomePropertyDecoder.Decode(property);
+                            output.WriteLine(
+                                $"\t{propertyName}\t{decoded.TypeName}\t{GenomePropertyDecoder.Format(decoded)}");
+                        }
+                    }
                 }
 
+                var nestedCount = objects.Sum(item => item.Object.NestedObjects.Count);
                 error.WriteLine(
-                    $"Showing {shown} of {objects.Count:N0} object(s) in {document.Sections.Count:N0} section(s).");
+                    $"Showing {shown} of {objects.Count:N0} object(s) in {document.Sections.Count:N0} section(s); " +
+                    $"{nestedCount:N0} nested object(s).");
                 return 0;
             }
 
@@ -236,7 +248,7 @@ public static class AssetCatalogConsole
     {
         output.WriteLine(
             $"{name}\t0x{genomeObject.ClassHash:x8}\t{genomeObject.Version}\t{genomeObject.Size}\t" +
-            $"{genomeObject.Properties.Count}\t{genomeObject.ClassData.Count}");
+            $"{genomeObject.Properties.Count}\t{genomeObject.ClassData.Count}\t{genomeObject.NestedObjects.Count}");
     }
 
     private static int Export(

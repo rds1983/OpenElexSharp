@@ -11,4 +11,8 @@
     <PackageReference Include="MonoGame.Framework.DesktopGL" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Data/GenomeNames.json" />
+  </ItemGroup>
+
 </Project>

@@ -33,6 +33,34 @@ public class GenomeConsoleTests
     }
 
     [Fact]
+    public void ObjectsCommand_Properties_PrintsTypedValues()
+    {
+        using var temp = new TempDirectory();
+        var property = new GenomeProperty(
+            Djb2Hash.ComputeCaseSensitive("int"),
+            Djb2Hash.ComputeCaseSensitive("SortID"),
+            BitConverter.GetBytes(7));
+        var document = TestGenomeBuilder.CreateHeaderDocument(
+        [
+            (0x955C5FD7u, [("QuestOne", 0UL,
+                TestGenomeBuilder.CreateObject(0x955C5FD7, 6, [(property.TypeHash, property.NameHash, property.Data)], []))]),
+        ]);
+        temp.CreateDirectory("data");
+        File.WriteAllBytes(Path.Combine(temp.Root, "data", "test.hdr"), document);
+        var assets = new AssetFileSystem([new LooseFolderSource("test", string.Empty, temp.Root)]);
+        var catalog = AssetCatalog.Build(assets);
+        var command = AssetCommandLine.Parse(
+            ["assets", "objects", "data/test.hdr", "--limit", "1", "--properties"]);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = AssetCatalogConsole.Run(command, catalog, assets, output, error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("SortID\tint\t7", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ObjectsCommand_UnknownAsset_ReturnsError()
     {
         using var temp = new TempDirectory();

@@ -54,6 +54,7 @@ Parses a `DT01` header document (for example `data/compiled/documents/w_quest.hd
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
+dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 5 --properties
 ```
 
 ### `export`
