@@ -99,6 +99,11 @@ If the developer rejects the work or asks for changes, return to step 2 and repe
 - Do not rewrite published history, force-push or merge unrelated work into a task commit.
 - Keep commits buildable and test-green.
 
+## Code style
+
+- C# uses tab indentation with a display width of 4; XML, JSON, YAML and Markdown use spaces.
+- `.editorconfig` is the source of truth. After changing it, run `dotnet format whitespace OpenElexSharp.slnx` and keep generated files out of manual edits.
+
 ## Environment
 
 - Windows is the primary development platform; keep code cross-platform (use `Path` APIs, avoid hard-coded separators).

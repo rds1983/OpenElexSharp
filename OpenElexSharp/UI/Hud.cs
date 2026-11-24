@@ -11,41 +11,41 @@ namespace OpenElexSharp.UI;
 /// </summary>
 public partial class Hud
 {
-    private const int ScreenEdge = 8;
+	private const int ScreenEdge = 8;
 
-    private readonly DebugOverlay _debugOverlay;
-    private readonly Controls _controls;
+	private readonly DebugOverlay _debugOverlay;
+	private readonly Controls _controls;
 
-    public Hud()
-    {
-        BuildUI();
+	public Hud()
+	{
+		BuildUI();
 
-        HorizontalAlignment = HorizontalAlignment.Stretch;
-        VerticalAlignment = VerticalAlignment.Stretch;
+		HorizontalAlignment = HorizontalAlignment.Stretch;
+		VerticalAlignment = VerticalAlignment.Stretch;
 
-        _debugOverlay = new DebugOverlay
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            Left = ScreenEdge,
-            Top = ScreenEdge,
-        };
+		_debugOverlay = new DebugOverlay
+		{
+			HorizontalAlignment = HorizontalAlignment.Left,
+			VerticalAlignment = VerticalAlignment.Top,
+			Left = ScreenEdge,
+			Top = ScreenEdge,
+		};
 
-        _controls = new Controls
-        {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Left = -ScreenEdge,
-            Top = -ScreenEdge,
-        };
+		_controls = new Controls
+		{
+			HorizontalAlignment = HorizontalAlignment.Right,
+			VerticalAlignment = VerticalAlignment.Bottom,
+			Left = -ScreenEdge,
+			Top = -ScreenEdge,
+		};
 
-        Widgets.Add(_debugOverlay);
-        Widgets.Add(_controls);
-    }
+		Widgets.Add(_debugOverlay);
+		Widgets.Add(_controls);
+	}
 
-    /// <summary>The stats block.</summary>
-    public DebugOverlay DebugOverlay => _debugOverlay;
+	/// <summary>The stats block.</summary>
+	public DebugOverlay DebugOverlay => _debugOverlay;
 
-    /// <summary>Updates the HUD from the current frame's renderer statistics.</summary>
-    public void Update(GameTime gameTime, Renderer renderer) => _debugOverlay.Update(gameTime, renderer);
+	/// <summary>Updates the HUD from the current frame's renderer statistics.</summary>
+	public void Update(GameTime gameTime, Renderer renderer) => _debugOverlay.Update(gameTime, renderer);
 }

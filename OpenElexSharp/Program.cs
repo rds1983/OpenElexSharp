@@ -1,73 +1,74 @@
-﻿using OpenElexSharp;
+using OpenElexSharp;
 using OpenElexSharp.Assets;
 
 if (AssetCommandLine.IsAssetCommand(args))
 {
-    AssetCommandLine command;
-    try
-    {
-        command = AssetCommandLine.Parse(args);
-    }
-    catch (ArgumentException exception)
-    {
-        Console.Error.WriteLine(exception.Message);
-        Console.Error.WriteLine(AssetCommandLine.Usage);
-        return 1;
-    }
+	AssetCommandLine command;
+	try
+	{
+		command = AssetCommandLine.Parse(args);
+	}
+	catch (ArgumentException exception)
+	{
+		Console.Error.WriteLine(exception.Message);
+		Console.Error.WriteLine(AssetCommandLine.Usage);
+		return 1;
+	}
 
-    if (command.Kind == AssetCommandKind.Help)
-    {
-        Console.WriteLine(AssetCommandLine.Usage);
-        return 0;
-    }
+	if (command.Kind == AssetCommandKind.Help)
+	{
+		Console.WriteLine(AssetCommandLine.Usage);
+		return 0;
+	}
 
-    AssetFileSystem assets;
-    try
-    {
-        (_, assets) = MountAssets(command.ElexPath);
-    }    catch (Exception exception) when (exception is ElexInstallationException or MountConfigurationException)
-    {
-        Console.Error.WriteLine(exception.Message);
-        return 2;
-    }
+	AssetFileSystem assets;
+	try
+	{
+		(_, assets) = MountAssets(command.ElexPath);
+	}
+	catch (Exception exception) when (exception is ElexInstallationException or MountConfigurationException)
+	{
+		Console.Error.WriteLine(exception.Message);
+		return 2;
+	}
 
-    foreach (var diagnostic in assets.Diagnostics)
-    {
-        Console.Error.WriteLine($"Asset warning: {diagnostic}");
-    }
+	foreach (var diagnostic in assets.Diagnostics)
+	{
+		Console.Error.WriteLine($"Asset warning: {diagnostic}");
+	}
 
-    return AssetCatalogConsole.Run(
-        command,
-        AssetCatalog.Build(assets),
-        assets,
-        Console.Out,
-        Console.Error);
+	return AssetCatalogConsole.Run(
+		command,
+		AssetCatalog.Build(assets),
+		assets,
+		Console.Out,
+		Console.Error);
 }
 
 LaunchOptions options;
 try
 {
-    options = LaunchOptions.Parse(args);
+	options = LaunchOptions.Parse(args);
 }
 catch (ArgumentException exception)
 {
-    Console.Error.WriteLine(exception.Message);
-    Console.Error.WriteLine(
-        "Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] [--smoke-test] [--capture <png path>]");
-    Console.Error.WriteLine("       OpenElexSharp assets list|stats|export ...  (run 'OpenElexSharp assets help')");
-    return 1;
+	Console.Error.WriteLine(exception.Message);
+	Console.Error.WriteLine(
+		"Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] [--smoke-test] [--capture <png path>]");
+	Console.Error.WriteLine("       OpenElexSharp assets list|stats|export ...  (run 'OpenElexSharp assets help')");
+	return 1;
 }
 
 AssetFileSystem gameAssets;
 ElexInstallation gameInstallation;
 try
 {
-    (gameInstallation, gameAssets) = MountAssets(options.ElexPath);
+	(gameInstallation, gameAssets) = MountAssets(options.ElexPath);
 }
 catch (Exception exception) when (exception is ElexInstallationException or MountConfigurationException)
 {
-    Console.Error.WriteLine(exception.Message);
-    return 2;
+	Console.Error.WriteLine(exception.Message);
+	return 2;
 }
 
 Console.WriteLine($"ELEX installation: {gameInstallation.RootPath}");
@@ -75,21 +76,21 @@ var packedSources = gameAssets.Sources.OfType<PackedAssetSource>().ToArray();
 var looseSourceCount = gameAssets.Sources.Count - packedSources.Length;
 var packedEntryCount = packedSources.Sum(source => source.EntryCount);
 Console.WriteLine(
-    $"Mounted {looseSourceCount} loose source(s), {packedSources.Length} packed source(s) " +
-    $"({packedEntryCount} files), {gameAssets.PackedMounts.Count} packed mount(s).");
+	$"Mounted {looseSourceCount} loose source(s), {packedSources.Length} packed source(s) " +
+	$"({packedEntryCount} files), {gameAssets.PackedMounts.Count} packed mount(s).");
 
 foreach (var diagnostic in gameAssets.Diagnostics.Take(5))
 {
-    Console.Error.WriteLine($"Asset warning: {diagnostic}");
+	Console.Error.WriteLine($"Asset warning: {diagnostic}");
 }
 
 Console.WriteLine(options.SmokeTest
-    ? "OpenElexSharp starting (smoke test)."
-    : "OpenElexSharp starting.");
+	? "OpenElexSharp starting (smoke test)."
+	: "OpenElexSharp starting.");
 
 using (var game = new OpenElexGame(options, gameAssets))
 {
-    game.Run();
+	game.Run();
 }
 
 Console.WriteLine("OpenElexSharp exited.");
@@ -97,9 +98,9 @@ return 0;
 
 static (ElexInstallation Installation, AssetFileSystem Assets) MountAssets(string? explicitPath)
 {
-    var installationPath = ElexInstallation.ResolvePath(
-        explicitPath,
-        Environment.GetEnvironmentVariable(ElexInstallation.PathEnvironmentVariable));
-    var installation = ElexInstallation.Open(installationPath);
-    return (installation, AssetFileSystem.MountFromInstallation(installation));
+	var installationPath = ElexInstallation.ResolvePath(
+		explicitPath,
+		Environment.GetEnvironmentVariable(ElexInstallation.PathEnvironmentVariable));
+	var installation = ElexInstallation.Open(installationPath);
+	return (installation, AssetFileSystem.MountFromInstallation(installation));
 }

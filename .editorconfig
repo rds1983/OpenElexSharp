@@ -2,13 +2,16 @@ root = true
 
 [*]
 charset = utf-8
-indent_style = space
+indent_style = tab
 indent_size = 4
+tab_width = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.{csproj,props,targets,slnx,xml,yml,yaml,json}]
+indent_style = space
 indent_size = 2
 
 [*.md]
+indent_style = space
 trim_trailing_whitespace = false

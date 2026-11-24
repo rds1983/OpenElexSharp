@@ -11,12 +11,12 @@ namespace OpenElexSharp.Assets;
 /// <param name="AccessedTime">Last access time as a Windows FILETIME (0 when unset).</param>
 /// <param name="ModifiedTime">Last write time as a Windows FILETIME (0 when unset).</param>
 public sealed record PakEntry(
-    string VirtualPath,
-    long Offset,
-    long StoredSize,
-    long UncompressedSize,
-    bool IsCompressed,
-    uint Attributes,
-    ulong CreatedTime,
-    ulong AccessedTime,
-    ulong ModifiedTime);
+	string VirtualPath,
+	long Offset,
+	long StoredSize,
+	long UncompressedSize,
+	bool IsCompressed,
+	uint Attributes,
+	ulong CreatedTime,
+	ulong AccessedTime,
+	ulong ModifiedTime);
