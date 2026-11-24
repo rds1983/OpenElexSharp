@@ -31,3 +31,4 @@ This folder documents the binary formats used by ELEX assets. Each specification
 - [Textures.md](Textures.md) — DDS image resources, BC1–BC7 and texture upload (T007).
 - [Meshes.md](Meshes.md) — GMSH v2 static meshes, vertex streams and submesh metadata (T008/T008b).
 - [Materials.md](Materials.md) — GAR5 material payloads, texture entries and shader metadata (T008b).
+- [Skeletons.md](Skeletons.md) — `skn` skinned meshes and embedded skeletons (T009a, partial).

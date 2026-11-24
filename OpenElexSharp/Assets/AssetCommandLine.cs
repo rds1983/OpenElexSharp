@@ -13,6 +13,7 @@ public enum AssetCommandKind
 	Textures,
 	Meshes,
 	Materials,
+	Skeletons,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -33,6 +34,7 @@ public sealed class AssetCommandLine
           OpenElexSharp assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
           OpenElexSharp assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets skeletons [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
@@ -44,6 +46,7 @@ public sealed class AssetCommandLine
         textures       Inspects DDS image resources and texture metadata.
         meshes         Inspects GMSH static meshes and vertex layouts.
         materials      Inspects material resources, shaders and texture bindings.
+        skeletons      Inspects embedded skeletons in skn resources.
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -136,6 +139,9 @@ public sealed class AssetCommandLine
 				break;
 			case "materials":
 				kind = AssetCommandKind.Materials;
+				break;
+			case "skeletons":
+				kind = AssetCommandKind.Skeletons;
 				break;
 			case "export":
 				kind = AssetCommandKind.Export;

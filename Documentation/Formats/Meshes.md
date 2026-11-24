@@ -217,6 +217,20 @@ is the activation distance: `0` for `_L1`, a positive distance for later stages.
 explicitly for the default LOD. Verified on `Obj_Bld_Alb_Door_Closed_L1/L2/L3`: 758/430/216
 vertices, 2,010/693/300 indices and `LoDRangeStart` 0/5000/10000.
 
+## Skinned meshes (`skn`)
+
+Character, creature and animated-prop resources use the `skn` type and the same GMSH geometry with
+three differences:
+
+- the database class is `eCMotionSkinResource2` (same six properties);
+- `header[0]` points at an embedded skeleton tail instead of the 32-bit tooling index block, so the
+  index and vertex counts are derived from the buffer descriptors;
+- usage 5 attributes carry four bone indices (`format 20`, `R8G8B8A8_UInt`, offset 0) and four half
+  weights (`format 7`, `R16G16B16A16_Float`, offset 4); usage 7 (`format 30`, `R32_SInt`) is unknown.
+
+The skeleton tail, bone names, parent indices and the retail bone budget are documented in
+[Skeletons.md](Skeletons.md).
+
 ## Observed retail set
 
 | Metric | Value |
@@ -309,5 +323,6 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Cle_Cathedral_1_L1 --smoke-
 
 - T008 - static-mesh container and preview.
 - T008b - vertex streams, materials and LODs.
-- T009 - skeleton, skinning and animation.
+- T009a - skeleton and skinned-mesh parsing.
+- T009b - animation clips and blend shapes.
 - T102 - full mesh renderer and material binding.

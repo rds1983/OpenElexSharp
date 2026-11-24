@@ -38,6 +38,10 @@ public sealed class MeshMetadata
 	/// <summary>Case-sensitive DJB2 hash of <c>class eCMeshResource2</c>.</summary>
 	public const uint MeshResourceClassHash = 0x1C78680A;
 
+	/// <summary>Case-sensitive DJB2 hash of <c>class eCMotionSkinResource2</c>.</summary>
+	public static readonly uint MotionSkinResourceClassHash =
+		Djb2Hash.ComputeCaseSensitive("class eCMotionSkinResource2");
+
 	private static readonly uint SubMeshesHash = Djb2Hash.ComputeCaseSensitive("SubMeshes");
 	private static readonly uint IndexCountHash = Djb2Hash.ComputeCaseSensitive("IndexCount");
 	private static readonly uint VertexCountHash = Djb2Hash.ComputeCaseSensitive("VertexCount");
@@ -107,10 +111,11 @@ public sealed class MeshMetadata
 	{
 		ArgumentNullException.ThrowIfNull(classBlock);
 		var genomeObject = GenomeObject.Parse(classBlock, 0);
-		if (genomeObject.ClassHash != MeshResourceClassHash)
+		if (genomeObject.ClassHash != MeshResourceClassHash &&
+			genomeObject.ClassHash != MotionSkinResourceClassHash)
 		{
 			throw new GenomeFormatException(
-				$"Expected class eCMeshResource2, found 0x{genomeObject.ClassHash:x8}.");
+				$"Expected class eCMeshResource2 or eCMotionSkinResource2, found 0x{genomeObject.ClassHash:x8}.");
 		}
 
 		var subMeshes = ParseSubMeshes(genomeObject);

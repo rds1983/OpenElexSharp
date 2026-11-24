@@ -31,6 +31,7 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
+			AssetCommandKind.Skeletons => Skeletons(command, catalog, assets, output, error),
 			_ => throw new ArgumentOutOfRangeException(nameof(command)),
 		};
 	}
@@ -551,6 +552,120 @@ public static class AssetCatalogConsole
 		return 0;
 	}
 
+	private static int Skeletons(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Skeleton warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "skn", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		var maxBones = 0;
+		using var classBlocks = new ResourceClassBlockReader(assets);
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			byte[] data;
+			try
+			{
+				data = ReadAll(assets, resource.VirtualPath);
+			}
+			catch (Exception exception) when (
+				exception is IOException or UnauthorizedAccessException or AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping skeleton '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			var gmshOffset = data.AsSpan().IndexOf("GMSH"u8);
+			if (gmshOffset < 0 || gmshOffset + 12 > data.Length)
+			{
+				error.WriteLine($"Skipping skeleton '{resource.Name}': no GMSH block.");
+				continue;
+			}
+
+			var tailOffset = gmshOffset + (int)BitConverter.ToUInt32(data, gmshOffset + 8);
+			var skeleton = Skeleton.TryParse(data, tailOffset);
+			if (skeleton is null)
+			{
+				error.WriteLine($"Skipping skeleton '{resource.Name}': unrecognized skeleton tail.");
+				continue;
+			}
+
+			parsed++;
+			maxBones = Math.Max(maxBones, skeleton.BoneCount);
+			var vertexCount = 0;
+			var indexCount = 0;
+			try
+			{
+				var metadata = MeshMetadata.Parse(classBlocks.Read(resource));
+				vertexCount = metadata.VertexCount;
+				indexCount = metadata.IndexCount;
+			}
+			catch (Exception exception) when (
+				exception is Gar5FormatException or GenomeFormatException or IOException or
+					UnauthorizedAccessException or AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping skeleton metadata '{resource.Name}': {exception.Message}");
+			}
+
+			output.WriteLine(
+				$"{resource.Name}\t{vertexCount}\t{indexCount}\t{skeleton.BoneCount}\t" +
+				$"{skeleton.Names.Count}\t{string.Join(',', skeleton.Names)}\t{resource.VirtualPath}");
+			if (command.ShowProperties)
+			{
+				output.WriteLine(
+					$"\theader\t{string.Join(',', skeleton.Header.Select(value => value.ToString("0.###")))}");
+				foreach (var bone in skeleton.Bones)
+				{
+					output.WriteLine(
+						$"\tbone\t{bone.Index}\tposition={bone.Position.X:0.###},{bone.Position.Y:0.###}," +
+						$"{bone.Position.Z:0.###}\trotation={bone.Rotation.X:0.###},{bone.Rotation.Y:0.###}," +
+						$"{bone.Rotation.Z:0.###},{bone.Rotation.W:0.###}");
+				}
+
+				for (var nameIndex = 0; nameIndex < skeleton.Names.Count; nameIndex++)
+				{
+					output.WriteLine($"\tname\t{skeleton.NameHashes[nameIndex]:x8}\t{skeleton.Names[nameIndex]}");
+				}
+
+				if (skeleton.ParentIndices.Count > 0)
+				{
+					output.WriteLine(
+						$"\tparents\t{string.Join('/', skeleton.ParentIndices)}");
+				}
+
+				if (skeleton.NameOffsets.Count > 0)
+				{
+					output.WriteLine(
+						$"\toffsets\t{string.Join('/', skeleton.NameOffsets)}");
+				}
+			}
+		}
+
+		error.WriteLine(
+			$"Showing {shown} of {matches.Count:N0} skeleton(s); parsed {parsed:N0}; max bones {maxBones}.");
+		return 0;
+	}
+
 	private static int Materials(
 		AssetCommandLine command,
 		AssetCatalog catalog,
@@ -642,6 +757,14 @@ public static class AssetCatalogConsole
 		}
 
 		return max;
+	}
+
+	private static byte[] ReadAll(AssetFileSystem assets, string virtualPath)
+	{
+		using var stream = assets.OpenRead(virtualPath);
+		using var buffer = new MemoryStream();
+		stream.CopyTo(buffer);
+		return buffer.ToArray();
 	}
 
 	private static uint Checksum(byte[] data)

@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009b**.
 
 ---
 
@@ -118,9 +118,25 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Automatic LOD switching by `LoDRangeStart` — T406.
   - Exact triangle winding/handedness — T102.
 
-- [ ] **T009 · Skeletons and animations**
-  Parse bone hierarchies, bind poses, animation clips and compression. Record the maximum bone count in ELEX assets and whether stock `SkinnedEffect` suffices.
-  Done when: skeletons load with correct bone naming/hierarchy, clips sample to plausible poses, and the bone-limit decision (stock vs. documented custom effect) is recorded.
+- [x] **T009a · Skeletons and skinned meshes**
+  Parse the `skn` skinned GMSH variant and its embedded skeleton: skinned vertex attributes, bone names/hierarchy, bind poses and the retail bone limit.
+  Done when: decoded skeletons expose correct names/hierarchy, skinned vertex attributes decode, and the stock-`SkinnedEffect` decision is recorded for the decoded variants.
+  **Completed 2026-11-24 — `skn` skinned-mesh parsing, embedded skeleton tails, `assets skeletons` and the skeleton format spec.**
+  - Identified `skn` as the skinned GMSH variant (`class eCMotionSkinResource2`): counts come from the buffer descriptors and `header[0]` points at the embedded skeleton tail.
+  - Decoded usage 5 bone indices (`R8G8B8A8_UInt`, offset 0) and weights (`R16G16B16A16_Float`, offset 4); four influences per vertex.
+  - Added `Skeleton` parsing for the tail: 28-byte bind-pose records (head/attachment), separator, parent indices, name offsets, DJB2 hashes and names.
+  - Added `assets skeletons` and `Documentation/Formats/Skeletons.md`; 1,270 of 1,320 `skn` resources parse. Maximum 65 bones, typical 51–65; `SkinnedEffect.MaxBones` is 72, so the stock effect suffices for decoded skeletons.
+  - 378 tests, Debug/Release warning-free.
+  **Deferred to T009b:**
+  - Body/creature bind-pose transforms and the 50 unrecognized tails (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants).
+  - Head/attachment parent encoding.
+
+- [ ] **T009b · Animation clips and blend shapes**
+  Decode animation clips (including compression) and `bln` blend shapes, then sample them into poses and morph weights for `SkinnedEffect`/morph rendering.
+  Done when: representative clips sample to plausible poses, blend shapes animate the head/body, and the source and compression of animation data are documented.
+  - No separate `ani`/`mot` resource type exists; candidate data is in `skn`/`bln`/Morpheme. Locate and document it first.
+  - `bln` (`class eCBlendShapeResource2`, 270 resources) stores `blendShape1.*` targets; decode deltas and any keyframes.
+  - Add a clip sampler and a character/pose viewer driven by the decoded skeleton and clips.
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
