@@ -107,6 +107,30 @@ public class LaunchOptionsTests
 	}
 
 	[Fact]
+	public void Parse_AnimationWithSeparateArgument_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--animation", "Male"]);
+
+		Assert.Equal("Male", options.Animation);
+	}
+
+	[Fact]
+	public void Parse_AnimationWithEquals_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--animation=Male"]);
+
+		Assert.Equal("Male", options.Animation);
+	}
+
+	[Fact]
+	public void Parse_MissingAnimationValue_Throws()
+	{
+		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--animation"]));
+
+		Assert.Contains("--animation", exception.Message);
+	}
+
+	[Fact]
 	public void Parse_CaptureWithSeparateArgument_SetsPath()
 	{
 		var options = LaunchOptions.Parse(["--capture", @"C:\Temp\shot.png"]);

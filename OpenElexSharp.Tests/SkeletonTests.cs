@@ -49,6 +49,25 @@ public class SkeletonTests
 	}
 
 	[Fact]
+	public void TryParse_BodyStyleTail_ReadsGlobalAndLocalBindPoses()
+	{
+		var names = new[]
+		{
+			"Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "Arm", "Hand", "Foot",
+		};
+		var data = CreateBodyTail(names);
+
+		var skeleton = Skeleton.TryParse(data, 0);
+
+		Assert.NotNull(skeleton);
+		Assert.Equal(names.Length, skeleton.Bones.Count);
+		Assert.Equal(0f, skeleton.Bones[0].Position.X, 5);
+		Assert.Equal(10f, skeleton.Bones[1].Position.X, 5);
+		Assert.Equal(10f, skeleton.Bones[2].Position.X, 5);
+		Assert.Equal(names.Length - 1, skeleton.ParentIndices.Count);
+	}
+
+	[Fact]
 	public void TryParse_NoSeparator_ReturnsNull()
 	{
 		var data = new byte[Skeleton.HeaderSize + 64];
@@ -67,6 +86,67 @@ public class SkeletonTests
 	public void TryParse_Null_Throws()
 	{
 		Assert.Throws<ArgumentNullException>(() => Skeleton.TryParse(null!, 0));
+	}
+
+	private static byte[] CreateBodyTail(string[] names)
+	{
+		using var output = new MemoryStream();
+		using var writer = new BinaryWriter(output, Encoding.Latin1, leaveOpen: true);
+		for (var index = 0; index < Skeleton.HeaderSize / 4; index++)
+		{
+			writer.Write(0f);
+		}
+
+		writer.Write(new byte[32]); // AABB prefix
+		var count = names.Length - 1;
+		for (var index = 0; index < count; index++)
+		{
+			writer.Write(index * 10f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(1f);
+		}
+
+		for (var index = 0; index < count; index++)
+		{
+			writer.Write(1f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(0f);
+			writer.Write(1f);
+		}
+
+		writer.Write(Skeleton.Separator);
+		for (var index = 0; index < count; index++)
+		{
+			writer.Write((uint)index);
+		}
+
+		var offset = names[0].Length + 1;
+		for (var index = 1; index < names.Length; index++)
+		{
+			writer.Write((uint)offset);
+			offset += names[index].Length + 1;
+		}
+
+		foreach (var name in names)
+		{
+			writer.Write(Djb2Hash.ComputeCaseSensitive(name));
+		}
+
+		foreach (var name in names)
+		{
+			writer.Write(Encoding.Latin1.GetBytes(name));
+			writer.Write((byte)0);
+		}
+
+		writer.Write(0u);
+		return output.ToArray();
 	}
 
 	private static byte[] CreateTail(

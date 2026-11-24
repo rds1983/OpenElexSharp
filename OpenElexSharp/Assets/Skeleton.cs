@@ -118,7 +118,17 @@ public sealed class Skeleton
 			}
 
 			var parents = ReadParentIndices(data, separator + 4, offsetsStart);
-			var bones = ReadBones(data, tailOffset, separator);
+			SkeletonBone[] bones;
+			if (names.Length >= 8 &&
+				TryReadBodyBones(data, tailOffset, separator, names.Length, parents, out var bodyBones))
+			{
+				bones = bodyBones;
+			}
+			else
+			{
+				bones = ReadBones(data, tailOffset, separator);
+			}
+
 			var boneCount = bones.Length > 0 ? bones.Length : names.Length;
 			var parentCount = Math.Max(0, boneCount - 1);
 			if (parents.Length > parentCount)
@@ -257,26 +267,104 @@ public sealed class Skeleton
 		var bones = new SkeletonBone[length / BoneSize];
 		for (var index = 0; index < bones.Length; index++)
 		{
-			var offset = start + index * BoneSize;
-			var position = new Vector3(
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset)),
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 4)),
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 8)));
-			var rotation = new Quaternion(
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 12)),
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 16)),
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 20)),
-				BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 24)));
-			if (!IsFinite(position) || !float.IsFinite(rotation.X) ||
-				MathF.Abs(rotation.Length() - 1f) > 0.25f)
+			if (!TryReadBone(data, start + index * BoneSize, index, out bones[index]))
 			{
 				return [];
 			}
-
-			bones[index] = new SkeletonBone(index, position, rotation);
 		}
 
 		return bones;
+	}
+
+	private static bool TryReadBodyBones(
+		byte[] data,
+		int tailOffset,
+		int separator,
+		int nameCount,
+		uint[] parents,
+		out SkeletonBone[] bones)
+	{
+		bones = [];
+		var count = nameCount - 1;
+		if (count <= 0 || parents.Length < count)
+		{
+			return false;
+		}
+
+		var recordBytes = checked(2 * count * BoneSize);
+		var start = separator - recordBytes;
+		if (start < tailOffset + HeaderSize)
+		{
+			return false;
+		}
+
+		var globals = new SkeletonBone[count];
+		for (var index = 0; index < count; index++)
+		{
+			if (!TryReadBone(data, start + index * BoneSize, index, out globals[index]))
+			{
+				return false;
+			}
+		}
+
+		// The second half is the cached local transform block. Validate it so the layout is
+		// confirmed, but derive locals from the global block because that hierarchy is consistent.
+		for (var index = 0; index < count; index++)
+		{
+			if (!TryReadBone(data, start + (count + index) * BoneSize, index, out _))
+			{
+				return false;
+			}
+		}
+
+		var local = new SkeletonBone[nameCount];
+		local[0] = new SkeletonBone(0, globals[0].Position, globals[0].Rotation);
+		for (var index = 1; index < count; index++)
+		{
+			var parent = (int)parents[index - 1];
+			if (parent < 0 || parent >= count)
+			{
+				return false;
+			}
+
+			var parentBone = globals[parent];
+			var childBone = globals[index];
+			var inverseParent = Quaternion.Conjugate(parentBone.Rotation);
+			var position = Vector3.Transform(childBone.Position - parentBone.Position, inverseParent);
+			var rotation = Quaternion.Normalize(Quaternion.Multiply(inverseParent, childBone.Rotation));
+			local[index] = new SkeletonBone(index, position, rotation);
+		}
+
+		local[count] = new SkeletonBone(count, Vector3.Zero, Quaternion.Identity);
+		bones = local;
+		return true;
+	}
+
+	private static bool TryReadBone(byte[] data, int offset, int index, out SkeletonBone bone)
+	{
+		bone = null!;
+		if (offset < 0 || offset + BoneSize > data.Length)
+		{
+			return false;
+		}
+
+		var position = new Vector3(
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset)),
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 4)),
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 8)));
+		var rotation = new Quaternion(
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 12)),
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 16)),
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 20)),
+			BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(offset + 24)));
+		if (!IsFinite(position) || !float.IsFinite(rotation.X) ||
+			MathF.Abs(rotation.Length() - 1f) > 0.25f)
+		{
+			return false;
+		}
+
+		bone = new SkeletonBone(index, position, rotation);
+		return true;
 	}
 
 	private static bool IsPrintable(string value)

@@ -31,6 +31,10 @@ public sealed class OpenElexGame : Game
 	private Texture2D? _fallback;
 	private DrMesh? _mesh;
 	private MaterialLibrary? _materials;
+	private Skeleton? _skeleton;
+	private MotionNetwork? _network;
+	private MotionClip? _clipA;
+	private MotionClip? _clipB;
 	private KeyboardState _previousKeyboard;
 
 	public OpenElexGame(LaunchOptions options, AssetFileSystem assets)
@@ -70,6 +74,23 @@ public sealed class OpenElexGame : Game
 		_desktop = new Desktop();
 		_hud = new Hud();
 		_desktop.Root = _hud;
+		if (!string.IsNullOrWhiteSpace(_options.Animation))
+		{
+			try
+			{
+				LoadAnimationScene();
+			}
+			catch (Exception exception) when (
+				exception is GmshFormatException or GenomeFormatException or Gar5FormatException or
+					NotSupportedException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException or InvalidOperationException or ArgumentException)
+			{
+				Console.Error.WriteLine($"Animation warning: {exception.Message}");
+			}
+
+			return;
+		}
+
 		if (!string.IsNullOrWhiteSpace(_options.Mesh))
 		{
 			try
@@ -138,7 +159,11 @@ public sealed class OpenElexGame : Game
 			return;
 		}
 
-		if (_mesh is not null)
+		if (_skeleton is not null)
+		{
+			DrawSkeleton(gameTime);
+		}
+		else if (_mesh is not null)
 		{
 			DrawMesh(gameTime);
 		}
@@ -169,6 +194,10 @@ public sealed class OpenElexGame : Game
 		_mesh = null;
 		_materials?.Dispose();
 		_materials = null;
+		_skeleton = null;
+		_network = null;
+		_clipA = null;
+		_clipB = null;
 		_desktop = null;
 		_hud = null;
 		base.UnloadContent();
@@ -192,6 +221,110 @@ public sealed class OpenElexGame : Game
 		using var stream = File.Create(_options.CapturePath);
 		texture.SaveAsPng(stream, width, height);
 		Console.WriteLine($"Captured {width}x{height} -> {_options.CapturePath}");
+	}
+
+	private void LoadAnimationScene()
+	{
+		var resources = BuildResourceIndex();
+		var skeletonQuery = string.IsNullOrWhiteSpace(_options.Mesh)
+			? throw new ArgumentException("--animation requires --mesh <skn resource>.")
+			: _options.Mesh;
+		var skeletonResource = FindResource(resources, skeletonQuery, "skn");
+		var skeletonData = ReadAll(skeletonResource.VirtualPath);
+		var gmshOffset = skeletonData.AsSpan().IndexOf("GMSH"u8);
+		if (gmshOffset < 0 || gmshOffset + 12 > skeletonData.Length)
+		{
+			throw new InvalidOperationException($"Skeleton '{skeletonResource.Name}' has no GMSH block.");
+		}
+
+		var tailOffset = gmshOffset + (int)BitConverter.ToUInt32(skeletonData, gmshOffset + 8);
+		_skeleton = Skeleton.TryParse(skeletonData, tailOffset)
+			?? throw new InvalidOperationException($"Skeleton '{skeletonResource.Name}' has an unrecognized tail.");
+		if (_skeleton.Bones.Count == 0)
+		{
+			throw new InvalidOperationException($"Skeleton '{skeletonResource.Name}' has no bind-pose transforms.");
+		}
+
+		var networkResource = FindResource(resources, _options.Animation!, "net");
+		_network = MotionNetwork.Parse(networkResource.Name, ReadAll(networkResource.VirtualPath));
+		var clips = _network.Clips
+			.Where(clip => clip.HasPose)
+			.OrderByDescending(clip => clip.TrackNames.Count)
+			.ThenBy(clip => clip.Index)
+			.Take(2)
+			.ToList();
+		if (clips.Count == 0)
+		{
+			throw new InvalidOperationException($"Motion network '{networkResource.Name}' has no posed clips.");
+		}
+
+		_clipA = clips[0];
+		_clipB = clips.Count > 1 ? clips[1] : clips[0];
+		Console.WriteLine(
+			$"Animation: skeleton={skeletonResource.Name} bones={_skeleton.Bones.Count} " +
+			$"network={networkResource.Name} clips={_network.Clips.Count} " +
+			$"blend={_clipA.Index}/{_clipB.Index}");
+	}
+
+	private void DrawSkeleton(GameTime gameTime)
+	{
+		var skeleton = _skeleton!;
+		var time = (float)gameTime.TotalGameTime.TotalSeconds;
+		var blend = (MathF.Sin(time * 0.45f) + 1f) * 0.5f;
+		var pose = MotionPose.Blend(_clipA!, _clipB!, blend, skeleton.Names);
+		var skeletonPose = SkeletonPose.FromMotionPose(pose, skeleton);
+		var matrices = skeletonPose.ComputeWorldMatrices();
+		var points = new Vector3[matrices.Length];
+		var min = new Vector3(float.MaxValue);
+		var max = new Vector3(float.MinValue);
+		for (var index = 0; index < matrices.Length; index++)
+		{
+			var translation = matrices[index].Translation;
+			points[index] = new Vector3(translation.X, translation.Y, translation.Z);
+			min = Vector3.Min(min, points[index]);
+			max = Vector3.Max(max, points[index]);
+		}
+
+		if (points.Length == 0)
+		{
+			min = -Vector3.One;
+			max = Vector3.One;
+		}
+
+		var center = (min + max) * 0.5f;
+		var radius = Math.Max(0.001f, Vector3.Distance(center, max));
+		var camera = center + new Vector3(
+			MathF.Cos(time * 0.35f) * radius * 2.2f,
+			radius * 1.1f,
+			MathF.Sin(time * 0.35f) * radius * 2.2f);
+		var view = Matrix.CreateLookAt(camera, center, Vector3.Up);
+		var projection = Matrix.CreatePerspectiveFieldOfView(
+			MathHelper.PiOver4,
+			GraphicsDevice.Viewport.AspectRatio,
+			radius * 0.001f,
+			radius * 20f);
+
+		var lines = new List<VertexPositionColor>(points.Length * 2);
+		for (var index = 0; index < points.Length; index++)
+		{
+			var parent = skeletonPose.Parents[index];
+			if (parent < 0)
+			{
+				continue;
+			}
+
+			var color = Color.Lerp(
+				Color.Goldenrod,
+				Color.Cyan,
+				index / (float)Math.Max(1, points.Length - 1));
+			lines.Add(new VertexPositionColor(points[parent], color));
+			lines.Add(new VertexPositionColor(points[index], color));
+		}
+
+		_renderer!.BeginFrame(view, projection);
+		_renderer.Clear(new Color(16, 18, 24));
+		_renderer.DrawLines([.. lines], Matrix.Identity);
+		_renderer.EndFrame();
 	}
 
 	private void DrawMesh(GameTime gameTime)

@@ -77,6 +77,42 @@ public class MotionPoseTests
 	}
 
 	[Fact]
+	public void SkeletonPose_AppliesObjectMatrix()
+	{
+		var pose = new SkeletonPose(
+			[new Vector3(5, 2, 7), new Vector3(1, 0, 0)],
+			[Quaternion.Identity, Quaternion.Identity],
+			[-1, 0]);
+		var objectMatrix = Matrix4x4.CreateTranslation(10, 0, 0);
+
+		var world = pose.ComputeWorldMatrices(objectMatrix, removeRootTranslation: false);
+
+		Assert.Equal(15f, world[0].Translation.X, 5);
+		Assert.Equal(2f, world[0].Translation.Y, 5);
+		Assert.Equal(7f, world[0].Translation.Z, 5);
+		Assert.Equal(16f, world[1].Translation.X, 5);
+	}
+
+	[Fact]
+	public void SkeletonPose_RemovesRootXZBeforeObjectMatrix()
+	{
+		var pose = new SkeletonPose(
+			[new Vector3(5, 2, 7), new Vector3(1, 0, 0)],
+			[Quaternion.Identity, Quaternion.Identity],
+			[-1, 0]);
+		var objectMatrix = Matrix4x4.CreateTranslation(10, 0, 0);
+
+		var world = pose.ComputeWorldMatrices(objectMatrix, removeRootTranslation: true);
+
+		Assert.Equal(10f, world[0].Translation.X, 5);
+		Assert.Equal(2f, world[0].Translation.Y, 5);
+		Assert.Equal(0f, world[0].Translation.Z, 5);
+		Assert.Equal(11f, world[1].Translation.X, 5);
+		Assert.Equal(2f, world[1].Translation.Y, 5);
+		Assert.Equal(0f, world[1].Translation.Z, 5);
+	}
+
+	[Fact]
 	public void SkeletonPose_InvalidParent_Throws()
 	{
 		Assert.Throws<ArgumentException>(() => new SkeletonPose(

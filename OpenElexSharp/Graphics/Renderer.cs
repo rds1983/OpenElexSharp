@@ -12,6 +12,7 @@ public sealed class Renderer : IDisposable
 {
 	private readonly GraphicsDevice _device;
 	private readonly BasicEffect _effect;
+	private readonly BasicEffect _lineEffect;
 	private readonly SpriteBatch _spriteBatch;
 	private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 	private readonly Texture2D _fallbackTexture;
@@ -49,6 +50,12 @@ public sealed class Renderer : IDisposable
 		_effect.DirectionalLight1.Direction = Vector3.Normalize(new Vector3(-0.6f, -0.4f, -0.45f));
 		_effect.DirectionalLight1.DiffuseColor = new Vector3(0.25f);
 		_effect.DirectionalLight2.Enabled = false;
+		_lineEffect = new BasicEffect(device)
+		{
+			LightingEnabled = false,
+			TextureEnabled = false,
+			VertexColorEnabled = true,
+		};
 	}
 
 	/// <summary>Draw calls issued during the current frame.</summary>
@@ -60,6 +67,9 @@ public sealed class Renderer : IDisposable
 	/// <summary>Mesh parts submitted during the current frame.</summary>
 	public int Meshes { get; private set; }
 
+	/// <summary>Line primitives submitted during the current frame.</summary>
+	public int Lines { get; private set; }
+
 	/// <summary>Starts a 3D frame and installs the camera matrices.</summary>
 	public void BeginFrame(Matrix view, Matrix projection)
 	{
@@ -68,6 +78,8 @@ public sealed class Renderer : IDisposable
 		_projection = projection;
 		_effect.View = view;
 		_effect.Projection = projection;
+		_lineEffect.View = view;
+		_lineEffect.Projection = projection;
 		_frustum.Matrix = view * projection;
 	}
 
@@ -144,6 +156,38 @@ public sealed class Renderer : IDisposable
 		Triangles += PrimitiveCountToTriangles(part.PrimitiveType, part.PrimitiveCount);
 	}
 
+	/// <summary>Draws a list of colored line segments.</summary>
+	/// <exception cref="ArgumentNullException"><paramref name="vertices"/> is <see langword="null"/>.</exception>
+	/// <exception cref="ArgumentException">The vertex count is not even.</exception>
+	public void DrawLines(VertexPositionColor[] vertices, Matrix world)
+	{
+		EnsureFrameOpen(nameof(DrawLines));
+		ArgumentNullException.ThrowIfNull(vertices);
+		if (vertices.Length == 0)
+		{
+			return;
+		}
+
+		if (vertices.Length % 2 != 0)
+		{
+			throw new ArgumentException("Line lists require an even vertex count.", nameof(vertices));
+		}
+
+		_lineEffect.World = world;
+		foreach (var pass in _lineEffect.CurrentTechnique.Passes)
+		{
+			pass.Apply();
+			_device.DrawUserPrimitives(
+				PrimitiveType.LineList,
+				vertices,
+				0,
+				vertices.Length / 2);
+		}
+
+		++DrawCalls;
+		Lines += vertices.Length / 2;
+	}
+
 	/// <summary>Draws a texture with the stock SpriteBatch path.</summary>
 	public void DrawTexture(Texture2D texture, Rectangle destination)
 	{
@@ -183,6 +227,7 @@ public sealed class Renderer : IDisposable
 		DrawCalls = 0;
 		Triangles = 0;
 		Meshes = 0;
+		Lines = 0;
 		_frameOpen = true;
 		_device.BlendState = BlendState.Opaque;
 		_device.DepthStencilState = DepthStencilState.Default;
@@ -214,6 +259,7 @@ public sealed class Renderer : IDisposable
 	public void Dispose()
 	{
 		_effect.Dispose();
+		_lineEffect.Dispose();
 		_spriteBatch.Dispose();
 		_fallbackTexture.Dispose();
 	}

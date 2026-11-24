@@ -112,9 +112,10 @@ dotnet run --project OpenElexSharp -- assets materials --all
 ### `skeletons`
 
 Parses `skn` resources (skinned GMSH meshes with an embedded skeleton). Prints name, vertex/index
-counts, bone count, name count, bone names and ROM path. `--properties` lists the skeleton header,
+counts, bone count, name count, decoded bind-record count, bone names and ROM path. `--properties` lists the skeleton header,
 bind-pose bones, DJB2 name hashes, name offsets and parent indices. The command reports the maximum
-bone count across all inspected resources.
+bone count across all inspected resources. Body/creature tails now decode their global/local bind
+records; 225 props or higher-LOD tails expose names and parents only.
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets skeletons CH_Head_F_Ambient_01_L1 --properties
@@ -215,7 +216,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
-- `skn` skeletons parse for 1,270 of 1,320 resources. The remaining 50 creature/female/hologram tails use an unrecognized layout; body bind-pose transforms are not decoded yet.
+- `skn` skeletons parse for 1,270 of 1,320 resources; 1,045 expose decoded bind transforms, 225 expose names/parents only, and 50 creature/female/hologram tails use an unrecognized layout. Skinned mesh rendering is still T106/T102.
 - `net` motion networks expose readable names, one static pose per clip, and name-derived simple transitions/state names; binary graph edges, hierarchical `Male` paths, transition timing, keyframe curves and compression are not decoded.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 

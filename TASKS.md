@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009f**; **T009g** open.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009g**.
 
 ---
 
@@ -187,9 +187,19 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Binary graph records (GUIDs, edges, transition durations) and nested hierarchical paths used by `Male`.
   - Per-track keyframe/curve data and compression: the large tail of `Male` (about 54 MB) contains mixed float, index and high-entropy blocks whose layout is not decoded.
 
-- [ ] **T009f · Body bind poses and the pose viewer**
+- [x] **T009f · Body bind poses and the pose viewer**
   Finish the `skn` bind-pose leftovers (body/creature transforms and the 50 unrecognized tails), then render a skinned character driven by a decoded clip and a blended transition.
   Done when: a representative character displays a decoded pose and a two-clip blend in the app.
+  **Completed 2026-11-24 — body/creature bind poses, NPC object-matrix composition and the skeleton pose viewer.**
+  - Decoded body/creature bind poses: after a variable AABB prefix, `nameCount-1` global and `nameCount-1` cached local 28-byte records precede the separator. The parser validates both sets and derives local bind transforms from the global set plus the (non-topological) parent array.
+  - 1,045 of 1,270 parsed tails now expose bind transforms; 225 props/higher-LOD tails expose names/parents only; the same 50 tails remain unrecognized. Male and female full-body skeletons now have 61/62 bind bones.
+  - Added `SkeletonPose.ComputeWorldMatrices(objectMatrix, removeRootTranslation)` matching the reference NPC path: root X/Z is removed before the object matrix, then object → root-local → child composition.
+  - Added a skeleton pose viewer: `--mesh <skn> --animation <net>` loads the skeleton and network, blends the two clips with the most tracks, and draws the bone hierarchy. Verified by captures for the male body and gull.
+  - 418 tests, Debug/Release warning-free.
+  **Deferred:**
+  - 225 parsed tails without bind records, the 50 unrecognized tails and head/attachment parent encoding.
+  - Skinned-mesh rendering/skinning (GMSH `skn` geometry, blend indices/weights, `SkinnedEffect`) → T106/T102.
+  - Selecting clips by state instead of the two largest → T009g.
 
 - [ ] **T009g · Morpheme binary graph and keyframe curves**
   Decode the binary graph records (GUIDs, edges, transition durations) and the per-track keyframe/curve data and compression behind each network state, including the hierarchical `Male` paths.

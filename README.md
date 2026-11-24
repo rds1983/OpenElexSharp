@@ -52,9 +52,10 @@ $env:ELEX_INSTALL_PATH = 'C:\Games\ELEX'   # or pass --elex-path <path>
 dotnet build OpenElexSharp.slnx
 dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
+dotnet run --project OpenElexSharp -- --mesh Mesh_Male_FullBody_Alb_High_01_L1 --animation Male
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. Both scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. `--capture <path>` writes the rendered back buffer to a PNG. Full materials, skeletons and world rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. `--mesh <skn resource> --animation <net resource>` displays a decoded skeleton pose blended between the two largest clips; add `--smoke-test`/`--capture <path>` for automated checks. All scenes show a Myra HUD with FPS, draw-call, triangle and mesh statistics; press `Escape` to exit. Full materials, skinned meshes and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -86,9 +87,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 58 | 11050 | 9573 | 341.5 KB |
-| Tests | 47 | 6355 | 5338 | 186.6 KB |
-| **Total** | **105** | **17405** | **14911** | **528.0 KB** |
+| Engine | 58 | 11401 | 9888 | 352.1 KB |
+| Tests | 47 | 6495 | 5455 | 190.2 KB |
+| **Total** | **105** | **17896** | **15343** | **542.3 KB** |
 
 ## Credits
 

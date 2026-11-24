@@ -65,9 +65,11 @@ Two layouts are observed:
 - **Head/attachment skeletons** (for example `CH_Head_F_Ambient_01_L1`) use 28-byte records from
   `0x20` to the separator: three `float32` position followed by a four-`float32` rotation
   quaternion. The record count is `(separator - 0x20) / 28` (5–6 bones in the sampled heads).
-- **Body/creature skeletons** (for example `Mesh_Male_FullBody_Alb_High_01_L1`) use a separate
-  transform block before the separator that is **not** a sequence of 28-byte records. Names and
-  parent indices parse for these resources, but bind-pose transforms remain undecoded.
+- **Body/creature skeletons** (for example `Mesh_Male_FullBody_Alb_High_01_L1`) store a variable
+  AABB prefix followed by **two** 28-byte record runs of `nameCount - 1` records each, then the
+  separator. The first run holds global bind transforms; the second holds a local cache. The parser
+  validates both runs and derives local bind transforms from the global set and the parent array,
+  which handles non-topological parent order.
 
 ### Bone names and hierarchy
 
@@ -101,6 +103,8 @@ encoding is unresolved.
 | --- | ---: |
 | `skn` resources | 1,320 |
 | Parsed tails | 1,270 |
+| Tails with decoded bind transforms | 1,045 |
+| Tails with names/parents only | 225 (animated props, some higher LODs) |
 | Unrecognized tails | 50 (`Mesh_Cre_*`, some `Mesh_Female_*`, hologram variants) |
 | Maximum bones | 65 |
 | Typical bone count | 51–65 |
@@ -126,19 +130,29 @@ tooling index count 55,116 follows the name tables
 separator at 0xEA0
 60 parent indices, 60 name offsets, 61 DJB2 hashes
 names at 0x1200: Male_Hips, Male_Spine, Male_Spine1, ...
+384-byte AABB prefix + 60 global + 60 cached local records before the separator
+root Hips global position ~ (112, -3.4, 0)
 ```
+
+`Female_Fullbody_Naked_Mesh_L1` (62 bones, 106,784 vertices):
+
+```text
+256-byte AABB prefix + 61 global + 61 cached local records
+root Hips global position ~ (105.5, -3.4, 0)
+```
+
+The body global set is used to derive local bind transforms; the local cache does not compose to
+the global set under the observed parent order, so it is validated but not used.
 
 ## Open questions
 
-- Body/creature bind-pose transform layout (the block before the separator).
+- The 225 parsed tails that contain names/parents but no bind-transform records (animated props and
+  some higher-LOD meshes).
+- The 50 resources whose tails do not match any observed layout.
 - Head/attachment parent encoding (packed words before the name offsets).
-- The 50 resources whose tails do not match either observed layout.
-- Animation clips: no separate `ani`/`mot` resource type exists; clips may be embedded in `skn`,
-  `bln` or runtime Morpheme data.
-- `bln` blend-shape payloads (`class eCBlendShapeResource2`), 270 resources, named
-  `blendShape1.*`.
 - Usage 7 (`R32_SInt`) semantics.
 - Whether bone weights need renormalization after half-float quantization.
+- GPU skinning with the decoded body bind poses → T106/T102.
 
 ## Implementation
 
@@ -159,7 +173,12 @@ dotnet run --project OpenElexSharp -- assets skeletons --all
 ## Related tasks
 
 - T008b - mesh vertex streams, materials and submeshes.
-- T009a - skeletons and skinned meshes (this specification).
-- T009b - animation clips, blend shapes and playback.
+- T009a - skeletons and skinned meshes.
+- T009b - animation data discovery.
+- T009c - motion clips and pose sampling.
+- T009d - blend-shape deltas and morph weighting.
+- T009e - Morpheme state transitions.
+- T009f - body bind poses and the skeleton pose viewer (this specification).
+- T009g - binary graph edges and keyframe curves.
 - T102/T106 - skinned rendering with `SkinnedEffect`.
 - T107 - animation playback.

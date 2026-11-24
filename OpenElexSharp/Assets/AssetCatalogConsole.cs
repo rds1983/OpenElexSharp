@@ -790,7 +790,8 @@ public static class AssetCatalogConsole
 
 			output.WriteLine(
 				$"{resource.Name}\t{vertexCount}\t{indexCount}\t{skeleton.BoneCount}\t" +
-				$"{skeleton.Names.Count}\t{string.Join(',', skeleton.Names)}\t{resource.VirtualPath}");
+				$"{skeleton.Names.Count}\t{skeleton.Bones.Count}\t" +
+				$"{string.Join(',', skeleton.Names)}\t{resource.VirtualPath}");
 			if (command.ShowProperties)
 			{
 				output.WriteLine(

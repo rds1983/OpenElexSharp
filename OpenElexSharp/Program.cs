@@ -54,7 +54,7 @@ catch (ArgumentException exception)
 {
 	Console.Error.WriteLine(exception.Message);
 	Console.Error.WriteLine(
-		"Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] [--smoke-test] [--capture <png path>]");
+		"Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] [--animation <net resource>] [--smoke-test] [--capture <png path>]");
 	Console.Error.WriteLine("       OpenElexSharp assets list|stats|export ...  (run 'OpenElexSharp assets help')");
 	return 1;
 }

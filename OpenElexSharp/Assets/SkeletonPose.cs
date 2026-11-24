@@ -33,10 +33,11 @@ public sealed class SkeletonPose
 		_parents = [.. parents];
 		for (var index = 0; index < _parents.Length; index++)
 		{
-			if (_parents[index] < -1 || _parents[index] >= index)
+			if (_parents[index] < -1 || _parents[index] >= _parents.Length ||
+				_parents[index] == index)
 			{
 				throw new ArgumentException(
-					$"Bone {index} has parent {_parents[index]}; parents must precede children.");
+					$"Bone {index} has invalid parent {_parents[index]}.");
 			}
 		}
 	}
@@ -82,23 +83,78 @@ public sealed class SkeletonPose
 			var parent = index - 1 < skeleton.ParentIndices.Count
 				? (int)skeleton.ParentIndices[index - 1]
 				: index - 1;
-			parents[index] = parent < index ? parent : -1;
+			parents[index] = parent >= 0 && parent < count && parent != index ? parent : -1;
 		}
 
 		return new SkeletonPose(positions, pose.Rotations, parents);
 	}
 
 	/// <summary>Composes local transforms into world matrices for every bone.</summary>
-	public Matrix4x4[] ComputeWorldMatrices()
+	/// <exception cref="InvalidOperationException">The parent graph contains a cycle.</exception>
+	public Matrix4x4[] ComputeWorldMatrices() =>
+		ComputeWorldMatrices(Matrix4x4.Identity, removeRootTranslation: false);
+
+	/// <summary>
+	/// Composes local transforms with an object (NPC/world) matrix. When
+	/// <paramref name="removeRootTranslation"/> is set, the root bone's X/Z offset is removed before the
+	/// object matrix is applied, matching the reference NPC path that keeps the character at the object
+	/// origin while preserving its vertical offset.
+	/// </summary>
+	/// <exception cref="InvalidOperationException">The parent graph contains a cycle.</exception>
+	public Matrix4x4[] ComputeWorldMatrices(Matrix4x4 objectMatrix, bool removeRootTranslation)
 	{
 		var world = new Matrix4x4[_rotations.Length];
+		var state = new byte[world.Length];
+		var baseTranslation = Vector3.Zero;
+		if (removeRootTranslation)
+		{
+			var root = Array.FindIndex(_parents, parent => parent < 0);
+			if (root >= 0)
+			{
+				baseTranslation = new Vector3(-_positions[root].X, 0f, -_positions[root].Z);
+			}
+		}
+
 		for (var index = 0; index < world.Length; index++)
 		{
-			var local = Matrix4x4.CreateFromQuaternion(_rotations[index]) *
-				Matrix4x4.CreateTranslation(_positions[index]);
-			world[index] = _parents[index] < 0 ? local : local * world[_parents[index]];
+			ComputeWorld(index, world, state, objectMatrix, baseTranslation);
 		}
 
 		return world;
+	}
+
+	private void ComputeWorld(
+		int index,
+		Matrix4x4[] world,
+		byte[] state,
+		Matrix4x4 objectMatrix,
+		Vector3 baseTranslation)
+	{
+		if (state[index] == 2)
+		{
+			return;
+		}
+
+		if (state[index] == 1)
+		{
+			throw new InvalidOperationException($"Bone hierarchy contains a cycle at {index}.");
+		}
+
+		state[index] = 1;
+		var parent = _parents[index];
+		var position = parent < 0 ? _positions[index] + baseTranslation : _positions[index];
+		var local = Matrix4x4.CreateFromQuaternion(_rotations[index]) *
+			Matrix4x4.CreateTranslation(position);
+		if (parent < 0)
+		{
+			world[index] = local * objectMatrix;
+		}
+		else
+		{
+			ComputeWorld(parent, world, state, objectMatrix, baseTranslation);
+			world[index] = local * world[parent];
+		}
+
+		state[index] = 2;
 	}
 }
