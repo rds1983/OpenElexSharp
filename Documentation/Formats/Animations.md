@@ -134,6 +134,21 @@ Main|Animation|Locomotion|Walk|ConditionGroup|MessageCondition
 Simple transitions such as `Closed_Opened|ConditionGroup|MessageCondition` are paths with a single
 segment. Paths are capped at 10,000 per network; `Male` reaches the cap.
 
+### Keyframe data survey
+
+The decoded clip blocks contain one raw unit-quaternion pose array per clip. A scan of the complete
+`Male` payload finds **no other uncompressed quaternion runs**: the only runs are the four clip poses
+(98, 88, 40 and 33 quaternions). The remaining tail is dominated by:
+
+- 714,477 printable runs (about 4.1 MB of state-path/name text);
+- a 2,341-name transition table followed by offset/index tables that point back into the string
+  data;
+- high-entropy float/index blocks whose layout has not been identified.
+
+No uncompressed per-track keyframe tracks were found in `net`. The clips therefore behave as static
+poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). Compressed pose
+or curve data in the high-entropy blocks remains possible; that codec is tracked as T009l.
+
 ### Binary graph probe
 
 A binary state-node block is observed in `Weapons` at payload offset `0x40C0`:
@@ -286,7 +301,7 @@ per-target delta counts and the first two position/normal deltas.
 - Morpheme network graph: binary node records, GUIDs, edges and transition durations.
 - Hierarchical paths are exposed as segment/condition paths, but their binary node links and timing
   are not decoded.
-- Keyframe curves, time bases and compression; clips currently expose one pose each.
+- No uncompressed keyframe tracks were found; compressed pose/curve blocks remain open (T009l).
 - The large `Male` tail: about 54 MB of mixed float, index and high-entropy blocks is not decoded.
 - Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
 - Exact blend-shape game unit and whether blended normals should be normalized before rendering.
@@ -320,7 +335,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009g - Morpheme hierarchical state paths.
 - T009h - Morpheme binary graph blocks.
 - T009i - binary state record layout.
-- T009j - timed pose transitions.
-- T009k - keyframe curves and graph semantics.
+- T009k - keyframe data survey (no uncompressed keyframe tracks found).
+- T009l - compressed pose/curve codec.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

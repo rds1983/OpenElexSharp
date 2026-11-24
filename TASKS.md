@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009k**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009l**.
 
 ---
 
@@ -247,9 +247,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Mapping binary record values to states/edges/transition durations.
   - Per-track keyframe/curve data and compression; the large `Male` tail remains undecoded.
 
-- [ ] **T009k · Morpheme keyframe curves and graph semantics**
-  Map binary graph record values to states, edges and transition durations, and decode the per-track keyframe/curve data and compression behind network states, including the large `Male` tail.
-  Done when: graph edges and transition durations can be followed, representative curves sample over time, and the binary/curve layout is documented in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009k · Keyframe data survey**
+  Determine whether `net` contains uncompressed keyframe tracks or only static clip poses.
+  Done when: the payload scan result is documented.
+  **Completed 2026-11-24 — no uncompressed keyframe tracks found; clips behave as static poses and transitions are timed pose blends.**
+  - The only raw quaternion runs in `Male` are the four clip pose arrays (98/88/40/33 quaternions).
+  - The remaining tail is 714,477 printable runs (~4.1 MB of state-path text), a 2,341-name transition table, offset/index tables pointing into the string data, and high-entropy blocks.
+  - 428 tests, Debug/Release warning-free.
+  **Deferred to T009l:**
+  - Compressed pose/curve codec in the high-entropy blocks.
+  - Semantics of the binary graph record values and transition durations.
+
+- [ ] **T009l · Compressed pose/curve codec and graph semantics**
+  Decode the high-entropy pose/curve blocks and map binary graph records to states, edges and transition durations.
+  Done when: representative compressed poses/curves are decoded or the format is conclusively documented, and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
