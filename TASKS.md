@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T004b**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T005**.
 
 ---
 
@@ -49,12 +49,14 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: `AssetCatalog` plus `assets list|find|stats|export`, `Documentation/Assets.md`, 167 tests; 156,954 entries indexed in ~2.4 s including mounting.
   Completed 2026-11-24 — catalog, headless inspector, binary safeguards, retail validation.
 
-- [ ] **T004b · GAR5 resource wrappers and resource databases**
+- [x] **T004b · GAR5 resource wrappers and resource databases**
   Parse the `GAR5` wrapper used by compiled assets (tag/version, `RT02`/`SNxx` sections), `E1RF` resource reference files, and the `w_*_*.db` hash-to-resource tables. The rmtools `ResolveRisen3Entries` implementation is the reference. Expose resolved resource names and sizes through the asset layer so hashed `.rom` payloads can be identified by logical name. Document in `Documentation/Formats/Gar5.md`.
   Done when: representative resource databases resolve names, a hashed dialogue/sound ROM can be addressed by its logical resource name, and synthetic fixtures cover wrappers, references and malformed indexes.
+  Implementation complete: `Gar5Header`, `ResourceDatabase`, `Djb2Hash`, `E1RfFile`, `ElexResourceIndex`, `assets resources`; 203 tests; 65,965 resources resolved from retail data.
+  Completed 2026-11-24 — GAR5/RT02/E1RF parsing, logical resource resolution and CLI inspection.
 
 - [ ] **T005 · Genome object serialization**
-  Implement the GEL/Genome object model used by the `.r00`-family files: object headers, class identifiers, versioned property streams, references, arrays and unknown-property preservation. Generate `Documentation/Formats/Objects.md`.
+  Implement the GEL/Genome object model used by the `.r00`-family files: object headers, class identifiers, versioned property streams, references, arrays and unknown-property preservation. Use `ElexResourceIndex` when a logical resource must be located through an `RT02` database. Generate `Documentation/Formats/Objects.md`.
   Done when: representative objects of every serialized class in the game data load without unhandled errors; unknown classes/properties are skipped safely and reported.
 
 - [ ] **T006 · Templates (`tple`)**

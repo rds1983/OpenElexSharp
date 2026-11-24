@@ -60,10 +60,11 @@ Asset inspection is available headlessly:
 ```powershell
 dotnet run --project OpenElexSharp -- assets stats
 dotnet run --project OpenElexSharp -- assets list dds --limit 20
+dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
 dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
 ```
 
-See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md) and [Documentation/Assets.md](Documentation/Assets.md).
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md), [Documentation/Formats/Gar5.md](Documentation/Formats/Gar5.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -75,9 +76,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 21 | 2191 | 1861 | 76.2 KB |
-| Tests | 14 | 2054 | 1700 | 66.6 KB |
-| **Total** | **35** | **4245** | **3561** | **142.8 KB** |
+| Engine | 26 | 2840 | 2416 | 99.9 KB |
+| Tests | 20 | 2576 | 2134 | 83.6 KB |
+| **Total** | **46** | **5416** | **4550** | **183.4 KB** |
 
 ## Credits
 

@@ -9,6 +9,7 @@ dotnet run --project OpenElexSharp -- assets help
 dotnet run --project OpenElexSharp -- assets stats
 dotnet run --project OpenElexSharp -- assets list [substring] [options]
 dotnet run --project OpenElexSharp -- assets find <substring> [options]
+dotnet run --project OpenElexSharp -- assets resources [substring] [options]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -38,6 +39,14 @@ Executables are hidden from `list`/`find` by default. Machine-readable output go
 
 Prints total asset count, packed/loose split, executable count, total logical size, and tables grouped by extension and by source. Sizes are logical (decompressed) sizes, not bytes stored in the PAK.
 
+### `resources`
+
+Builds the logical resource index from `RT02` databases and prints resolved resources as tab-separated `name`, `size`, `type`, `language`, logical `.elex<type>` path, and ROM path. Supports `--type <token>` (for example `snd` or `dlg`), `--language`, a name substring, and the usual limit options.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
+```
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -54,12 +63,15 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `AssetCatalogEntry` | Path, logical size, source, extension, language, packed flag, executable flag. |
 | `AssetStatistics` / `AssetGroupStatistics` | Totals and grouped counts/sizes. |
 | `AssetKinds` | Executable-extension classification. |
+| `ElexResourceIndex` / `ElexResource` | Logical name → hashed ROM resolution through `RT02` databases. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 
 ## Performance and caching
 
 On the reference installation the catalog contains 156,954 entries (156,905 packed, 49 loose). A cold `assets stats` run, including mounting and parsing all PAK indexes, takes about 2.4 seconds. The catalog itself builds in well under a second after mounting.
+
+`assets resources` additionally parses every `RT02` database; a cold run takes about 3.5 seconds and resolves 65,965 logical resources.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
 
@@ -73,10 +85,11 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Path search is substring-based, not glob-based.
 - Statistics use logical sizes, not archive storage size.
 - Executable classification is extension-based.
+- Resource database records are located via their `GEC2` class blocks; the reference metadata in the middle of a record is not decoded yet.
 
 ## Related tasks
 
 - T002 — mounts.
 - T003 — PAK reader.
 - T004 — catalog and inspector.
-- T004b — GAR5 resource databases (logical resource names).
+- T004b — GAR5 wrappers, resource databases and logical resource names.

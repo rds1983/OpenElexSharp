@@ -23,6 +23,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.List => List(command, catalog, output, error),
             AssetCommandKind.Stats => Stats(catalog, output),
             AssetCommandKind.Export => Export(command, catalog, assets, output, error),
+            AssetCommandKind.Resources => Resources(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -88,6 +89,54 @@ public static class AssetCatalogConsole
         WriteGroups(output, "By extension:", stats.Extensions);
         output.WriteLine();
         WriteGroups(output, "By source:", stats.Sources);
+        return 0;
+    }
+
+    private static int Resources(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {
+        var index = ElexResourceIndex.Build(catalog, assets);
+        foreach (var diagnostic in index.Diagnostics.Take(5))
+        {
+            error.WriteLine($"Resource warning: {diagnostic}");
+        }
+
+        IEnumerable<ElexResource> query = index.Resources;
+        if (!string.IsNullOrEmpty(command.Filter))
+        {
+            query = query.Where(resource =>
+                resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase) ||
+                resource.LogicalPath.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(command.TypeToken))
+        {
+            query = query.Where(resource =>
+                string.Equals(resource.TypeToken, command.TypeToken, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(command.Language))
+        {
+            query = query.Where(resource =>
+                string.Equals(resource.Language, command.Language, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = query.ToList();
+        var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+        for (var position = 0; position < shown; position++)
+        {
+            var resource = matches[position];
+            output.WriteLine(
+                $"{resource.Name}\t{resource.Size}\t{resource.TypeToken}\t{resource.Language}\t" +
+                $"{resource.LogicalPath}\t{resource.VirtualPath}");
+        }
+
+        error.WriteLine(
+            $"Showing {shown} of {matches.Count} resource(s); index has {index.Count:N0} resolved resources.");
         return 0;
     }
 

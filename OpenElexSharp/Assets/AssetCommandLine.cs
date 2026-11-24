@@ -7,6 +7,7 @@ public enum AssetCommandKind
     List,
     Stats,
     Export,
+    Resources,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -21,11 +22,13 @@ public sealed class AssetCommandLine
           OpenElexSharp assets list [substring] [--ext <ext>] [--source <text>] [--language <code>] [--limit <n>|--all] [--include-binaries] [--elex-path <path>]
           OpenElexSharp assets find <substring> [--ext <ext>] [--source <text>] [--language <code>] [--limit <n>|--all] [--include-binaries] [--elex-path <path>]
           OpenElexSharp assets stats [--elex-path <path>]
+          OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
         find           Alias for list that requires a substring.
         stats          Prints totals by extension and source.
+        resources      Prints logical resources resolved through RT02 databases.
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -46,6 +49,8 @@ public sealed class AssetCommandLine
     public string? Source { get; private init; }
 
     public string? Language { get; private init; }
+
+    public string? TypeToken { get; private init; }
 
     public int Limit { get; private init; } = 100;
 
@@ -95,6 +100,9 @@ public sealed class AssetCommandLine
             case "stats":
                 kind = AssetCommandKind.Stats;
                 break;
+            case "resources":
+                kind = AssetCommandKind.Resources;
+                break;
             case "export":
                 kind = AssetCommandKind.Export;
                 break;
@@ -110,6 +118,7 @@ public sealed class AssetCommandLine
         string? extension = null;
         string? source = null;
         string? language = null;
+        string? typeToken = null;
         string? elexPath = null;
         var limit = 100;
         var includeBinaries = false;
@@ -164,6 +173,9 @@ public sealed class AssetCommandLine
                     break;
                 case "--language":
                     language = TakeValue().ToLowerInvariant();
+                    break;
+                case "--type":
+                    typeToken = TakeValue().ToLowerInvariant();
                     break;
                 case "--limit":
                     var limitText = TakeValue();
@@ -254,6 +266,7 @@ public sealed class AssetCommandLine
             Extension = extension,
             Source = source,
             Language = language,
+            TypeToken = typeToken,
             Limit = limit,
             IncludeBinaries = includeBinaries,
             ElexPath = elexPath,

@@ -106,6 +106,29 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_Resources_ReadsFilters()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "resources", "INFO_", "--type", "snd", "--language", "EN", "--limit", "5"]);
+
+        Assert.Equal(AssetCommandKind.Resources, command.Kind);
+        Assert.Equal("INFO_", command.Filter);
+        Assert.Equal("snd", command.TypeToken);
+        Assert.Equal("en", command.Language);
+        Assert.Equal(5, command.Limit);
+    }
+
+    [Fact]
+    public void Parse_ResourcesWithoutFilter_IsValid()
+    {
+        var command = AssetCommandLine.Parse(["assets", "resources", "--all"]);
+
+        Assert.Equal(AssetCommandKind.Resources, command.Kind);
+        Assert.Null(command.Filter);
+        Assert.Equal(0, command.Limit);
+    }
+
+    [Fact]
     public void Parse_StatsWithPositional_Throws()
     {
         Assert.Throws<ArgumentException>(() => AssetCommandLine.Parse(["assets", "stats", "extra"]));

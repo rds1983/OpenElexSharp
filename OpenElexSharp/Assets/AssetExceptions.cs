@@ -50,3 +50,17 @@ public sealed class PakFormatException : Exception
     {
     }
 }
+
+/// <summary>A GAR5 resource wrapper or resource database is malformed.</summary>
+public sealed class Gar5FormatException : Exception
+{
+    public Gar5FormatException(string message)
+        : base(message)
+    {
+    }
+
+    public Gar5FormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
