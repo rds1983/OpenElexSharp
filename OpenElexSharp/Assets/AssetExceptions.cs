@@ -64,3 +64,17 @@ public sealed class Gar5FormatException : Exception
     {
     }
 }
+
+/// <summary>A Genome GEC2 object or DT01 document is malformed.</summary>
+public sealed class GenomeFormatException : Exception
+{
+    public GenomeFormatException(string message)
+        : base(message)
+    {
+    }
+
+    public GenomeFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

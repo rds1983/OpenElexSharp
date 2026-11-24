@@ -129,6 +129,23 @@ public class AssetCommandLineTests
     }
 
     [Fact]
+    public void Parse_Objects_ReadsPathAndLimit()
+    {
+        var command = AssetCommandLine.Parse(
+            ["assets", "objects", "data/compiled/documents/w_quest.hdr", "--limit", "3"]);
+
+        Assert.Equal(AssetCommandKind.Objects, command.Kind);
+        Assert.Equal("data/compiled/documents/w_quest.hdr", command.AssetPath);
+        Assert.Equal(3, command.Limit);
+    }
+
+    [Fact]
+    public void Parse_ObjectsWithoutPath_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AssetCommandLine.Parse(["assets", "objects"]));
+    }
+
+    [Fact]
     public void Parse_StatsWithPositional_Throws()
     {
         Assert.Throws<ArgumentException>(() => AssetCommandLine.Parse(["assets", "stats", "extra"]));

@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace OpenElexSharp.Assets;
 
 /// <summary>Headless output for the <c>assets</c> inspector commands.</summary>
@@ -24,6 +26,7 @@ public static class AssetCatalogConsole
             AssetCommandKind.Stats => Stats(catalog, output),
             AssetCommandKind.Export => Export(command, catalog, assets, output, error),
             AssetCommandKind.Resources => Resources(command, catalog, assets, output, error),
+            AssetCommandKind.Objects => Objects(command, catalog, assets, output, error),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
     }
@@ -140,14 +143,109 @@ public static class AssetCatalogConsole
         return 0;
     }
 
-    private static int Export(
+    private static int Objects(
         AssetCommandLine command,
         AssetCatalog catalog,
         AssetFileSystem assets,
         TextWriter output,
         TextWriter error)
     {
-        if (command.AssetPath is null || command.DestinationPath is null)
+        const long MaxObjectFileSize = 128L * 1024 * 1024;
+
+        if (command.AssetPath is null)
+        {
+            error.WriteLine("objects requires an asset path.");
+            return 3;
+        }
+
+        if (!catalog.TryGetEntry(command.AssetPath, out var entry))
+        {
+            error.WriteLine($"Asset '{command.AssetPath}' was not found.");
+            return 3;
+        }
+
+        if (entry.IsExecutable)
+        {
+            error.WriteLine($"Refusing to read executable file '{entry.VirtualPath}'.");
+            return 3;
+        }
+
+        if (entry.Length > MaxObjectFileSize)
+        {
+            error.WriteLine($"Asset '{entry.VirtualPath}' is too large to inspect ({FormatBytes(entry.Length)}).");
+            return 3;
+        }
+
+        try
+        {
+            using var stream = assets.OpenRead(entry.VirtualPath);
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            var data = buffer.ToArray();
+
+            if (GenomeStringTable.IsGenomeFile(data))
+            {
+                var table = GenomeStringTable.Parse(data);
+                output.WriteLine(
+                    $"GENOMFLE\t{table.Strings.Count}\t{table.BodySize}\t{table.Version}");
+                error.WriteLine($"String table with {table.Strings.Count:N0} strings; no top-level objects.");
+                return 0;
+            }
+
+            if (data.Length >= GenomeObject.HeaderSize &&
+                BinaryPrimitives.ReadUInt32LittleEndian(data) == GenomeObject.Magic)
+            {
+                var genomeObject = GenomeObject.Parse(data, 0);
+                WriteObject(output, "<object>", genomeObject);
+                error.WriteLine("One top-level object.");
+                return 0;
+            }
+
+            if (data.Length >= 12 &&
+                BinaryPrimitives.ReadUInt32LittleEndian(data) == Gar5Header.Magic &&
+                string.Equals(System.Text.Encoding.Latin1.GetString(data, 8, 4), GenomeHeaderDocument.Tag,
+                    StringComparison.Ordinal))
+            {
+                var document = GenomeHeaderDocument.Parse(data);
+                var objects = document.Sections.SelectMany(section => section.Entries).ToList();
+                var shown = command.Limit == 0 ? objects.Count : Math.Min(command.Limit, objects.Count);
+                for (var index = 0; index < shown; index++)
+                {
+                    var item = objects[index];
+                    WriteObject(output, item.Name, item.Object);
+                }
+
+                error.WriteLine(
+                    $"Showing {shown} of {objects.Count:N0} object(s) in {document.Sections.Count:N0} section(s).");
+                return 0;
+            }
+
+            error.WriteLine($"Asset '{entry.VirtualPath}' is not a DT01 document, GEC2 object or GENOMFLE archive.");
+            return 3;
+        }
+        catch (Exception exception) when (
+            exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+                AssetNotFoundException)
+        {
+            error.WriteLine(exception.Message);
+            return 3;
+        }
+    }
+
+    private static void WriteObject(TextWriter output, string name, GenomeObject genomeObject)
+    {
+        output.WriteLine(
+            $"{name}\t0x{genomeObject.ClassHash:x8}\t{genomeObject.Version}\t{genomeObject.Size}\t" +
+            $"{genomeObject.Properties.Count}\t{genomeObject.ClassData.Count}");
+    }
+
+    private static int Export(
+        AssetCommandLine command,
+        AssetCatalog catalog,
+        AssetFileSystem assets,
+        TextWriter output,
+        TextWriter error)
+    {        if (command.AssetPath is null || command.DestinationPath is null)
         {
             error.WriteLine("export requires an asset path and a destination.");
             return 3;

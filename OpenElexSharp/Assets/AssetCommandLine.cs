@@ -8,6 +8,7 @@ public enum AssetCommandKind
     Stats,
     Export,
     Resources,
+    Objects,
 }
 
 /// <summary>Parsed command line for <c>OpenElexSharp assets ...</c>.</summary>
@@ -23,12 +24,14 @@ public sealed class AssetCommandLine
           OpenElexSharp assets find <substring> [--ext <ext>] [--source <text>] [--language <code>] [--limit <n>|--all] [--include-binaries] [--elex-path <path>]
           OpenElexSharp assets stats [--elex-path <path>]
           OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
+          OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets export <assetPath> <destination> [--elex-path <path>]
 
         list           Prints matching assets as: path, size, source (tab-separated).
         find           Alias for list that requires a substring.
         stats          Prints totals by extension and source.
         resources      Prints logical resources resolved through RT02 databases.
+        objects        Lists GEC2 objects in a DT01 header document.
         export         Writes one non-executable asset to a file.
 
         Filters are case-insensitive. --limit defaults to 100; use --all for no limit.
@@ -102,6 +105,9 @@ public sealed class AssetCommandLine
                 break;
             case "resources":
                 kind = AssetCommandKind.Resources;
+                break;
+            case "objects":
+                kind = AssetCommandKind.Objects;
                 break;
             case "export":
                 kind = AssetCommandKind.Export;
@@ -230,6 +236,22 @@ public sealed class AssetCommandLine
                 Kind = kind,
                 AssetPath = positionals[0],
                 DestinationPath = positionals[1],
+                ElexPath = elexPath,
+            };
+        }
+
+        if (kind == AssetCommandKind.Objects)
+        {
+            if (positionals.Count != 1 || string.IsNullOrWhiteSpace(positionals[0]))
+            {
+                throw new ArgumentException("objects requires an asset path.", nameof(args));
+            }
+
+            return new AssetCommandLine
+            {
+                Kind = kind,
+                AssetPath = positionals[0],
+                Limit = limit,
                 ElexPath = elexPath,
             };
         }

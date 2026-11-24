@@ -38,4 +38,13 @@ public class Djb2HashTests
     {
         Assert.Equal("d0dc3290", ResourceDatabase.FormatHash(0xD0DC3290));
     }
+
+    [Theory]
+    [InlineData("class gCQuest", 0x955C5FD7u)]
+    [InlineData("class gCInfo", 0x1BC7FE51u)]
+    [InlineData("class eCDynamicEntity", 0x36182D05u)]
+    public void ComputeCaseSensitive_KnownGenomeClassNames_ReturnsExpectedHash(string name, uint expected)
+    {
+        Assert.Equal(expected, Djb2Hash.ComputeCaseSensitive(name));
+    }
 }

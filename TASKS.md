@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T005**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T005b**.
 
 ---
 
@@ -55,12 +55,18 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implementation complete: `Gar5Header`, `ResourceDatabase`, `Djb2Hash`, `E1RfFile`, `ElexResourceIndex`, `assets resources`; 203 tests; 65,965 resources resolved from retail data.
   Completed 2026-11-24 — GAR5/RT02/E1RF parsing, logical resource resolution and CLI inspection.
 
-- [ ] **T005 · Genome object serialization**
+- [x] **T005 · Genome object serialization**
   Implement the GEL/Genome object model used by the `.r00`-family files: object headers, class identifiers, versioned property streams, references, arrays and unknown-property preservation. Use `ElexResourceIndex` when a logical resource must be located through an `RT02` database. Generate `Documentation/Formats/Objects.md`.
   Done when: representative objects of every serialized class in the game data load without unhandled errors; unknown classes/properties are skipped safely and reported.
+  Implementation complete: `GenomeObject`, `GenomeHeaderDocument`, `GenomeStringTable`, `assets objects`; 228 tests; all 25 retail `.hdr` documents parse (749 `gCQuest`, 7,679 top-level `gCInfo` objects). Nested class-data objects and property type decoding remain raw.
+  Completed 2026-11-24 — GEC2/DT01/GENOMFLE parsing and retail `.hdr` validation.
+
+- [ ] **T005b · Genome property decoding and nested objects**
+  Decode common Genome property types (primitives, strings, GUIDs, vectors/matrices, arrays and proxies) and recursively enumerate nested `GEC2` objects inside class data. Build a practical class/property name table from hashes so object dumps are readable.
+  Done when: representative `gCQuest`/`gCInfo` objects expose typed values, `gCInfo` commands/conditions are enumerable, and malformed values are rejected with clear diagnostics.
 
 - [ ] **T006 · Templates (`tple`)**
-  Parse entity/item templates, their inheritance chains, default property values and cross-references into a queryable template database.
+  Parse entity/item templates, their inheritance chains, default property values and cross-references into a queryable template database. Reuse `GenomeObject` and `GenomeHeaderDocument` from T005 and the property decoder from T005b; `GTP0` template documents are expected to use the same class model.
   Done when: any entity's full effective property set can be resolved by template name, and inheritance/override edge cases are covered by tests.
 
 - [ ] **T007 · Textures**

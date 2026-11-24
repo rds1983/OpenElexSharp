@@ -10,6 +10,7 @@ dotnet run --project OpenElexSharp -- assets stats
 dotnet run --project OpenElexSharp -- assets list [substring] [options]
 dotnet run --project OpenElexSharp -- assets find <substring> [options]
 dotnet run --project OpenElexSharp -- assets resources [substring] [options]
+dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets export <assetPath> <destination> [--elex-path <path>]
 ```
 
@@ -47,6 +48,14 @@ Builds the logical resource index from `RT02` databases and prints resolved reso
 dotnet run --project OpenElexSharp -- assets resources --type snd --limit 20
 ```
 
+### `objects`
+
+Parses a `DT01` header document (for example `data/compiled/documents/w_quest.hdr`) and prints its top-level `GEC2` objects as tab-separated `name`, class hash, version, size, property count and class-data count. A single `GEC2` object and `GENOMFLE` string tables are also recognized. Use `--limit`/`--all` to control output.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets objects data/compiled/documents/w_quest.hdr --limit 20
+```
+
 ### `export`
 
 Copies one asset through the virtual file system, creating parent directories. The destination is overwritten. Executable formats are refused and missing assets return a non-zero exit code.
@@ -64,6 +73,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `AssetStatistics` / `AssetGroupStatistics` | Totals and grouped counts/sizes. |
 | `AssetKinds` | Executable-extension classification. |
 | `ElexResourceIndex` / `ElexResource` | Logical name → hashed ROM resolution through `RT02` databases. |
+| `GenomeObject` / `GenomeHeaderDocument` / `GenomeStringTable` | GEC2 objects, DT01 documents and GENOMFLE string tables. |
 
 The catalog is metadata-only: building it does not open payloads. Export is the only command that reads asset bytes.
 
@@ -86,6 +96,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Statistics use logical sizes, not archive storage size.
 - Executable classification is extension-based.
 - Resource database records are located via their `GEC2` class blocks; the reference metadata in the middle of a record is not decoded yet.
+- Object properties and class data are preserved raw; type-specific decoding and nested `GEC2` objects are not implemented yet.
 
 ## Related tasks
 
@@ -93,3 +104,4 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - T003 — PAK reader.
 - T004 — catalog and inspector.
 - T004b — GAR5 wrappers, resource databases and logical resource names.
+- T005 — Genome object model.
