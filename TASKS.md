@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T009o**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T009p**.
 
 ---
 
@@ -290,9 +290,20 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   **Deferred to T009o:**
   - Grouping the 1,006 samples into clips/animations and mapping graph records to states/edges/durations.
 
-- [ ] **T009o · Sample grouping and graph semantics**
-  Group sample tracks into clips/animations, drive a posed skeleton from representative groups, and map binary graph records to states, edges and transition durations.
-  Done when: representative grouped samples animate a skeleton and graph records map to states/durations in [Formats/Animations.md](Documentation/Formats/Animations.md).
+- [x] **T009o · Sample grouping and sampled poses**
+  Group sample tracks into animations by shared duration and sample them into skeleton poses.
+  Done when: groups produce interpolated poses and the viewer uses a sampled group.
+  **Completed 2026-11-25 — 253 `Male` duration groups; the viewer animates the 0.8 s / 85-track group.**
+  - Added `MotionSampleGroup.GroupByDuration` and `SamplePose`, mapping track indices to a bone-name list.
+  - The skeleton viewer prefers the largest sample group; the captured male scene shows a standing sampled pose.
+  - 4 new tests; 439 tests, Debug/Release warning-free.
+  **Deferred to T009p:**
+  - Mapping binary graph records to states, edges and transition durations.
+  - Reliable clip/state association for the sample groups.
+
+- [ ] **T009p · Graph semantics and state mapping**
+  Map binary graph record values to states, edges and transition durations, and associate sample groups with clips/states.
+  Done when: graph records map to states/durations and sample groups can be selected by state in [Formats/Animations.md](Documentation/Formats/Animations.md).
 
 - [ ] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.

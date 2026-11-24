@@ -30,6 +30,7 @@ public sealed class MotionNetwork
 		IReadOnlyList<MotionGraphNode> graphNodes,
 		IReadOnlyList<MotionQuaternionRun> quantizedQuaternionRuns,
 		IReadOnlyList<MotionSampleTrack> sampleTracks,
+		IReadOnlyList<MotionSampleGroup> sampleGroups,
 		IReadOnlyList<string> stateNames,
 		IReadOnlyList<string> nodeNames,
 		int payloadOffset)
@@ -42,6 +43,7 @@ public sealed class MotionNetwork
 		GraphNodes = graphNodes;
 		QuantizedQuaternionRuns = quantizedQuaternionRuns;
 		SampleTracks = sampleTracks;
+		SampleGroups = sampleGroups;
 		StateNames = stateNames;
 		NodeNames = nodeNames;
 		PayloadOffset = payloadOffset;
@@ -70,6 +72,9 @@ public sealed class MotionNetwork
 
 	/// <summary>Decoded 16-byte animation sample tracks.</summary>
 	public IReadOnlyList<MotionSampleTrack> SampleTracks { get; }
+
+	/// <summary>Sample tracks grouped into animations by shared duration.</summary>
+	public IReadOnlyList<MotionSampleGroup> SampleGroups { get; }
 
 	/// <summary>Graph names that appear as transition endpoints.</summary>
 	public IReadOnlyList<string> StateNames { get; }
@@ -217,6 +222,9 @@ public sealed class MotionNetwork
 			.Distinct(StringComparer.Ordinal)
 			.ToList();
 
+		var sampleTracks = MotionSampleTrack.FindAll(data, Gar5WrapperSize, mainEnd);
+		var sampleGroups = MotionSampleGroup.GroupByDuration(sampleTracks);
+
 		return new MotionNetwork(
 			name,
 			strings,
@@ -225,7 +233,8 @@ public sealed class MotionNetwork
 			statePaths,
 			MotionGraphNode.FindAll(data, Gar5WrapperSize, mainEnd),
 			MotionSampleProbe.FindQuaternionRuns(data, Gar5WrapperSize, mainEnd),
-			MotionSampleTrack.FindAll(data, Gar5WrapperSize, mainEnd),
+			sampleTracks,
+			sampleGroups,
 			stateNames,
 			nodeNames,
 			Gar5WrapperSize);

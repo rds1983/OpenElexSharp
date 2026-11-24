@@ -35,6 +35,8 @@ public sealed class OpenElexGame : Game
 	private MotionNetwork? _network;
 	private MotionClip? _clipA;
 	private MotionClip? _clipB;
+	private MotionClip? _sampleClip;
+	private MotionSampleGroup? _sampleGroup;
 	private KeyboardState _previousKeyboard;
 
 	public OpenElexGame(LaunchOptions options, AssetFileSystem assets)
@@ -260,18 +262,54 @@ public sealed class OpenElexGame : Game
 
 		_clipA = clips[0];
 		_clipB = clips.Count > 1 ? clips[1] : clips[0];
+		_sampleClip = _network.Clips
+			.OrderByDescending(clip => clip.TrackNames.Count)
+			.FirstOrDefault();
+		_sampleGroup = _network.SampleGroups
+			.Where(group => group.Tracks.Count >= 10)
+			.OrderByDescending(group => group.Tracks.Count)
+			.FirstOrDefault();
 		Console.WriteLine(
 			$"Animation: skeleton={skeletonResource.Name} bones={_skeleton.Bones.Count} " +
 			$"network={networkResource.Name} clips={_network.Clips.Count} " +
-			$"blend={_clipA.Index}/{_clipB.Index}");
+			$"blend={_clipA.Index}/{_clipB.Index} " +
+			$"sampleTracks={_network.SampleTracks.Count} " +
+			$"sampleGroup={_sampleGroup?.Duration:0.###}/{_sampleGroup?.Tracks.Count}");
 	}
 
 	private void DrawSkeleton(GameTime gameTime)
 	{
 		var skeleton = _skeleton!;
 		var time = (float)gameTime.TotalGameTime.TotalSeconds;
-		var transition = new MotionTransitionSampler(_clipA!, _clipB!, 2f);
-		var pose = transition.SampleLoop(time, skeleton.Names);
+		MotionPose pose;
+		if (_sampleGroup is not null && _sampleClip is not null)
+		{
+			var trackPose = _sampleGroup.SamplePose(
+				time % _sampleGroup.Duration,
+				_sampleClip.TrackNames);
+			var rotations = new System.Numerics.Quaternion[skeleton.Names.Count];
+			for (var index = 0; index < rotations.Length; index++)
+			{
+				rotations[index] = System.Numerics.Quaternion.Identity;
+			}
+
+			for (var index = 0; index < skeleton.Names.Count; index++)
+			{
+				var track = _sampleClip.FindTrackIndex(skeleton.Names[index]);
+				if (track >= 0 && track < trackPose.Count)
+				{
+					rotations[index] = trackPose.Rotations[track];
+				}
+			}
+
+			pose = new MotionPose(rotations);
+		}
+		else
+		{
+			var transition = new MotionTransitionSampler(_clipA!, _clipB!, 2f);
+			pose = transition.SampleLoop(time, skeleton.Names);
+		}
+
 		var skeletonPose = SkeletonPose.FromMotionPose(pose, skeleton);
 		var matrices = skeletonPose.ComputeWorldMatrices();
 		var points = new Vector3[matrices.Length];

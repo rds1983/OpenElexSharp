@@ -163,7 +163,9 @@ high-entropy blocks contain **quantized sample tracks** instead:
 `Male` contains 1,006 decoded sample tracks (95–98 samples each). `MotionSampleTrack.SampleAt`
 interpolates raw positions and slerps rotations over the duration. Positions use an inferred
 `raw / 32767 * 100` model-unit scale; `GetTrackName`/`GetBoneName` resolve the header indices against
-a clip's track list. Grouping tracks into clips and graph semantics remain open (T009o).
+a clip's track list. `MotionSampleGroup.GroupByDuration` groups tracks that share a duration; `Male`
+yields 253 groups (largest: 0.8 s / 85 tracks). The skeleton viewer uses the largest group to animate
+a real sampled pose. Graph semantics remain open (T009p).
 
 ### Binary graph probe
 
@@ -306,6 +308,7 @@ per-target delta counts and the first two position/normal deltas.
 | Hierarchical state paths | 10,000 (`Male`, cap) |
 | Candidate binary graph blocks | 1 (`Weapons`, 16 references) |
 | Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
+| Sample duration groups (`Male`) | 253 (largest 0.8 s / 85 tracks) |
 | Inferred sample position scale | `raw / 32767 × 100` model units |
 | `bln` resources parsed | 270 / 270 |
 | `bln` delta sets decoded | 270 / 270 |
@@ -339,10 +342,11 @@ per-target delta counts and the first two position/normal deltas.
 | Candidate binary graph blocks | `OpenElexSharp/Assets/MotionGraphNode.cs` |
 | Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
 | Sample-track codec | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
+| Sample grouping and sampled poses | `OpenElexSharp/Assets/MotionSampleGroup.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
 
 ## Related tasks
 
@@ -358,6 +362,7 @@ per-target delta counts and the first two position/normal deltas.
 - T009l - quantized quaternion sample probe.
 - T009m - sample-track codec and interpolation.
 - T009n - sample scale and track-name mapping.
-- T009o - sample grouping and graph semantics.
+- T009o - sample grouping and sampled poses.
+- T009p - graph semantics.
 - T106/T107 - skinned character rendering and animation playback.
 - T405/T407 - animation and audio parity.

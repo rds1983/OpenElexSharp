@@ -180,6 +180,7 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `MotionGraphNode` | Candidate binary state-graph block with five-value records and references. |
 | `MotionSampleProbe` | Diagnostic scanner for runs of quantized `int16` quaternions. |
 | `MotionSampleTrack` | 16-byte quantized sample track with interpolation and track/bone name lookup. |
+| `MotionSampleGroup` | Tracks grouped by duration, sampled into a retargeted pose. |
 | `MotionPose` / `SkeletonPose` | Retargeting, clip blending and skeleton world-transform composition. |
 | `MotionTransitionSampler` | Timed one-shot/ping-pong blends between two clip poses. |
 | `ElexBlendShapeSet` | `bln` header, target names, vertex remap, sparse descriptors, quantized deltas and weight application. |
@@ -222,7 +223,7 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources; 1,045 expose decoded bind transforms, 225 expose names/parents only, and 50 creature/female/hologram tails use an unrecognized layout. Skinned mesh rendering is still T106/T102.
-- `net` motion networks expose readable names, one static pose per clip, name-derived transitions, hierarchical paths, candidate binary blocks, quantized-quaternion runs and interpolated sample tracks; graph edges, transition timing, sample grouping and reliable bone mapping are not implemented.
+- `net` motion networks expose readable names, static clip poses, transitions, hierarchical paths, candidate binary blocks, quantized sample tracks and duration-group sampled poses; graph edges, transition timing and a full clip/state mapping are not implemented.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks

@@ -644,6 +644,13 @@ public static class AssetCatalogConsole
 							$"\tsamples\t{network.SampleTracks.Count}\t" +
 							$"{string.Join(',', network.SampleTracks.Take(8).Select(track => $"{track.TrackIndex}/{track.BoneIndex}:{track.SampleCount}@{track.Duration:0.##}"))}");
 					}
+
+					if (network.SampleGroups.Count > 0)
+					{
+						output.WriteLine(
+							$"\tgroups\t{network.SampleGroups.Count}\t" +
+							$"{string.Join(',', network.SampleGroups.Take(8).Select(group => $"{group.Duration:0.###}:{group.Tracks.Count}"))}");
+					}
 				}
 			});
 	}
