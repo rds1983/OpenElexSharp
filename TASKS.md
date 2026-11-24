@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T004**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T004b**.
 
 ---
 
@@ -43,12 +43,14 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   Implemented per [Formats/Pak.md](Documentation/Formats/Pak.md) using rmtools/GameExtractor references. Validation on the test installation (including one mod) covers 156,905 packaged files, 111,661 of them compressed.
   Completed 2026-11-24 — G3V0 header/tree/attributes/raw-DEFLATE reader, PAK-backed VFS source, 127 tests and retail validation.
 
-- [ ] **T004 · Asset catalog and inspector**
+- [x] **T004 · Asset catalog and inspector**
   Build an index of all virtual assets (path, size, mount, extension) with fast lookup, filtering by mount and language, plus a developer tool (CLI or in-engine panel) to search paths, show statistics by extension, and export a single file for inspection. Cache the archive index if startup parsing is noticeable. This is the main research instrument for the tasks below. Note that some mounts expose the application folder, so binaries may appear in the index; report them separately and never open executable formats.
   Done when: listing the full archive index takes only a few seconds and the developer can inspect any asset without writing throwaway code.
+  Implementation complete: `AssetCatalog` plus `assets list|find|stats|export`, `Documentation/Assets.md`, 167 tests; 156,954 entries indexed in ~2.4 s including mounting.
+  Completed 2026-11-24 — catalog, headless inspector, binary safeguards, retail validation.
 
 - [ ] **T004b · GAR5 resource wrappers and resource databases**
-  Parse the `GAR5` wrapper used by compiled assets (tag/version, `RT02`/`SNxx` sections), `E1RF` resource reference files, and the `w_*_*.db` hash-to-resource tables. Expose resolved resource names and sizes through the asset layer so hashed `.rom` payloads can be identified by logical name. Document in `Documentation/Formats/Gar5.md`.
+  Parse the `GAR5` wrapper used by compiled assets (tag/version, `RT02`/`SNxx` sections), `E1RF` resource reference files, and the `w_*_*.db` hash-to-resource tables. The rmtools `ResolveRisen3Entries` implementation is the reference. Expose resolved resource names and sizes through the asset layer so hashed `.rom` payloads can be identified by logical name. Document in `Documentation/Formats/Gar5.md`.
   Done when: representative resource databases resolve names, a hashed dialogue/sound ROM can be addressed by its logical resource name, and synthetic fixtures cover wrappers, references and malformed indexes.
 
 - [ ] **T005 · Genome object serialization**
@@ -238,6 +240,7 @@ Exit criteria: visuals and UI are close enough to the original that differences 
 Not committed to a milestone; revisit after T308.
 
 - Mod loading/overrides on top of the base mounts.
+- Persist PAK directory indexes to remove the ~2.4 s cold start at ~157k entries.
 - Asset export/screenshot tools for documentation.
 - Editor support for inspecting templates and worlds.
 - ELEX 2 support if its formats are close enough.

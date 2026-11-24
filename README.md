@@ -53,7 +53,17 @@ dotnet test OpenElexSharp.slnx
 dotnet run --project OpenElexSharp
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens an empty window; asset-format parsing and rendering arrive in later tasks. See [Documentation/Mounts.md](Documentation/Mounts.md) and [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md).
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens an empty window; asset-format parsing and rendering arrive in later tasks.
+
+Asset inspection is available headlessly:
+
+```powershell
+dotnet run --project OpenElexSharp -- assets stats
+dotnet run --project OpenElexSharp -- assets list dds --limit 20
+dotnet run --project OpenElexSharp -- assets export data/compiled/localization/en.str out/en.str
+```
+
+See [Documentation/Mounts.md](Documentation/Mounts.md), [Documentation/Formats/Pak.md](Documentation/Formats/Pak.md) and [Documentation/Assets.md](Documentation/Assets.md).
 
 - Roadmap: [TASKS.md](TASKS.md)
 - Workflow, including the review gate before a task is marked complete: [AGENTS.md](AGENTS.md)
@@ -65,9 +75,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 17 | 1520 | 1280 | 53.3 KB |
-| Tests | 11 | 1575 | 1299 | 49.8 KB |
-| **Total** | **28** | **3095** | **2579** | **103.1 KB** |
+| Engine | 21 | 2191 | 1861 | 76.2 KB |
+| Tests | 14 | 2054 | 1700 | 66.6 KB |
+| **Total** | **35** | **4245** | **3561** | **142.8 KB** |
 
 ## Credits
 
