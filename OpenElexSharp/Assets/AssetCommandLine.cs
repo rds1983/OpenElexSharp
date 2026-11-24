@@ -10,6 +10,8 @@ public enum AssetCommandKind
 	Resources,
 	Objects,
 	Templates,
+	World,
+	Scene,
 	Textures,
 	Meshes,
 	Materials,
@@ -33,6 +35,8 @@ public sealed class AssetCommandLine
           OpenElexSharp assets resources [substring] [--type <token>] [--language <code>] [--limit <n>|--all] [--elex-path <path>]
           OpenElexSharp assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets world [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+          OpenElexSharp assets scene [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
           OpenElexSharp assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
           OpenElexSharp assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -47,6 +51,8 @@ public sealed class AssetCommandLine
         resources      Prints logical resources resolved through RT02 databases.
         objects        Lists GEC2 objects in a DT01 header document.
         templates      Lists entity/item templates and inheritance information.
+        world          Lists world definitions (wrl) and their scene sectors.
+        scene          Lists scene sectors (sec) and their entity graph.
         textures       Inspects DDS image resources and texture metadata.
         meshes         Inspects GMSH static meshes and vertex layouts.
         materials      Inspects material resources, shaders and texture bindings.
@@ -136,6 +142,16 @@ public sealed class AssetCommandLine
 				break;
 			case "templates":
 				kind = AssetCommandKind.Templates;
+				break;
+			case "world":
+			case "worlds":
+				kind = AssetCommandKind.World;
+				break;
+			case "scene":
+			case "scenes":
+			case "sector":
+			case "sectors":
+				kind = AssetCommandKind.Scene;
 				break;
 			case "textures":
 				kind = AssetCommandKind.Textures;

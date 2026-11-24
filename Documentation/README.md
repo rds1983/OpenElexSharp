@@ -21,7 +21,7 @@ Format knowledge is derived **only** from game assets — never from `ELEX.exe` 
 | [Formats/Materials.md](Formats/Materials.md) | implemented | T008b |
 | [Formats/Skeletons.md](Formats/Skeletons.md) | draft | T009a |
 | [Formats/Animations.md](Formats/Animations.md) | draft | T009b/T009c/T009d/T009e |
-| Formats/Worlds.md | planned | T010 |
+| [Formats/Worlds.md](Formats/Worlds.md) | implemented | T010 |
 | Formats/Collision.md | planned | T011 |
 | Formats/Audio.md | planned | T012 |
 | Formats/Localization.md | planned | T013 |

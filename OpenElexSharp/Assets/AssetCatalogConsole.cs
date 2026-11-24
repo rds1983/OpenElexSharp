@@ -28,6 +28,8 @@ public static class AssetCatalogConsole
 			AssetCommandKind.Resources => Resources(command, catalog, assets, output, error),
 			AssetCommandKind.Objects => Objects(command, catalog, assets, output, error),
 			AssetCommandKind.Templates => Templates(command, catalog, assets, output, error),
+			AssetCommandKind.World => Worlds(command, catalog, assets, output, error),
+			AssetCommandKind.Scene => Scenes(command, catalog, assets, output, error),
 			AssetCommandKind.Textures => Textures(command, catalog, assets, output, error),
 			AssetCommandKind.Meshes => Meshes(command, catalog, assets, output, error),
 			AssetCommandKind.Materials => Materials(command, catalog, assets, output, error),
@@ -313,6 +315,148 @@ public static class AssetCatalogConsole
 			$"Showing {shown} of {matches.Count:N0} template(s); database has " +
 			$"{database.Templates.Count:N0} top-level and {database.AllTemplates.Count:N0} total templates.");
 		return 0;
+	}
+
+	private static int Worlds(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"World warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "wrl", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			ElexWorld world;
+			try
+			{
+				world = ElexWorld.Parse(resource.Name, resource.VirtualPath, ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping world '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			output.WriteLine(
+				$"{world.Name}\t{world.SectorNames.Count}\t{world.TerrainFile}\t{world.SourcePath}");
+			if (command.ShowProperties)
+			{
+				foreach (var sector in world.SectorNames)
+				{
+					output.WriteLine($"\tsector\t{sector}");
+				}
+			}
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} world(s); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static int Scenes(
+		AssetCommandLine command,
+		AssetCatalog catalog,
+		AssetFileSystem assets,
+		TextWriter output,
+		TextWriter error)
+	{
+		var resources = ElexResourceIndex.Build(catalog, assets);
+		foreach (var diagnostic in resources.Diagnostics.Take(5))
+		{
+			error.WriteLine($"Scene warning: {diagnostic}");
+		}
+
+		IEnumerable<ElexResource> query = resources.Resources.Where(resource =>
+			string.Equals(resource.TypeToken, "sec", StringComparison.OrdinalIgnoreCase));
+		if (!string.IsNullOrEmpty(command.Filter))
+		{
+			query = query.Where(resource =>
+				resource.Name.Contains(command.Filter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		var matches = query
+			.OrderBy(resource => resource.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var shown = command.Limit == 0 ? matches.Count : Math.Min(command.Limit, matches.Count);
+		var parsed = 0;
+		for (var index = 0; index < shown; index++)
+		{
+			var resource = matches[index];
+			ElexScene scene;
+			try
+			{
+				scene = ElexScene.Parse(resource.Name, resource.VirtualPath, ReadAsset(assets, resource));
+				parsed++;
+			}
+			catch (Exception exception) when (
+				exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException)
+			{
+				error.WriteLine($"Skipping scene '{resource.Name}': {exception.Message}");
+				continue;
+			}
+
+			output.WriteLine(
+				$"{scene.Name}\t{scene.Entities.Count}\t{scene.MeshEntityCount}\t{scene.SourcePath}");
+			if (!command.ShowProperties)
+			{
+				continue;
+			}
+
+			foreach (var entity in scene.Entities)
+			{
+				var position = entity.WorldPosition;
+				var rotation = entity.WorldRotation;
+				output.WriteLine(
+					$"\tentity\t{entity.Depth}\t{entity.Name}\t" +
+					$"{position.X:0.###},{position.Y:0.###},{position.Z:0.###}\t" +
+					$"{rotation.X:0.#####},{rotation.Y:0.#####},{rotation.Z:0.#####},{rotation.W:0.#####}\t" +
+					$"{entity.MeshFileName ?? "-"}\t" +
+					$"{entity.TemplateGuid?.ToString("D") ?? "-"}\t" +
+					$"{entity.NetworkResource ?? "-"}\t" +
+					$"{(entity.IsTransformFinite ? "ok" : "non-finite")}");
+				foreach (var reference in entity.References)
+				{
+					var value = reference.ReferenceGuid?.ToString("D") ?? reference.Resource ?? "-";
+					output.WriteLine(
+						$"\t\tref\t{reference.PropertySet}\t{reference.Property}\t" +
+						$"{reference.TypeName}\t{value}");
+				}
+			}
+		}
+
+		error.WriteLine($"Showing {shown} of {matches.Count:N0} scene(s); parsed {parsed:N0}.");
+		return 0;
+	}
+
+	private static byte[] ReadAsset(AssetFileSystem assets, ElexResource resource)
+	{
+		using var stream = assets.OpenRead(resource.VirtualPath);
+		using var buffer = new MemoryStream();
+		stream.CopyTo(buffer);
+		return buffer.ToArray();
 	}
 
 	private static int Textures(

@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T010**.
+Milestone **M0 — Toolchain & Formats**. Next task: **T011**.
 
 ---
 
@@ -338,9 +338,22 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Decode state-name tables that store a GUID between the offsets and the strings.
   - Associate transition runs with their state block and confirm slot `0` semantics per network.
 
-- [ ] **T010 · World and level data**
+- [x] **T010 · World and level data**
   Parse the world/level assets that place entities and static geometry: sectors, transforms, object references, and the link between instances and templates/meshes. Document entity categories found in the data.
   Done when: a level's instance graph can be dumped as text (position, rotation, template, mesh) and matches what the game data implies.
+  **Completed 2026-11-25 — `wrl` worlds and `sec` entity graphs decode with transforms and links.**
+  - `ElexWorld` reads the 436-entry `World.wrl` sector list and `terrain3.trn` path.
+  - `ElexScene` reads the `gCEmbeddedLayer → eCScene → eCDynamicEntity` tree; row-vector `local × parent`
+    composition gives world transforms.
+  - Links: `eCMesh_PS.MeshFileName`, `gCItem_PS.ItemInventory`/`gCRecipe_PS.ResultItem` template GUIDs and
+    `eCAnimation3Controller_PS.NetworkResource`.
+  - All 481 sectors parse (376,186 entities, 304,149 with meshes); `EDA_Decals` non-finite matrices are
+    sanitized and flagged.
+  - 14 new tests; 467 tests, Debug/Release warning-free.
+  **Open follow-ups:**
+  - Decode the 6-byte entity field and 133-byte `eCDynamicEntity` tail.
+  - Resolve NPC species/gender to a visual template/mesh.
+  - Confirm world units and the 36-byte `wrl` trailer.
 
 - [ ] **T011 · Collision and navigation data**
   Extract collision geometry suitable for BepuPhysics2 static bodies, plus navigation mesh data for NPC pathing. Document both formats. Also investigate the GMSH per-triangle cluster block and GAR5 trailer as potential occlusion/collision data.

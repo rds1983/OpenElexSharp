@@ -12,6 +12,8 @@ dotnet run --project OpenElexSharp -- assets find <substring> [options]
 dotnet run --project OpenElexSharp -- assets resources [substring] [options]
 dotnet run --project OpenElexSharp -- assets objects <assetPath> [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets templates [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets world [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
+dotnet run --project OpenElexSharp -- assets scene [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets textures [substring] [--limit <n>|--all] [--properties] [--decode] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets meshes [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
 dotnet run --project OpenElexSharp -- assets materials [substring] [--limit <n>|--all] [--properties] [--elex-path <path>]
@@ -72,6 +74,29 @@ Builds the template database from `tpl` resources and prints name, GUID, resolve
 dotnet run --project OpenElexSharp -- assets templates 1H_Axe --limit 5 --properties
 ```
 
+### `world`
+
+Parses `wrl` world definitions. Prints the world name, sector count, terrain resource path and ROM
+path. `--properties` lists every sector name in world order.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets world World --properties
+```
+
+### `scene`
+
+Parses `sec` static scene sectors. Prints the sector name, total entity count, number of entities with
+a mesh, and ROM path. `--properties` prints the entity graph depth-first as tab-separated rows with
+depth, name, world position, world rotation quaternion, mesh name, template GUID, animation network and
+a transform flag. Decoded GUID and resource references follow each entity as `ref` rows.
+
+```powershell
+dotnet run --project OpenElexSharp -- assets scene ABE_AbessaCity_Items --limit 1 --properties
+dotnet run --project OpenElexSharp -- assets scene XAC_Interacts --limit 1 --properties
+```
+
+See [Formats/Worlds.md](Formats/Worlds.md).
+
 ### `textures`
 
 Builds the logical resource index, finds `img` resources and parses their DDS headers. Prints name,
@@ -126,14 +151,14 @@ dotnet run --project OpenElexSharp -- assets skeletons --all
 
 Parses `net` resources (Morpheme motion-network definitions). Prints name, readable-name count, `BONE_`-prefixed bone-name count, clip count, posed-clip count, simple-transition count, state-name count, hierarchical-path count, candidate binary-graph count and ROM path. `--properties` lists every readable name, each clip's tracks/poses, then every transition, state, graph node, the first 16 state paths, the first 16 binary graph blocks and the first quantized quaternion runs. Readable names are capped at 100,000 per resource; the large `Male` and `Creature` networks reach the cap.
 
-The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), derives simple transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names, exposes `|`-separated names as hierarchical state paths, probes candidate binary graph blocks, reports runs of quantized `int16` quaternions and decodes 16-byte sample tracks with interpolation. Binary graph edges, transition timing, position scale and sample/bone mapping are not implemented yet; see [Formats/Animations.md](Formats/Animations.md).
+The parser decodes static clip poses, maps track names to `skn` skeleton bones (exact names, or `BONE_`-prefixed tracks), derives simple transitions from `<Source>_<Target>|ConditionGroup|<Condition>` names, exposes `|`-separated names as hierarchical state paths, decodes binary state blocks with timed transition records, reports runs of quantized `int16` quaternions and decodes 16-byte sample tracks with interpolation. State-name tables with inline GUIDs, the state-record template semantics and sample/bone mapping remain partial; see [Formats/Animations.md](Formats/Animations.md).
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets animations Chest --properties
 dotnet run --project OpenElexSharp -- assets animations --all
 ```
 
-The network graph, state transitions and keyframe curves are not decoded yet; each clip currently exposes a single static pose.
+Each clip currently exposes a single static pose; binary state blocks and timed transition durations are decoded, while keyframe curves and full state-record semantics remain open.
 
 ### `blendshapes`
 
@@ -165,6 +190,8 @@ dotnet run --project OpenElexSharp -- assets export data/compiled/localization/e
 | `ElexResourceIndex` / `ElexResource` | Logical name → hashed ROM resolution through `RT02` databases. |
 | `GenomeObject` / `GenomeHeaderDocument` / `GenomeStringTable` | GEC2 objects, DT01 documents and GENOMFLE string tables. |
 | `GenomeTemplate` / `TemplateDatabase` | GTP0 templates, child composition and inheritance resolution. |
+| `ElexWorld` | `wrl` terrain path and ordered sector list. |
+| `ElexScene` / `ElexSceneEntity` | `sec` entity trees, local/world transforms, mesh/template/network links. |
 | `DdsImage` / `DdsTextureDecoder` | DDS headers, mip/face layout and CPU decoding. |
 | `TextureLoader` | Compressed or decoded upload to `Texture2D`, plus fallback textures. |
 | `GmshMesh` | GMSH v2 geometry, GPU indices, packed vertex streams and buffer descriptors. |
@@ -204,6 +231,8 @@ On the reference installation the catalog contains 156,954 entries (156,905 pack
 
 `assets materials --all --properties` parses all 1,726 materials in a few seconds.
 
+`assets world --all --properties` lists all four worlds and 436 sectors in roughly 3 seconds. `assets scene --all` parses all 481 sectors with 376,186 entities in roughly 15 seconds.
+
 `assets animations --all` parses all 34 motion networks in roughly 15 seconds. The 59.6 MB `Male` network dominates the readable-name, transition, quantized-sample and sample-track scans (names capped at 100,000). `assets blendshapes --all` fully decodes all 270 blend-shape sets in roughly 35 seconds (63.5 million deltas); a filtered or single-resource query is near-instant.
 
 PAK indexes are parsed on every process start. A persistent index cache is deliberately not implemented yet: the current cost is acceptable and avoids cache invalidation bugs. It is tracked in the backlog.
@@ -219,13 +248,14 @@ Language is inferred only from retail-style volume names matching `c_<generation
 - Statistics use logical sizes, not archive storage size.
 - Executable classification is extension-based.
 - Resource database records are located via their `GEC2` class blocks; the reference metadata in the middle of a record is not decoded yet.
-- Object properties and class data are preserved raw; type-specific decoding and nested `GEC2` objects are not implemented yet.
+- Unknown Genome properties and class data are preserved raw; known types and nested `GEC2` objects are decoded through the shared name table and property decoder.
 - `assets textures --all --decode` is intentionally a diagnostic path: decoding every mip-0 texture in the retail set takes several minutes. Normal browsing should use a filter or omit `--decode`.
 - Volume textures are parsed but not uploaded; cubemap/array upload is not implemented.
 - GMSH meshes expose the GPU index buffer, packed positions/normals/tangents/colors/UVs, buffer descriptors and database-side submesh/material/LOD metadata. Vertex colors and tangents are decoded but not rendered by the stock `BasicEffect` path; the material parameter blocks are not decoded.
 - Material texture binding is explicit through the mesh database's submesh material names. A mesh whose material has no texture entry renders with the checker fallback.
 - `skn` skeletons parse for 1,270 of 1,320 resources; 1,045 expose decoded bind transforms, 225 expose names/parents only, and 50 creature/female/hologram tails use an unrecognized layout. Skinned mesh rendering is still T106/T102.
 - `net` motion networks expose readable names, static clip poses, transitions, hierarchical paths, binary state-machine blocks with named states where available, timed transition records, quantized sample tracks and duration-group sampled poses; state-name tables with inline GUIDs and the semantics of the state template values remain open.
+- `wrl`/`sec` worlds and sectors decode the sector list, entity tree, row-major transforms, mesh/template GUIDs and animation-network references. The 6-byte entity field, 133-byte dynamic-entity tail, world units and NPC species-to-visual resolution remain open.
 - `bln` blend shapes decode the vertex remap, sparse target masks and quantized position/normal deltas; the exact game unit, base-mesh vertex-order contract and normal normalization convention remain to be confirmed.
 
 ## Related tasks
