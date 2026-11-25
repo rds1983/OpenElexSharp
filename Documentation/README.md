@@ -26,7 +26,7 @@ Format knowledge is derived **only** from game assets — never from `ELEX.exe` 
 | [Formats/Audio.md](Formats/Audio.md) | implemented | T012 |
 | [Formats/Localization.md](Formats/Localization.md) | implemented | T013 |
 | [Formats/Scripts.md](Formats/Scripts.md) | draft | T014 |
-| Architecture.md | planned | T101 |
+| [Architecture.md](Architecture.md) | implemented | T101 |
 
 Status values: **planned** (not started), **draft** (written, implementation pending or partial), **implemented** (loader exists and tests cover it), **deprecated**.
 

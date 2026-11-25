@@ -1,5 +1,6 @@
 using OpenElexSharp;
 using OpenElexSharp.Assets;
+using OpenElexSharp.Diagnostics;
 
 if (AssetCommandLine.IsAssetCommand(args))
 {
@@ -54,7 +55,9 @@ catch (ArgumentException exception)
 {
 	Console.Error.WriteLine(exception.Message);
 	Console.Error.WriteLine(
-		"Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] [--animation <net resource>] [--smoke-test] [--capture <png path>]");
+		"Usage: OpenElexSharp [--elex-path <path>] [--texture <image resource>] [--mesh <mesh resource>] " +
+		"[--animation <net resource>] [--collision <col resource>] [--capture <png path>] " +
+		"[--capture-frame <n>] [--soak-test <seconds>] [--crash-test] [--smoke-test]");
 	Console.Error.WriteLine("       OpenElexSharp assets list|stats|export ...  (run 'OpenElexSharp assets help')");
 	return 1;
 }
@@ -71,30 +74,83 @@ catch (Exception exception) when (exception is ElexInstallationException or Moun
 	return 2;
 }
 
-Console.WriteLine($"ELEX installation: {gameInstallation.RootPath}");
-var packedSources = gameAssets.Sources.OfType<PackedAssetSource>().ToArray();
-var looseSourceCount = gameAssets.Sources.Count - packedSources.Length;
-var packedEntryCount = packedSources.Sum(source => source.EntryCount);
-Console.WriteLine(
-	$"Mounted {looseSourceCount} loose source(s), {packedSources.Length} packed source(s) " +
-	$"({packedEntryCount} files), {gameAssets.PackedMounts.Count} packed mount(s).");
-
-foreach (var diagnostic in gameAssets.Diagnostics.Take(5))
+Log.Initialize(Path.Combine("logs", "openelexsharp.log"));
+AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
 {
-	Console.Error.WriteLine($"Asset warning: {diagnostic}");
+	if (eventArgs.ExceptionObject is Exception exception)
+	{
+		Log.Error("Unhandled exception.", exception);
+	}
+};
+
+try
+{
+	Log.Info($"ELEX installation: {gameInstallation.RootPath}");
+	var packedSources = gameAssets.Sources.OfType<PackedAssetSource>().ToArray();
+	var looseSourceCount = gameAssets.Sources.Count - packedSources.Length;
+	var packedEntryCount = packedSources.Sum(source => source.EntryCount);
+	Log.Info(
+		$"Mounted {looseSourceCount} loose source(s), {packedSources.Length} packed source(s) " +
+		$"({packedEntryCount} files), {gameAssets.PackedMounts.Count} packed mount(s).");
+
+	foreach (var diagnostic in gameAssets.Diagnostics.Take(5))
+	{
+		Log.Warning($"Asset warning: {diagnostic}");
+	}
+
+	Log.Info(options.SmokeTest
+		? "OpenElexSharp starting (smoke test)."
+		: "OpenElexSharp starting.");
+
+	using (var game = new OpenElexGame(options, gameAssets))
+	{
+		game.Run();
+	}
+
+	Log.Info("OpenElexSharp exited.");
+	return 0;
+}
+catch (Exception exception)
+{
+	return ReportCrash(exception, options);
+}
+finally
+{
+	Log.Shutdown();
 }
 
-Console.WriteLine(options.SmokeTest
-	? "OpenElexSharp starting (smoke test)."
-	: "OpenElexSharp starting.");
-
-using (var game = new OpenElexGame(options, gameAssets))
+static int ReportCrash(Exception exception, LaunchOptions options)
 {
-	game.Run();
-}
+	Log.Error("Fatal error.", exception);
+	var crashPath = CrashReport.Save("logs", exception, Log.FilePath);
+	if (crashPath is not null)
+	{
+		Log.Error($"Crash report written to '{crashPath}'.");
+	}
 
-Console.WriteLine("OpenElexSharp exited.");
-return 0;
+	var report = CrashReport.Create(exception, Log.FilePath);
+	if (crashPath is not null)
+	{
+		report += Environment.NewLine + $"Crash report: {crashPath}";
+	}
+
+	try
+	{
+		using var screen = new CrashScreenGame(
+			report,
+			options.SmokeTest ? TimeSpan.FromSeconds(2) : null,
+			options.CapturePath);
+		screen.Run();
+	}
+	catch (Exception screenException)
+	{
+		// The crash screen is best-effort: a broken graphics stack must still leave a trace.
+		Log.Error("Could not show the crash screen.", screenException);
+		Console.Error.WriteLine(report);
+	}
+
+	return 3;
+}
 
 static (ElexInstallation Installation, AssetFileSystem Assets) MountAssets(string? explicitPath)
 {

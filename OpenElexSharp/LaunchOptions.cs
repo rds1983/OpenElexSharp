@@ -26,6 +26,15 @@ public sealed class LaunchOptions
 	/// <summary>The argument that writes the rendered back buffer to a PNG file.</summary>
 	public const string CaptureArgument = "--capture";
 
+	/// <summary>The argument that chooses the frame saved by <see cref="CaptureArgument"/>.</summary>
+	public const string CaptureFrameArgument = "--capture-frame";
+
+	/// <summary>The argument that runs the engine for a fixed number of seconds and exits.</summary>
+	public const string SoakTestArgument = "--soak-test";
+
+	/// <summary>The argument that deliberately throws after startup to exercise the crash screen.</summary>
+	public const string CrashTestArgument = "--crash-test";
+
 	/// <summary>
 	/// Gets a value indicating whether the engine should open a window, render a few frames
 	/// and exit successfully. Intended for verifying that the graphics stack works.
@@ -65,6 +74,24 @@ public sealed class LaunchOptions
 	public string? CapturePath { get; private init; }
 
 	/// <summary>
+	/// Gets the frame number captured to <see cref="CapturePath"/>, or <see langword="null"/> for
+	/// the default (frame 4).
+	/// </summary>
+	public int? CaptureFrame { get; private init; }
+
+	/// <summary>
+	/// Gets how long a soak run should render before exiting, or <see langword="null"/> for a
+	/// normal session.
+	/// </summary>
+	public int? SoakSeconds { get; private init; }
+
+	/// <summary>
+	/// Gets a value indicating whether the game should throw after a few frames to verify the
+	/// crash screen.
+	/// </summary>
+	public bool CrashTest { get; private init; }
+
+	/// <summary>
 	/// Parses command-line arguments.
 	/// </summary>
 	/// <exception cref="ArgumentNullException"><paramref name="args"/> is <see langword="null"/>.</exception>
@@ -80,6 +107,9 @@ public sealed class LaunchOptions
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
+		int? captureFrame = null;
+		int? soakSeconds = null;
+		var crashTest = false;
 
 		for (var index = 0; index < args.Count; index++)
 		{
@@ -181,6 +211,42 @@ public sealed class LaunchOptions
 					argument[(CaptureArgument.Length + 1)..],
 					nameof(args));
 			}
+			else if (string.Equals(argument, CaptureFrameArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				if (index + 1 >= args.Count)
+				{
+					throw new ArgumentException($"{CaptureFrameArgument} requires a value.", nameof(args));
+				}
+
+				captureFrame = ParsePositiveInt(CaptureFrameArgument, args[++index], nameof(args));
+			}
+			else if (argument.StartsWith(CaptureFrameArgument + "=", StringComparison.OrdinalIgnoreCase))
+			{
+				captureFrame = ParsePositiveInt(
+					CaptureFrameArgument,
+					argument[(CaptureFrameArgument.Length + 1)..],
+					nameof(args));
+			}
+			else if (string.Equals(argument, SoakTestArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				if (index + 1 >= args.Count)
+				{
+					throw new ArgumentException($"{SoakTestArgument} requires a value.", nameof(args));
+				}
+
+				soakSeconds = ParsePositiveInt(SoakTestArgument, args[++index], nameof(args));
+			}
+			else if (argument.StartsWith(SoakTestArgument + "=", StringComparison.OrdinalIgnoreCase))
+			{
+				soakSeconds = ParsePositiveInt(
+					SoakTestArgument,
+					argument[(SoakTestArgument.Length + 1)..],
+					nameof(args));
+			}
+			else if (string.Equals(argument, CrashTestArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				crashTest = true;
+			}
 			else
 			{
 				throw new ArgumentException($"Unknown command-line argument '{argument}'.", nameof(args));
@@ -196,6 +262,9 @@ public sealed class LaunchOptions
 			Animation = animation,
 			Collision = collision,
 			CapturePath = capturePath,
+			CaptureFrame = captureFrame,
+			SoakSeconds = soakSeconds,
+			CrashTest = crashTest,
 		};
 	}
 
@@ -217,5 +286,22 @@ public sealed class LaunchOptions
 		}
 
 		return value.Trim();
+	}
+
+	private static int ParsePositiveInt(string argument, string value, string parameterName)
+	{
+		if (!int.TryParse(
+				value.Trim(),
+				System.Globalization.NumberStyles.Integer,
+				System.Globalization.CultureInfo.InvariantCulture,
+				out var result) ||
+			result <= 0)
+		{
+			throw new ArgumentException(
+				$"{argument} requires a positive integer.",
+				parameterName);
+		}
+
+		return result;
 	}
 }

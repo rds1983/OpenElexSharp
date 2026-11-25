@@ -5,8 +5,10 @@ using Microsoft.Xna.Framework.Input;
 using Myra;
 using Myra.Graphics2D.UI;
 using OpenElexSharp.Assets;
+using OpenElexSharp.Diagnostics;
 using OpenElexSharp.Graphics;
 using OpenElexSharp.UI;
+using System.Diagnostics;
 
 namespace OpenElexSharp;
 
@@ -18,12 +20,24 @@ public sealed class OpenElexGame : Game
 {
 	private const int SmokeTestFrameCount = 10;
 	private const int TextureMargin = 24;
+	private const double StatisticsInterval = 0.5;
+	private static readonly TimeSpan SoakSampleInterval = TimeSpan.FromSeconds(10);
 
 	private readonly GraphicsDeviceManager _graphics;
 	private readonly LaunchOptions _options;
+	private readonly FrameStatistics _frameStatistics = new();
 	private int _updateCount;
 	private int _frameCount;
 	private bool _captured;
+	private bool _deviceLost;
+	private bool _resizing;
+	private FrameSnapshot _statistics;
+	private double _statisticsElapsed;
+	private bool _statisticsWarmedUp;
+	private double _lastUpdateMilliseconds;
+	private double _lastDrawMilliseconds;
+	private TimeSpan _soakElapsed;
+	private TimeSpan _soakNextSample;
 	private Renderer? _renderer;
 	private Desktop? _desktop;
 	private Hud? _hud;
@@ -53,12 +67,19 @@ public sealed class OpenElexGame : Game
 			PreferredBackBufferWidth = 1280,
 			PreferredBackBufferHeight = 720,
 			GraphicsProfile = GraphicsProfile.HiDef,
+			SynchronizeWithVerticalRetrace = true,
 		};
+
+		IsFixedTimeStep = true;
+		TargetElapsedTime = TimeSpan.FromSeconds(1d / 60d);
+		InactiveSleepTime = TimeSpan.FromSeconds(0.1);
+		_soakNextSample = SoakSampleInterval;
 
 		Content.RootDirectory = "Content";
 		IsMouseVisible = true;
 		Window.AllowUserResizing = true;
 		Window.Title = "OpenElexSharp";
+		Window.ClientSizeChanged += (_, _) => ResizeBackBuffer();
 		Window.KeyDown += (_, eventArgs) =>
 		{
 			if (eventArgs.Key == Keys.Escape)
@@ -74,6 +95,11 @@ public sealed class OpenElexGame : Game
 	protected override void LoadContent()
 	{
 		_renderer = new Renderer(GraphicsDevice);
+		GraphicsDevice.DeviceLost += OnDeviceLost;
+		GraphicsDevice.DeviceResetting += (_, _) =>
+			Log.Info("Graphics device is resetting (window resize).");
+		GraphicsDevice.DeviceReset += (_, _) =>
+			Log.Info("Graphics device reset complete.");
 		MyraEnvironment.Game = this;
 		_desktop = new Desktop();
 		_hud = new Hud();
@@ -89,7 +115,7 @@ public sealed class OpenElexGame : Game
 					NotSupportedException or IOException or UnauthorizedAccessException or
 					AssetNotFoundException or InvalidOperationException or ArgumentException)
 			{
-				Console.Error.WriteLine($"Animation warning: {exception.Message}");
+				Log.Warning($"Animation warning: {exception.Message}");
 			}
 
 			return;
@@ -106,7 +132,7 @@ public sealed class OpenElexGame : Game
 					NotSupportedException or IOException or UnauthorizedAccessException or
 					AssetNotFoundException or InvalidOperationException or ArgumentException)
 			{
-				Console.Error.WriteLine($"Mesh warning: {exception.Message}");
+				Log.Warning($"Mesh warning: {exception.Message}");
 			}
 		}
 
@@ -121,7 +147,7 @@ public sealed class OpenElexGame : Game
 					IOException or UnauthorizedAccessException or AssetNotFoundException or
 					InvalidOperationException or ArgumentException)
 			{
-				Console.Error.WriteLine($"Collision warning: {exception.Message}");
+				Log.Warning($"Collision warning: {exception.Message}");
 			}
 		}
 
@@ -143,32 +169,85 @@ public sealed class OpenElexGame : Game
 			exception is DdsFormatException or NotSupportedException or IOException or
 				UnauthorizedAccessException or AssetNotFoundException or InvalidOperationException)
 		{
-			Console.Error.WriteLine($"Texture warning: {exception.Message}");
+			Log.Warning($"Texture warning: {exception.Message}");
 			_fallback = TextureLoader.CreateFallback(GraphicsDevice);
 		}
 	}
 
 	protected override void Update(GameTime gameTime)
 	{
+		var started = Stopwatch.GetTimestamp();
+		try
+		{
+			UpdateCore(gameTime);
+		}
+		finally
+		{
+			_lastUpdateMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		}
+	}
+
+	private void UpdateCore(GameTime gameTime)
+	{
 		++_frameCount;
+		++_updateCount;
+
+		if (_deviceLost)
+		{
+			Log.Error("Graphics device lost; shutting down.");
+			Exit();
+			return;
+		}
+
 		var keyboard = Keyboard.GetState();
 		if (keyboard.IsKeyDown(Keys.Escape) && _previousKeyboard.IsKeyUp(Keys.Escape))
 		{
 			Exit();
 		}
 
+		if (keyboard.IsKeyDown(Keys.F1) && _previousKeyboard.IsKeyUp(Keys.F1))
+		{
+			var visible = _hud?.ToggleDebugOverlay();
+			if (visible is not null)
+			{
+				Log.Info($"Debug overlay {(visible.Value ? "shown" : "hidden")}.");
+			}
+		}
+
 		_previousKeyboard = keyboard;
 
-		if (_options.SmokeTest && ++_updateCount >= SmokeTestFrameCount)
+		if (_options.CrashTest && _updateCount == 3)
+		{
+			throw new InvalidOperationException("Crash screen test requested by --crash-test.");
+		}
+
+		if (_options.SoakSeconds is { } soakSeconds)
+		{
+			_soakElapsed += gameTime.ElapsedGameTime;
+			if (_soakElapsed >= _soakNextSample)
+			{
+				_soakNextSample += SoakSampleInterval;
+				LogMemorySample("Soak");
+			}
+
+			if (_soakElapsed >= TimeSpan.FromSeconds(soakSeconds))
+			{
+				LogMemorySample("Soak complete");
+				Exit();
+				return;
+			}
+		}
+		else if (_options.SmokeTest && _updateCount >= SmokeTestFrameCount)
 		{
 			if (_renderer is not null)
 			{
-				Console.WriteLine(
+				Log.Info(
 					$"Render statistics: drawCalls={_renderer.DrawCalls} " +
 					$"triangles={_renderer.Triangles} meshes={_renderer.Meshes}");
 			}
 
 			Exit();
+			return;
 		}
 
 		base.Update(gameTime);
@@ -176,9 +255,37 @@ public sealed class OpenElexGame : Game
 
 	protected override void Draw(GameTime gameTime)
 	{
+		var started = Stopwatch.GetTimestamp();
+		try
+		{
+			DrawCore(gameTime);
+		}
+		finally
+		{
+			_lastDrawMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+			_frameStatistics.AddFrame(
+				gameTime.ElapsedGameTime,
+				_lastUpdateMilliseconds,
+				_lastDrawMilliseconds);
+		}
+	}
+
+	private void DrawCore(GameTime gameTime)
+	{
 		if (_renderer is null)
 		{
 			return;
+		}
+
+		_statisticsElapsed += gameTime.ElapsedGameTime.TotalSeconds;
+		if (!_statisticsWarmedUp || _statisticsElapsed >= StatisticsInterval)
+		{
+			_statistics = _frameStatistics.Snapshot();
+			if (_statisticsElapsed >= StatisticsInterval)
+			{
+				_statisticsElapsed = 0;
+				_statisticsWarmedUp = true;
+			}
 		}
 
 		if (_skeleton is not null)
@@ -194,7 +301,7 @@ public sealed class OpenElexGame : Game
 			DrawTexture();
 		}
 
-		_hud?.Update(gameTime, _renderer);
+		_hud?.Update(_renderer, _statistics);
 		_desktop?.Render();
 		CaptureIfRequested();
 		base.Draw(gameTime);
@@ -202,6 +309,11 @@ public sealed class OpenElexGame : Game
 
 	protected override void UnloadContent()
 	{
+		if (GraphicsDevice is not null)
+		{
+			GraphicsDevice.DeviceLost -= OnDeviceLost;
+		}
+
 		_renderer?.Dispose();
 		_renderer = null;
 		if (!ReferenceEquals(_texture, _fallback))
@@ -227,23 +339,77 @@ public sealed class OpenElexGame : Game
 
 	private void CaptureIfRequested()
 	{
-		if (_captured || string.IsNullOrEmpty(_options.CapturePath) || _frameCount < 4)
+		var captureFrame = _options.CaptureFrame ?? 4;
+		if (_captured || string.IsNullOrEmpty(_options.CapturePath) || _frameCount < captureFrame)
 		{
 			return;
 		}
 
 		_captured = true;
-		var presentation = GraphicsDevice.PresentationParameters;
-		var width = Math.Max(1, presentation.BackBufferWidth);
-		var height = Math.Max(1, presentation.BackBufferHeight);
-		var pixels = new Color[width * height];
-		GraphicsDevice.GetBackBufferData(pixels);
-		using var texture = new Texture2D(GraphicsDevice, width, height);
-		texture.SetData(pixels);
-		using var stream = File.Create(_options.CapturePath);
-		texture.SaveAsPng(stream, width, height);
-		Console.WriteLine($"Captured {width}x{height} -> {_options.CapturePath}");
+		try
+		{
+			FrameCapture.Save(GraphicsDevice, _options.CapturePath);
+		}
+		catch (Exception exception) when (
+			exception is IOException or UnauthorizedAccessException or NotSupportedException or
+				ArgumentException)
+		{
+			Log.Error($"Capture failed for '{_options.CapturePath}'.", exception);
+		}
 	}
+
+	private void ResizeBackBuffer()
+	{
+		if (_resizing)
+		{
+			return;
+		}
+
+		var bounds = Window.ClientBounds;
+		if (bounds.Width <= 0 || bounds.Height <= 0)
+		{
+			return;
+		}
+
+		if (bounds.Width == _graphics.PreferredBackBufferWidth &&
+			bounds.Height == _graphics.PreferredBackBufferHeight)
+		{
+			return;
+		}
+
+		_resizing = true;
+		try
+		{
+			_graphics.PreferredBackBufferWidth = bounds.Width;
+			_graphics.PreferredBackBufferHeight = bounds.Height;
+			_graphics.ApplyChanges();
+		}
+		catch (Exception exception) when (
+			exception is InvalidOperationException or ArgumentException or ObjectDisposedException)
+		{
+			Log.Warning($"Resize to {bounds.Width}x{bounds.Height} failed: {exception.Message}");
+		}
+		finally
+		{
+			_resizing = false;
+		}
+	}
+
+	private void OnDeviceLost(object? sender, EventArgs eventArgs)
+	{
+		_deviceLost = true;
+	}
+
+	private void LogMemorySample(string prefix)
+	{
+		var memory = MemorySnapshot.CaptureCollected();
+		Log.Info(
+			$"{prefix} t={_soakElapsed.TotalSeconds:0}s " +
+			$"workingSet={FormatMegabytes(memory.WorkingSetBytes)} " +
+			$"managed={FormatMegabytes(memory.ManagedBytes)} fps={_statistics.FramesPerSecond}");
+	}
+
+	private static string FormatMegabytes(long bytes) => $"{bytes / 1048576.0:0.0} MB";
 
 	private void LoadAnimationScene()
 	{
@@ -289,7 +455,7 @@ public sealed class OpenElexGame : Game
 			.Where(group => group.Tracks.Count >= 10)
 			.OrderByDescending(group => group.Tracks.Count)
 			.FirstOrDefault();
-		Console.WriteLine(
+		Log.Info(
 			$"Animation: skeleton={skeletonResource.Name} bones={_skeleton.Bones.Count} " +
 			$"network={networkResource.Name} clips={_network.Clips.Count} " +
 			$"blend={_clipA.Index}/{_clipB.Index} " +
@@ -461,20 +627,20 @@ public sealed class OpenElexGame : Game
 			}
 			catch (Exception exception) when (exception is Gar5FormatException or GenomeFormatException)
 			{
-				Console.Error.WriteLine($"Mesh metadata warning: {exception.Message}");
+				Log.Warning($"Mesh metadata warning: {exception.Message}");
 			}
 		}
 
 		_materials = new MaterialLibrary(GraphicsDevice, Assets, resources);
 		var result = MeshLoader.Load(GraphicsDevice, mesh, metadata, _materials.Load);
-		Console.WriteLine(
+		Log.Info(
 			$"Mesh: {resource.Name} vertices={mesh.Positions.Count} triangles={mesh.TriangleCount} " +
 			$"attributes={mesh.VertexAttributes.Count} subMeshes={result.MeshParts.Count} " +
 			$"materials={metadata?.MaterialNames.Count ?? 0} lodStart={metadata?.LODRangeStart ?? 0:0.###} " +
 			$"diagnostics={mesh.Diagnostics.Count}");
 		foreach (var warning in _materials.Warnings)
 		{
-			Console.Error.WriteLine($"Material warning: {warning}");
+			Log.Warning($"Material warning: {warning}");
 		}
 
 		return result;
@@ -504,7 +670,7 @@ public sealed class OpenElexGame : Game
 		}
 
 		_collisionLines = lines;
-		Console.WriteLine(
+		Log.Info(
 			$"Collision: {resource.Name} vertices={vertices.Count} triangles={_collision.TriangleCount} " +
 			$"lines={_collision.TriangleCount * 3} scale=100 (metres to mesh units)");
 	}
@@ -550,7 +716,7 @@ public sealed class OpenElexGame : Game
 			GraphicsDevice,
 			image,
 			new DdsDecodeOptions(NormalMap: normalMap));
-		Console.WriteLine(
+		Log.Info(
 			$"Texture: {resource.Name} {image.Width}x{image.Height} {image.FormatName} " +
 			$"mips={image.MipCount} normalMap={normalMap}");
 		return texture;

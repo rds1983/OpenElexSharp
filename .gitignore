@@ -35,6 +35,7 @@ Extracted/
 *.fsb
 
 # Logs and dumps
+logs/
 *.log
 *.dmp
 *.nettrace

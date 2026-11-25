@@ -3,6 +3,9 @@
   <VerticalStackPanel Id="_panelRoot" Spacing="2" Background="#000000A6" Padding="10,6">
     <Label Id="_labelHeader" Text="OpenElexSharp" TextColor="#FFCC66" />
     <Label Id="_labelFps" Text="FPS: 0" TextColor="#E8E8E8" />
+    <Label Id="_labelUpdate" Text="Update: 0.000 ms" TextColor="#E8E8E8" />
+    <Label Id="_labelDraw" Text="Draw: 0.000 ms" TextColor="#E8E8E8" />
+    <Label Id="_labelMemory" Text="Memory: 0.0 MB (managed 0.0 MB)" TextColor="#E8E8E8" />
     <Label Id="_labelDrawCalls" Text="Draw calls: 0" TextColor="#E8E8E8" />
     <Label Id="_labelTriangles" Text="Triangles: 0" TextColor="#E8E8E8" />
     <Label Id="_labelMeshes" Text="Meshes: 0" TextColor="#E8E8E8" />

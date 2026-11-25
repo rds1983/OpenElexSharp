@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T101**.
+Milestone **M1 — Visible World**. Next task: **T102**.
 
 ---
 
@@ -418,9 +418,11 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
 
 Exit criteria: a level, its static geometry and its characters can be explored with a debug camera using only stock MonoGame effects.
 
-- [ ] **T101 · Application shell**
+- [x] **T101 · Application shell**
   Window, graphics device setup, resize handling, fixed timestep, content root, logging, crash screen, Myra host and a debug overlay (FPS, timings, memory).
   Done when: the app runs for minutes without leaks or device-lost crashes, and the overlay can be toggled.
+  **Completed 2026-11-25 — 60 Hz host with resize/device-reset handling, console+file logging, crash report/screen (exit 3), F1 overlay with FPS/update/draw/memory, `--soak-test`/`--crash-test`/`--capture-frame`; 536 tests, 60 s soak flat at 333.6 MB.**
+  **Follow-up:** in-place device-lost resource recreation is deferred until runtime GPU state exists; unfocused windows throttle to ~10 Hz.
 
 - [ ] **T102 · Mesh renderer**
   Upload parsed meshes to GPU buffers, map materials/textures, and draw with `BasicEffect`; provide checker/placeholder materials for missing data. Add a model-viewer scene. Include vertex-color and tangent rendering and resolve triangle winding/handedness.

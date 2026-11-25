@@ -155,6 +155,44 @@ public class LaunchOptionsTests
 	}
 
 	[Fact]
+	public void Parse_CaptureFrameWithSeparateArgument_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--capture-frame", "120"]);
+
+		Assert.Equal(120, options.CaptureFrame);
+	}
+
+	[Fact]
+	public void Parse_CaptureFrameWithEquals_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--capture-frame=90"]);
+
+		Assert.Equal(90, options.CaptureFrame);
+	}
+
+	[Fact]
+	public void Parse_MissingCaptureFrameValue_Throws()
+	{
+		var exception = Assert.Throws<ArgumentException>(
+			() => LaunchOptions.Parse(["--capture-frame"]));
+
+		Assert.Contains("--capture-frame", exception.Message);
+	}
+
+	[Theory]
+	[InlineData("0")]
+	[InlineData("-1")]
+	[InlineData("2.5")]
+	[InlineData("later")]
+	public void Parse_InvalidCaptureFrameValue_Throws(string value)
+	{
+		var exception = Assert.Throws<ArgumentException>(
+			() => LaunchOptions.Parse(["--capture-frame", value]));
+
+		Assert.Contains("--capture-frame", exception.Message);
+	}
+
+	[Fact]
 	public void Parse_TextureWithEquals_SetsValue()
 	{
 		var options = LaunchOptions.Parse(["--texture=AS_AlbSigns_1_Nm"]);
@@ -223,5 +261,76 @@ public class LaunchOptionsTests
 		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse([argument]));
 
 		Assert.Contains(argument, exception.Message);
+	}
+
+	[Fact]
+	public void Parse_SoakTestWithSeparateArgument_SetsSeconds()
+	{
+		var options = LaunchOptions.Parse(["--soak-test", "180"]);
+
+		Assert.Equal(180, options.SoakSeconds);
+	}
+
+	[Fact]
+	public void Parse_SoakTestWithEquals_SetsSeconds()
+	{
+		var options = LaunchOptions.Parse(["--soak-test=45"]);
+
+		Assert.Equal(45, options.SoakSeconds);
+	}
+
+	[Fact]
+	public void Parse_SoakTestIsCaseInsensitive()
+	{
+		var options = LaunchOptions.Parse(["--SOAK-TEST=30"]);
+
+		Assert.Equal(30, options.SoakSeconds);
+	}
+
+	[Fact]
+	public void Parse_RepeatedSoakTest_LastValueWins()
+	{
+		var options = LaunchOptions.Parse(["--soak-test", "10", "--soak-test=20"]);
+
+		Assert.Equal(20, options.SoakSeconds);
+	}
+
+	[Fact]
+	public void Parse_MissingSoakTestValue_Throws()
+	{
+		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--soak-test"]));
+
+		Assert.Contains("--soak-test", exception.Message);
+	}
+
+	[Theory]
+	[InlineData("0")]
+	[InlineData("-1")]
+	[InlineData("1.5")]
+	[InlineData("soon")]
+	[InlineData("")]
+	public void Parse_InvalidSoakTestValue_Throws(string value)
+	{
+		var exception = Assert.Throws<ArgumentException>(
+			() => LaunchOptions.Parse(["--soak-test", value]));
+
+		Assert.Contains("--soak-test", exception.Message);
+	}
+
+	[Fact]
+	public void Parse_CrashTestArgument_EnablesCrashTest()
+	{
+		var options = LaunchOptions.Parse(["--crash-test"]);
+
+		Assert.True(options.CrashTest);
+	}
+
+	[Fact]
+	public void Parse_Defaults_HaveNoSoakOrCrashTest()
+	{
+		var options = LaunchOptions.Parse([]);
+
+		Assert.Null(options.SoakSeconds);
+		Assert.False(options.CrashTest);
 	}
 }
