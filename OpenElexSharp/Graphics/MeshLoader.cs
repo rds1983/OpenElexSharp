@@ -101,24 +101,7 @@ public static class MeshLoader
 			BufferUsage.WriteOnly);
 		vertexBuffer.SetData(vertices);
 
-		var use32BitIndices = indices.Any(index => index > ushort.MaxValue);
-		var indexBuffer = use32BitIndices
-			? new IndexBuffer(device, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly)
-			: new IndexBuffer(device, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-		if (use32BitIndices)
-		{
-			indexBuffer.SetData(indices);
-		}
-		else
-		{
-			var shorts = new ushort[indices.Length];
-			for (var index = 0; index < shorts.Length; index++)
-			{
-				shorts[index] = (ushort)indices[index];
-			}
-
-			indexBuffer.SetData(shorts);
-		}
+		var indexBuffer = CreateIndexBuffer(device, indices);
 
 		var (box, _) = ComputeBounds(positions);
 		var mesh = new DrMesh
@@ -155,6 +138,30 @@ public static class MeshLoader
 		}
 
 		return mesh;
+	}
+
+	internal static IndexBuffer CreateIndexBuffer(GraphicsDevice device, int[] indices)
+	{
+		var use32Bit = indices.Any(index => index > ushort.MaxValue);
+		var indexBuffer = use32Bit
+			? new IndexBuffer(device, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly)
+			: new IndexBuffer(device, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+		if (use32Bit)
+		{
+			indexBuffer.SetData(indices);
+		}
+		else
+		{
+			var shorts = new ushort[indices.Length];
+			for (var index = 0; index < shorts.Length; index++)
+			{
+				shorts[index] = (ushort)indices[index];
+			}
+
+			indexBuffer.SetData(shorts);
+		}
+
+		return indexBuffer;
 	}
 
 	private static ElexMaterial? ResolveMaterial(

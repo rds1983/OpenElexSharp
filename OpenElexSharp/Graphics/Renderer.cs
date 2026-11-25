@@ -229,53 +229,70 @@ public sealed class Renderer : IDisposable
 	}
 
 	/// <summary>
-	/// Draws a skinned DigitalRiseModel mesh with stock <see cref="SkinnedEffect"/>. The vertex buffer
-	/// must use <see cref="VertexPositionNormalTextureSkinned"/> and
-	/// <paramref name="boneTransforms"/> must contain one matrix per skeleton bone.
+	/// Draws every skinned mesh part of an <see cref="ElexModel"/> with the stock
+	/// <see cref="SkinnedEffect"/>. The vertex buffers must use
+	/// <see cref="VertexPositionNormalTextureSkinned"/>; the skin transforms come from the model
+	/// instance and the per-part material from <see cref="ElexModel.Materials"/>.
 	/// </summary>
-	/// <param name="mesh">Skinned mesh whose parts share one skinned vertex buffer.</param>
+	/// <param name="model">Model, instance and material table to draw.</param>
 	/// <param name="world">World transform.</param>
-	/// <param name="boneTransforms">Bone matrices in skeleton order.</param>
-	/// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-	/// <exception cref="ArgumentException">The bone array is too large for the stock effect.</exception>
-	public void DrawSkinnedMesh(DrMesh mesh, Matrix world, Matrix[] boneTransforms)
+	/// <exception cref="ArgumentNullException"><paramref name="model"/> is <see langword="null"/>.</exception>
+	/// <exception cref="ArgumentException">The model has no instance/model, or the skin has too many bones.</exception>
+	public void DrawSkinnedMesh(ElexModel model, Matrix world)
 	{
 		EnsureFrameOpen(nameof(DrawSkinnedMesh));
-		ArgumentNullException.ThrowIfNull(mesh);
-		ArgumentNullException.ThrowIfNull(boneTransforms);
-		if (boneTransforms.Length > SkinnedEffect.MaxBones)
-		{
-			throw new ArgumentException(
-				$"SkinnedEffect supports at most {SkinnedEffect.MaxBones} bones.",
-				nameof(boneTransforms));
-		}
-
+		ArgumentNullException.ThrowIfNull(model);
+		var instance = model.Instance
+			?? throw new ArgumentException("The model has no instance.", nameof(model));
+		var source = instance.Model
+			?? throw new ArgumentException("The model instance has no model.", nameof(model));
 		_skinnedEffect.World = world;
-		_skinnedEffect.SetBoneTransforms(boneTransforms);
-		foreach (var part in mesh.MeshParts)
+		var cachedSkin = -1;
+		Matrix[]? boneTransforms = null;
+		for (var meshIndex = 0; meshIndex < source.Meshes.Length; meshIndex++)
 		{
-			if (part.VertexBuffer is null || part.IndexBuffer is null)
+			var mesh = source.Meshes[meshIndex];
+			for (var partIndex = 0; partIndex < mesh.MeshParts.Count; partIndex++)
 			{
-				continue;
-			}
+				var part = mesh.MeshParts[partIndex];
+				if (part.VertexBuffer is null || part.IndexBuffer is null)
+				{
+					continue;
+				}
 
-			var tag = part.Tag as DrMeshPartTag;
-			ApplySkinnedShading(tag?.Material?.Texture ?? _fallbackTexture);
-			_device.SetVertexBuffer(part.VertexBuffer);
-			_device.Indices = part.IndexBuffer;
-			foreach (var pass in _skinnedEffect.CurrentTechnique.Passes)
-			{
-				pass.Apply();
-				_device.DrawIndexedPrimitives(
-					part.PrimitiveType,
-					part.VertexOffset,
-					part.StartIndex,
-					part.PrimitiveCount);
-			}
+				var skinIndex = part.Skin?.SkinIndex ?? 0;
+				if (boneTransforms is null || skinIndex != cachedSkin)
+				{
+					boneTransforms = instance.GetSkinTransforms(skinIndex);
+					cachedSkin = skinIndex;
+					if (boneTransforms.Length > SkinnedEffect.MaxBones)
+					{
+						throw new ArgumentException(
+							$"SkinnedEffect supports at most {SkinnedEffect.MaxBones} bones.",
+							nameof(model));
+					}
 
-			++DrawCalls;
-			++Meshes;
-			Triangles += PrimitiveCountToTriangles(part.PrimitiveType, part.PrimitiveCount);
+					_skinnedEffect.SetBoneTransforms(boneTransforms);
+				}
+
+				var material = model.GetMaterial(meshIndex, partIndex);
+				ApplySkinnedShading(material?.Texture ?? _fallbackTexture);
+				_device.SetVertexBuffer(part.VertexBuffer);
+				_device.Indices = part.IndexBuffer;
+				foreach (var pass in _skinnedEffect.CurrentTechnique.Passes)
+				{
+					pass.Apply();
+					_device.DrawIndexedPrimitives(
+						part.PrimitiveType,
+						part.VertexOffset,
+						part.StartIndex,
+						part.PrimitiveCount);
+				}
+
+				++DrawCalls;
+				++Meshes;
+				Triangles += PrimitiveCountToTriangles(part.PrimitiveType, part.PrimitiveCount);
+			}
 		}
 	}
 

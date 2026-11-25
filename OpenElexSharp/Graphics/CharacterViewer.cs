@@ -1,4 +1,4 @@
-using DigitalRiseModel;
+using DigitalRiseModel.Animation;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using OpenElexSharp.Assets;
@@ -7,29 +7,37 @@ using OpenElexSharp.Diagnostics;
 namespace OpenElexSharp.Graphics;
 
 /// <summary>
-/// Loads one <c>skn</c> character/creature, its embedded skeleton and material submeshes, and renders
-/// the bind pose with the stock <see cref="SkinnedEffect"/>. The camera slowly orbits the model so
-/// body proportions, materials and skinning can be inspected.
+/// Loads one <c>skn</c> character/creature into an <see cref="ElexModel"/> and renders it through
+/// the stock <see cref="SkinnedEffect"/>. The camera slowly orbits the model so body proportions,
+/// materials and skinning can be inspected. An optional motion network supplies the animation
+/// controller; the network's compressed keyframe tracks are not decoded yet, so the viewer keeps
+/// the bind pose until a clip is started through <see cref="Animation"/>.
 /// </summary>
 public sealed class CharacterViewer : IDisposable
 {
-	private readonly SkinnedMesh _mesh;
+	private readonly ElexModel _model;
 	private readonly MaterialLibrary _materials;
-	private readonly Matrix[] _bindTransforms;
+	private readonly AnimationController? _animation;
+	private readonly int _boneCount;
 	private readonly Vector3 _center;
 	private readonly float _radius;
+	private float _lastAnimationTime;
 	private bool _disposed;
 
 	private CharacterViewer(
 		string name,
-		SkinnedMesh mesh,
-		MaterialLibrary materials)
+		ElexModel model,
+		MaterialLibrary materials,
+		AnimationController? animation,
+		string? animationDescription)
 	{
 		Name = name;
-		_mesh = mesh;
+		_model = model;
 		_materials = materials;
-		_bindTransforms = mesh.CreateBindPoseTransforms();
-		var bounds = ComputeBounds(mesh.Mesh);
+		_animation = animation;
+		AnimationDescription = animationDescription;
+		_boneCount = model.Instance?.GetSkinTransforms(0).Length ?? 0;
+		var bounds = model.BoundingBox ?? new BoundingBox(Vector3.Zero, Vector3.Zero);
 		_center = (bounds.Min + bounds.Max) * 0.5f;
 		_radius = MathF.Max(1f, Vector3.Distance(_center, bounds.Max));
 	}
@@ -38,13 +46,22 @@ public sealed class CharacterViewer : IDisposable
 	public string Name { get; }
 
 	/// <summary>Number of bones in the embedded skeleton.</summary>
-	public int BoneCount => _mesh.BoneCount;
+	public int BoneCount => _boneCount;
 
 	/// <summary>Number of material/submesh draw ranges.</summary>
-	public int PartCount => _mesh.Mesh.MeshParts.Count;
+	public int PartCount => _model.Model?.Meshes.Sum(mesh => mesh.MeshParts.Count) ?? 0;
 
 	/// <summary>Number of unique materials loaded for this character.</summary>
 	public int MaterialCount => _materials.Count;
+
+	/// <summary>
+	/// DigitalRiseModel playback controller, or <see langword="null"/> when no motion network was
+	/// supplied. Start clips through this controller; <see cref="Draw"/> advances it when playing.
+	/// </summary>
+	public AnimationController? Animation => _animation;
+
+	/// <summary>Animation summary, or <see langword="null"/> when no network was supplied.</summary>
+	public string? AnimationDescription { get; }
 
 	/// <summary>Overlay status.</summary>
 	public SceneStatus Status => new(Name, 1, 1, PartCount);
@@ -56,13 +73,12 @@ public sealed class CharacterViewer : IDisposable
 	/// Loads a skinned character. Throws when the resource has no GMSH geometry, skeleton or skinning
 	/// attributes.
 	/// </summary>
-	/// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-	/// <exception cref="InvalidOperationException">The skeleton tail is not recognized.</exception>
 	public static CharacterViewer Load(
 		GraphicsDevice device,
 		AssetFileSystem assets,
 		ElexResourceIndex resources,
-		ElexResource resource)
+		ElexResource resource,
+		MotionNetwork? network = null)
 	{
 		ArgumentNullException.ThrowIfNull(device);
 		ArgumentNullException.ThrowIfNull(assets);
@@ -95,8 +111,23 @@ public sealed class CharacterViewer : IDisposable
 		var materials = new MaterialLibrary(device, assets, resources);
 		try
 		{
-			var mesh = SkinnedMesh.Load(device, source, skeleton, metadata, materials.Load);
-			return new CharacterViewer(resource.Name, mesh, materials);
+			var model = ElexModelLoader.Load(
+				device,
+				source,
+				skeleton,
+				metadata,
+				materials.Load);
+			var animation = network is null ? null : new AnimationController(model.Instance!);
+			var description = network is null
+				? null
+				: $"network={network.Name} clips={network.Clips.Count} " +
+					"(keyframe tracks pending; bind-pose)";
+			return new CharacterViewer(
+				resource.Name,
+				model,
+				materials,
+				animation,
+				description);
 		}
 		catch
 		{
@@ -105,10 +136,17 @@ public sealed class CharacterViewer : IDisposable
 		}
 	}
 
-	/// <summary>Draws the bind pose with a slowly orbiting camera.</summary>
+	/// <summary>Draws the current pose with a slowly orbiting camera.</summary>
 	public void Draw(Renderer renderer, float time)
 	{
 		ArgumentNullException.ThrowIfNull(renderer);
+		if (_animation is not null && _animation.IsPlaying)
+		{
+			var delta = MathF.Max(0f, time - _lastAnimationTime);
+			_animation.Update(TimeSpan.FromSeconds(delta));
+		}
+
+		_lastAnimationTime = time;
 		var camera = _center + new Vector3(
 			MathF.Cos(time * 0.35f) * _radius * 2.2f,
 			_radius * 1.1f,
@@ -123,19 +161,8 @@ public sealed class CharacterViewer : IDisposable
 		renderer.CullMode = CullMode.None;
 		renderer.BeginFrame(view, projection);
 		renderer.Clear(new Color(16, 18, 24));
-		renderer.DrawSkinnedMesh(_mesh.Mesh, Matrix.Identity, _bindTransforms);
+		renderer.DrawSkinnedMesh(_model, Matrix.Identity);
 		renderer.EndFrame();
-	}
-
-	private static BoundingBox ComputeBounds(DrMesh mesh)
-	{
-		var bounds = mesh.MeshParts[0].BoundingBox;
-		for (var index = 1; index < mesh.MeshParts.Count; index++)
-		{
-			bounds = BoundingBox.CreateMerged(bounds, mesh.MeshParts[index].BoundingBox);
-		}
-
-		return bounds;
 	}
 
 	private static byte[] ReadAll(AssetFileSystem assets, string virtualPath)
@@ -155,7 +182,7 @@ public sealed class CharacterViewer : IDisposable
 		}
 
 		_disposed = true;
-		_mesh.Dispose();
+		_model.Model?.Dispose();
 		_materials.Dispose();
 	}
 }

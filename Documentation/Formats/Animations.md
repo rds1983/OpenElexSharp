@@ -12,9 +12,9 @@ animation are:
 
 The `skn` resources supply the skinned mesh and skeleton ([Skeletons.md](Skeletons.md)); `net`
 supplies the animation graph and clips, and `bln` supplies morph targets. This specification covers
-the outer container, readable names, the static clip poses, sampled tracks, binary state blocks,
-timed transitions and the blend-shape header/names. State-record semantics, name tables with inline
-GUIDs, keyframe curves and payload bodies remain open work.
+the outer container, readable names, the static clip poses, header-shaped sample candidates, binary
+state blocks, timed transitions and the blend-shape header/names. State-record semantics, name tables
+with inline GUIDs, keyframe curves and payload bodies remain open work.
 
 ## Container and endianness
 
@@ -147,8 +147,8 @@ The decoded clip blocks contain one raw unit-quaternion pose array per clip. A s
 - high-entropy float/index blocks whose layout has not been identified.
 
 No uncompressed per-track keyframe tracks were found in `net`. The clips therefore behave as static
-poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). The
-high-entropy blocks contain **quantized sample tracks** instead:
+poses, and transitions are sampled as timed pose blends (`MotionTransitionSampler`). The high-entropy
+tail contains **header-shaped sample candidates** with this layout:
 
 | Offset | Type | Meaning |
 | ---: | --- | --- |
@@ -161,12 +161,19 @@ high-entropy blocks contain **quantized sample tracks** instead:
 | 64 | `uint32` | Sample offset relative to the header. |
 | … | `Sample[]` | 16-byte samples: position `xyz` as `int16` plus a rotation `xyzw` as `int16`. |
 
-`Male` contains 1,006 decoded sample tracks (95–98 samples each). `MotionSampleTrack.SampleAt`
-interpolates raw positions and slerps rotations over the duration. Positions use an inferred
-`raw / 32767 * 100` model-unit scale; `GetTrackName`/`GetBoneName` resolve the header indices against
-a clip's track list. `MotionSampleGroup.GroupByDuration` groups tracks that share a duration; `Male`
-yields 253 groups (largest: 0.8 s / 85 tracks). The skeleton viewer uses the largest group to animate
-a real sampled pose. Binary state blocks and timed transitions are described below.
+### Sample-track caveat
+
+A 2026-11-26 audit of the first candidate headers showed that the bytes at `sampleOffset` do not
+behave like animation: consecutive positions and rotations jump randomly, and at least one header
+claims 117 samples at 60 Hz with a `0.017 s` duration. The 32 bytes after the two index fields
+contain small values (`192`, `340`, `400`, `404`, `416`, ...) that look like offsets in a state table
+rather than a sample header. The `1,006 tracks` and `253 groups` figures are therefore **counts of
+header-shaped candidates**, not validated clips.
+
+`MotionSampleTrack`, `MotionSampleGroup` and `MotionSampleProbe` remain diagnostic only. Do not use
+them for playback or to drive a skinned pose until a compressed/quantized codec is confirmed.
+`--mesh --animation` now draws the binding skeleton pose instead of the sample groups. Binary state
+blocks and timed transitions are described below.
 
 ### Binary state-machine blocks
 
@@ -345,7 +352,7 @@ posed-clip count, simple-transition count, state-name count, hierarchical-path c
 binary-graph count. `--properties` also lists each clip's track table and first pose quaternions,
 followed by every transition, state block entry, timed transition summary, graph node, the first 16
 state paths, the first 16 binary graph blocks, the first quantized quaternion runs and the first
-sample tracks.
+header-shaped sample candidates (diagnostic only).
 The `blendshapes` command prints the target count, base vertex count, unresolved header fields,
 decoded delta count, whether deltas were decoded and the first target names. `--properties` adds
 per-target delta counts and the first two position/normal deltas.
@@ -367,9 +374,9 @@ per-target delta counts and the first two position/normal deltas.
 | State value counts (`Weapons`) | 11 / 7 / 11 / 20 |
 | Timed transition records | 939 (`Male`), 16 (`Weapons`), 4 (`Chest`) |
 | Observed transition durations | 0–5,768 ms |
-| Decoded sample tracks (`Male`) | 1,006 (95–98 samples each) |
-| Sample duration groups (`Male`) | 253 (largest 0.8 s / 85 tracks) |
-| Inferred sample position scale | `raw / 32767 × 100` model units |
+| Header-shaped sample candidates (`Male`) | 1,006 (unvalidated; bytes at `sampleOffset` are not smooth playback data) |
+| Candidate duration groups (`Male`) | 253 (largest 0.8 s / 85 candidates) |
+| Inferred sample position scale | `raw / 32767 × 100` model units (unverified) |
 | `bln` resources parsed | 270 / 270 |
 | `bln` delta sets decoded | 270 / 270 |
 | Total blend-shape deltas | 63,541,940 |
@@ -388,6 +395,8 @@ per-target delta counts and the first two position/normal deltas.
 - Hierarchical paths are exposed as segment/condition paths, but their binary node links and timing
   are not decoded.
 - No uncompressed keyframe tracks were found; compressed pose/curve blocks remain open (T009l).
+- The 16-byte sample candidates are not validated playback data (see the sample-track caveat); the
+  real keyframe codec is still unidentified.
 - The large `Male` tail: about 54 MB of mixed float, index and high-entropy blocks is not decoded.
 - Mapping `net` nodes to `skn` skeletons beyond the bone-name convention.
 - Exact blend-shape game unit and whether blended normals should be normalized before rendering.
@@ -408,12 +417,13 @@ per-target delta counts and the first two position/normal deltas.
 | State-machine blocks | `OpenElexSharp/Assets/MotionGraphState.cs` |
 | Timed transition records | `OpenElexSharp/Assets/MotionGraphTransition.cs` |
 | Quantized quaternion probe | `OpenElexSharp/Assets/MotionSampleProbe.cs` |
-| Sample-track codec | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
-| Sample grouping and sampled poses | `OpenElexSharp/Assets/MotionSampleGroup.cs` |
+| Sample-track candidate scanner (diagnostic only) | `OpenElexSharp/Assets/MotionSampleTrack.cs` |
+| Candidate grouping and sampled poses (diagnostic only) | `OpenElexSharp/Assets/MotionSampleGroup.cs` |
 | Skeleton transform composition | `OpenElexSharp/Assets/SkeletonPose.cs` |
+| DigitalRiseModel bind-pose clip builder | `OpenElexSharp/Graphics/DrAnimationClips.cs` |
 | Blend-shape header/name/delta parser | `OpenElexSharp/Assets/ElexBlendShapeSet.cs`, `ElexBlendShapeTarget.cs` |
 | CLI inspectors | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets animations`, `assets blendshapes`) |
-| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionGraphStateTests.cs`, `MotionGraphTransitionTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs` |
+| Tests | `OpenElexSharp.Tests/MotionNetworkTests.cs`, `MotionPoseTests.cs`, `MotionTransitionTests.cs`, `MotionStatePathTests.cs`, `MotionGraphNodeTests.cs`, `MotionGraphStateTests.cs`, `MotionGraphTransitionTests.cs`, `MotionSampleProbeTests.cs`, `MotionSampleTrackTests.cs`, `MotionSampleGroupTests.cs`, `BlendShapeTests.cs`, `DrAnimationClipsTests.cs` |
 
 ## Related tasks
 

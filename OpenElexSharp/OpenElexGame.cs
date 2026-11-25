@@ -54,8 +54,6 @@ public sealed class OpenElexGame : Game
 	private MotionNetwork? _network;
 	private MotionClip? _clipA;
 	private MotionClip? _clipB;
-	private MotionClip? _sampleClip;
-	private MotionSampleGroup? _sampleGroup;
 	private MouseState _previousMouse;
 	private KeyboardState _previousKeyboard;
 
@@ -564,10 +562,20 @@ public sealed class OpenElexGame : Game
 	{
 		var resources = BuildResourceIndex();
 		var resource = FindResource(resources, _options.Character!, "skn");
-		_character = CharacterViewer.Load(GraphicsDevice, Assets, resources, resource);
+		MotionNetwork? network = null;
+		if (!string.IsNullOrWhiteSpace(_options.Animation))
+		{
+			var networkResource = FindResource(resources, _options.Animation!, "net");
+			network = MotionNetwork.Parse(
+				networkResource.Name,
+				ReadAll(networkResource.VirtualPath));
+		}
+
+		_character = CharacterViewer.Load(GraphicsDevice, Assets, resources, resource, network);
 		Log.Info(
 			$"Character: {_character.Name} bones={_character.BoneCount} " +
-			$"parts={_character.PartCount} materials={_character.MaterialCount}");
+			$"parts={_character.PartCount} materials={_character.MaterialCount} " +
+			$"animation={_character.AnimationDescription ?? "bind-pose"}");
 		foreach (var warning in _character.Warnings.Take(20))
 		{
 			Log.Warning($"Character warning: {warning}");
@@ -621,53 +629,27 @@ public sealed class OpenElexGame : Game
 
 		_clipA = clips[0];
 		_clipB = clips.Count > 1 ? clips[1] : clips[0];
-		_sampleClip = _network.Clips
-			.OrderByDescending(clip => clip.TrackNames.Count)
-			.FirstOrDefault();
-		_sampleGroup = _network.SampleGroups
-			.Where(group => group.Tracks.Count >= 10)
-			.OrderByDescending(group => group.Tracks.Count)
-			.FirstOrDefault();
 		Log.Info(
 			$"Animation: skeleton={skeletonResource.Name} bones={_skeleton.Bones.Count} " +
 			$"network={networkResource.Name} clips={_network.Clips.Count} " +
 			$"blend={_clipA.Index}/{_clipB.Index} " +
-			$"sampleTracks={_network.SampleTracks.Count} " +
-			$"sampleGroup={_sampleGroup?.Duration:0.###}/{_sampleGroup?.Tracks.Count}");
+			$"sampleTrackCandidates={_network.SampleTracks.Count} (unvalidated)");
 	}
 
 	private void DrawSkeleton(GameTime gameTime)
 	{
 		var skeleton = _skeleton!;
 		var time = (float)gameTime.TotalGameTime.TotalSeconds;
-		MotionPose pose;
-		if (_sampleGroup is not null && _sampleClip is not null)
+		// The motion network's 16-byte sample candidates are not validated playback data, and the
+		// static clip poses are not local animation tracks. Draw the bind pose until the keyframe
+		// codec is decoded.
+		var rotations = new System.Numerics.Quaternion[skeleton.Names.Count];
+		for (var index = 0; index < rotations.Length; index++)
 		{
-			var trackPose = _sampleGroup.SamplePose(
-				time % _sampleGroup.Duration,
-				_sampleClip.TrackNames);
-			var rotations = new System.Numerics.Quaternion[skeleton.Names.Count];
-			for (var index = 0; index < rotations.Length; index++)
-			{
-				rotations[index] = System.Numerics.Quaternion.Identity;
-			}
-
-			for (var index = 0; index < skeleton.Names.Count; index++)
-			{
-				var track = _sampleClip.FindTrackIndex(skeleton.Names[index]);
-				if (track >= 0 && track < trackPose.Count)
-				{
-					rotations[index] = trackPose.Rotations[track];
-				}
-			}
-
-			pose = new MotionPose(rotations);
+			rotations[index] = System.Numerics.Quaternion.Identity;
 		}
-		else
-		{
-			var transition = new MotionTransitionSampler(_clipA!, _clipB!, 2f);
-			pose = transition.SampleLoop(time, skeleton.Names);
-		}
+
+		var pose = new MotionPose(rotations);
 
 		var skeletonPose = SkeletonPose.FromMotionPose(pose, skeleton);
 		var matrices = skeletonPose.ComputeWorldMatrices();
