@@ -44,6 +44,7 @@ public sealed class OpenElexGame : Game
 	private Texture2D? _texture;
 	private Texture2D? _fallback;
 	private MeshViewer? _viewer;
+	private StressScene? _stress;
 	private ElexCollisionMesh? _collision;
 	private VertexPositionColor[]? _collisionLines;
 	private Skeleton? _skeleton;
@@ -52,6 +53,7 @@ public sealed class OpenElexGame : Game
 	private MotionClip? _clipB;
 	private MotionClip? _sampleClip;
 	private MotionSampleGroup? _sampleGroup;
+	private MouseState _previousMouse;
 	private KeyboardState _previousKeyboard;
 
 	public OpenElexGame(LaunchOptions options, AssetFileSystem assets)
@@ -115,6 +117,23 @@ public sealed class OpenElexGame : Game
 					AssetNotFoundException or InvalidOperationException or ArgumentException)
 			{
 				Log.Warning($"Animation warning: {exception.Message}");
+			}
+
+			return;
+		}
+
+		if (_options.Stress)
+		{
+			try
+			{
+				LoadStressScene();
+			}
+			catch (Exception exception) when (
+				exception is GmshFormatException or GenomeFormatException or Gar5FormatException or
+					NotSupportedException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException or InvalidOperationException or ArgumentException)
+			{
+				Log.Warning($"Stress scene warning: {exception.Message}");
 			}
 
 			return;
@@ -209,6 +228,28 @@ public sealed class OpenElexGame : Game
 			if (visible is not null)
 			{
 				Log.Info($"Debug overlay {(visible.Value ? "shown" : "hidden")}.");
+			}
+		}
+
+		if (_stress is not null)
+		{
+			var mouse = Mouse.GetState();
+			_stress.UpdateCamera(keyboard, (float)gameTime.ElapsedGameTime.TotalSeconds);
+			if (IsActive &&
+				mouse.RightButton == ButtonState.Pressed &&
+				_previousMouse.RightButton == ButtonState.Pressed)
+			{
+				_stress.Camera.Look(
+					mouse.X - _previousMouse.X,
+					mouse.Y - _previousMouse.Y);
+			}
+
+			_previousMouse = mouse;
+
+			if (IsNewKeyPress(keyboard, Keys.F2) && _renderer is not null)
+			{
+				_renderer.CullingEnabled = !_renderer.CullingEnabled;
+				Log.Info($"Frustum culling: {(_renderer.CullingEnabled ? "on" : "off")}.");
 			}
 		}
 
@@ -318,7 +359,11 @@ public sealed class OpenElexGame : Game
 			}
 		}
 
-		if (_skeleton is not null)
+		if (_stress is not null)
+		{
+			DrawStress();
+		}
+		else if (_skeleton is not null)
 		{
 			DrawSkeleton(gameTime);
 		}
@@ -331,7 +376,7 @@ public sealed class OpenElexGame : Game
 			DrawTexture();
 		}
 
-		_hud?.Update(_renderer, _statistics, _viewer?.Status);
+		_hud?.Update(_renderer, _statistics, _viewer?.Status, _stress?.Status);
 		_desktop?.Render();
 		CaptureIfRequested();
 
@@ -369,6 +414,8 @@ public sealed class OpenElexGame : Game
 		_fallback = null;
 		_viewer?.Dispose();
 		_viewer = null;
+		_stress?.Dispose();
+		_stress = null;
 		_skeleton = null;
 		_network = null;
 		_clipA = null;
@@ -661,6 +708,33 @@ public sealed class OpenElexGame : Game
 		_renderer.EndFrame();
 	}
 
+	private void LoadStressScene()
+	{
+		var resources = BuildResourceIndex();
+		_stress = new StressScene(GraphicsDevice, Assets, resources, _options.Mesh);
+		_renderer!.CullingEnabled = !_options.NoCull;
+		Log.Info(
+			$"Stress scene: mesh={_stress.MeshName} instances={_stress.InstanceCount} " +
+			$"parts={_stress.PartCount} culling={(_renderer.CullingEnabled ? "on" : "off")}");
+	}
+
+	private void DrawStress()
+	{
+		if (_renderer is null || _stress is null)
+		{
+			return;
+		}
+
+		var camera = _stress.Camera;
+		_renderer.CullMode = CullMode.None;
+		_renderer.BeginFrame(
+			camera.View,
+			camera.Projection(GraphicsDevice.Viewport.AspectRatio));
+		_renderer.Clear(new Color(10, 12, 18));
+		_stress.Submit(_renderer);
+		_renderer.EndFrame();
+	}
+
 	private void LoadViewerScene()
 	{
 		var resources = BuildResourceIndex();
@@ -673,7 +747,6 @@ public sealed class OpenElexGame : Game
 
 		LogViewerInfo("Mesh viewer");
 	}
-
 	private void ChangeMesh(int delta)
 	{
 		if (_viewer is null)

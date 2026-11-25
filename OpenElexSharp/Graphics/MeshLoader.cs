@@ -21,6 +21,21 @@ public sealed record DrMeshPartTag(
 	int IndexCount = 0,
 	float LODRangeStart = 0f);
 
+/// <summary>One submesh index range resolved from mesh metadata.</summary>
+/// <param name="StartIndex">First index in the source index buffer.</param>
+/// <param name="IndexCount">Number of indices in the range; always a multiple of three.</param>
+/// <param name="MaterialName">Material resource name, when known.</param>
+/// <param name="Bounds">Submesh box from metadata, when valid.</param>
+public sealed record MeshSubmeshRange(
+	int StartIndex,
+	int IndexCount,
+	string? MaterialName,
+	BoundingBox? Bounds)
+{
+	/// <summary>Number of triangles in the range.</summary>
+	public int PrimitiveCount => IndexCount / 3;
+}
+
 /// <summary>Builds DigitalRiseModel meshes from parsed GMSH resources and mesh metadata.</summary>
 public static class MeshLoader
 {
@@ -111,10 +126,10 @@ public static class MeshLoader
 			Name = source.Name,
 		};
 
-		var ranges = ResolveRanges(source, metadata);
+		var ranges = ResolveSubmeshes(source, metadata);
 		foreach (var range in ranges)
 		{
-			var rangeBox = range.Box ?? box;
+			var rangeBox = range.Bounds ?? box;
 			var rangeSphere = new BoundingSphere(
 				(rangeBox.Min + rangeBox.Max) * 0.5f,
 				Math.Max(0.001f, Vector3.Distance((rangeBox.Min + rangeBox.Max) * 0.5f, rangeBox.Max)));
@@ -203,9 +218,17 @@ public static class MeshLoader
 		return (box, sphere);
 	}
 
-	private static List<Range> ResolveRanges(GmshMesh source, MeshMetadata? metadata)
+	/// <summary>
+	/// Resolves submesh ranges from metadata, falling back to one range over the whole index
+	/// buffer. Ranges outside the index list or not divisible by three are skipped.
+	/// </summary>
+	/// <param name="source">Parsed mesh geometry.</param>
+	/// <param name="metadata">Optional database metadata.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+	public static List<MeshSubmeshRange> ResolveSubmeshes(GmshMesh source, MeshMetadata? metadata)
 	{
-		var ranges = new List<Range>();
+		ArgumentNullException.ThrowIfNull(source);
+		var ranges = new List<MeshSubmeshRange>();
 		if (metadata is not null)
 		{
 			foreach (var subMesh in metadata.SubMeshes)
@@ -225,10 +248,9 @@ public static class MeshLoader
 					continue;
 				}
 
-				ranges.Add(new Range(
+				ranges.Add(new MeshSubmeshRange(
 					subMesh.FirstIndex,
 					subMesh.IndexCount,
-					subMesh.IndexCount / 3,
 					subMesh.MaterialName,
 					TryCreateBox(subMesh.Extends)));
 			}
@@ -236,7 +258,7 @@ public static class MeshLoader
 
 		if (ranges.Count == 0)
 		{
-			ranges.Add(new Range(0, source.Indices.Count, source.Indices.Count / 3, null, null));
+			ranges.Add(new MeshSubmeshRange(0, source.Indices.Count, null, null));
 		}
 
 		return ranges;
@@ -261,11 +283,4 @@ public static class MeshLoader
 
 	private static bool IsFinite(Vector3 value) =>
 		float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
-
-	private sealed record Range(
-		int StartIndex,
-		int IndexCount,
-		int PrimitiveCount,
-		string? MaterialName,
-		BoundingBox? Box);
 }

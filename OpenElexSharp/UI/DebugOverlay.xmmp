@@ -9,7 +9,10 @@
     <Label Id="_labelDrawCalls" Text="Draw calls: 0" TextColor="#E8E8E8" />
     <Label Id="_labelTriangles" Text="Triangles: 0" TextColor="#E8E8E8" />
     <Label Id="_labelMeshes" Text="Meshes: 0" TextColor="#E8E8E8" />
+    <Label Id="_labelCulled" Text="Culled: 0" TextColor="#E8E8E8" />
+    <Label Id="_labelBatches" Text="Batches: 0" TextColor="#E8E8E8" />
     <Label Id="_labelMesh" Text="Mesh: (none)" TextColor="#E8E8E8" />
     <Label Id="_labelMode" Text="Mode: lit" TextColor="#E8E8E8" />
+    <Label Id="_labelScene" Text="Scene: (none)" TextColor="#E8E8E8" />
   </VerticalStackPanel>
 </Project>

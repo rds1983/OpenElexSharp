@@ -1,6 +1,7 @@
 using DigitalRiseModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Runtime.CompilerServices;
 
 namespace OpenElexSharp.Graphics;
 
@@ -29,8 +30,10 @@ public sealed class Renderer : IDisposable
 
 	private bool _frameOpen;
 	private CullMode _cullMode = CullMode.None;
+	private bool _cullingEnabled = true;
 	private Matrix _view;
 	private Matrix _projection;
+	private readonly List<MeshDrawCommand> _commands = [];
 
 	private BlendState? _savedBlendState;
 	private DepthStencilState? _savedDepthStencilState;
@@ -80,6 +83,22 @@ public sealed class Renderer : IDisposable
 
 	/// <summary>Line primitives submitted during the current frame.</summary>
 	public int Lines { get; private set; }
+
+	/// <summary>Mesh parts considered by <see cref="SubmitMesh"/> this frame.</summary>
+	public int MeshPartsSubmitted { get; private set; }
+
+	/// <summary>Mesh parts rejected by the frustum this frame.</summary>
+	public int MeshPartsCulled { get; private set; }
+
+	/// <summary>Material/buffer groups issued by the last <see cref="Flush"/> this frame.</summary>
+	public int Batches { get; private set; }
+
+	/// <summary>Whether <see cref="SubmitMesh"/> applies frustum culling.</summary>
+	public bool CullingEnabled
+	{
+		get => _cullingEnabled;
+		set => _cullingEnabled = value;
+	}
 
 	/// <summary>
 	/// Face culling used by mesh draws. Lines are unaffected. The value is applied at the start of
@@ -162,8 +181,98 @@ public sealed class Renderer : IDisposable
 		}
 
 		ApplyShading(shading);
+		DrawMeshPartCore(part, world, tag?.Material?.Texture ?? _fallbackTexture);
+	}
+
+	/// <summary>
+	/// Queues every part of <paramref name="mesh"/> for the current frame. Parts outside the view
+	/// frustum are counted in <see cref="MeshPartsCulled"/> and omitted unless
+	/// <see cref="CullingEnabled"/> is off. Call <see cref="Flush"/> before ending the frame.
+	/// </summary>
+	/// <exception cref="ArgumentNullException"><paramref name="mesh"/> is <see langword="null"/>.</exception>
+	public void SubmitMesh(DrMesh mesh, Matrix world, MeshShading shading = MeshShading.Lit)
+	{
+		ArgumentNullException.ThrowIfNull(mesh);
+		foreach (var part in mesh.MeshParts)
+		{
+			SubmitMeshPart(part, world, shading);
+		}
+	}
+
+	/// <summary>Queues one mesh part, applying frustum culling and batch sorting.</summary>
+	/// <exception cref="ArgumentNullException"><paramref name="part"/> is <see langword="null"/>.</exception>
+	public void SubmitMeshPart(DrMeshPart part, Matrix world, MeshShading shading = MeshShading.Lit)
+	{
+		EnsureFrameOpen(nameof(SubmitMeshPart));
+		ArgumentNullException.ThrowIfNull(part);
+		if (part.VertexBuffer is null || part.IndexBuffer is null)
+		{
+			return;
+		}
+
+		++MeshPartsSubmitted;
+		var tag = part.Tag as DrMeshPartTag;
+		if (_cullingEnabled)
+		{
+			var sphere = tag?.Bounds ?? default;
+			if (sphere.Radius <= 0f)
+			{
+				sphere = BoundingSphere.CreateFromBoundingBox(part.BoundingBox);
+			}
+
+			if (!_frustum.Intersects(sphere.Transform(world)))
+			{
+				++MeshPartsCulled;
+				return;
+			}
+		}
+
+		var texture = tag?.Material?.Texture ?? _fallbackTexture;
+		_commands.Add(new MeshDrawCommand(
+			part,
+			world,
+			shading,
+			texture,
+			new BatchKey(
+				RuntimeHelpers.GetHashCode(texture),
+				RuntimeHelpers.GetHashCode(part.VertexBuffer),
+				RuntimeHelpers.GetHashCode(part.IndexBuffer),
+				shading)));
+	}
+
+	/// <summary>
+	/// Sorts queued parts by material texture, buffer and shading, draws them and reports the number
+	/// of state groups in <see cref="Batches"/>. Called automatically by <see cref="EndFrame"/>.
+	/// </summary>
+	public void Flush()
+	{
+		EnsureFrameOpen(nameof(Flush));
+		if (_commands.Count == 0)
+		{
+			return;
+		}
+
+		_commands.Sort(CompareCommands);
+		BatchKey? current = null;
+		foreach (var command in _commands)
+		{
+			if (current is null || !current.Value.Equals(command.Batch))
+			{
+				++Batches;
+				current = command.Batch;
+			}
+
+			ApplyShading(command.Shading);
+			DrawMeshPartCore(command.Part, command.World, command.Texture);
+		}
+
+		_commands.Clear();
+	}
+
+	private void DrawMeshPartCore(DrMeshPart part, Matrix world, Texture2D texture)
+	{
 		_effect.World = world;
-		_effect.Texture = tag?.Material?.Texture ?? _fallbackTexture;
+		_effect.Texture = texture;
 		_effect.DiffuseColor = Vector3.One;
 		foreach (var pass in _effect.CurrentTechnique.Passes)
 		{
@@ -180,6 +289,29 @@ public sealed class Renderer : IDisposable
 		++DrawCalls;
 		++Meshes;
 		Triangles += PrimitiveCountToTriangles(part.PrimitiveType, part.PrimitiveCount);
+	}
+
+	private static int CompareCommands(MeshDrawCommand first, MeshDrawCommand second)
+	{
+		var result = first.Batch.Texture.CompareTo(second.Batch.Texture);
+		if (result != 0)
+		{
+			return result;
+		}
+
+		result = first.Batch.VertexBuffer.CompareTo(second.Batch.VertexBuffer);
+		if (result != 0)
+		{
+			return result;
+		}
+
+		result = first.Batch.IndexBuffer.CompareTo(second.Batch.IndexBuffer);
+		if (result != 0)
+		{
+			return result;
+		}
+
+		return first.Batch.Shading.CompareTo(second.Batch.Shading);
 	}
 
 	/// <summary>Draws a list of colored line segments.</summary>
@@ -245,6 +377,7 @@ public sealed class Renderer : IDisposable
 	public void EndFrame()
 	{
 		EnsureFrameOpen(nameof(EndFrame));
+		Flush();
 		_frameOpen = false;
 		_device.BlendState = _savedBlendState!;
 		_device.DepthStencilState = _savedDepthStencilState!;
@@ -270,6 +403,10 @@ public sealed class Renderer : IDisposable
 		Triangles = 0;
 		Meshes = 0;
 		Lines = 0;
+		MeshPartsSubmitted = 0;
+		MeshPartsCulled = 0;
+		Batches = 0;
+		_commands.Clear();
 		_frameOpen = true;
 		_device.BlendState = BlendState.Opaque;
 		_device.DepthStencilState = DepthStencilState.Default;
@@ -312,6 +449,19 @@ public sealed class Renderer : IDisposable
 			_ => 0,
 		};
 	}
+
+	private readonly record struct BatchKey(
+		int Texture,
+		int VertexBuffer,
+		int IndexBuffer,
+		MeshShading Shading);
+
+	private readonly record struct MeshDrawCommand(
+		DrMeshPart Part,
+		Matrix World,
+		MeshShading Shading,
+		Texture2D Texture,
+		BatchKey Batch);
 
 	private void EnsureFrameOpen(string method)
 	{

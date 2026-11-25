@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T103**.
+Milestone **M1 — Visible World**. Next task: **T104**.
 
 ---
 
@@ -430,12 +430,14 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-25 — stock `VertexPositionColorNormalTexture`, lit vertex colors, tangent debug lines, 5,868-mesh viewer and winding analysis (99.92% clockwise vs. normals; CCW culling verified on closed meshes); 545 tests.**
   **Follow-ups:** two-sided material flags and the resulting default culling are T401; automatic LOD switching is T406; the GMSH per-triangle cluster block remains undecoded.
 
-- [ ] **T103 · Camera, transforms and culling**
+- [x] **T103 · Camera, transforms and culling**
   Scene graph/transform hierarchy, fly camera, frustum culling, material-sorted draw batching, and basic render statistics.
   Done when: large test scenes render at interactive frame rates with culling visibly effective.
+  **Completed 2026-11-25 — `SceneNode` hierarchy, fly camera, per-part frustum culling, material/buffer-sorted submission and a 864-instance static-batched stress scene (36 vs 72 draws, 289k vs 579k triangles, 60 FPS); 563 tests.**
+  **Follow-ups:** per-sector chunking/instancing and LOD selection are T104/T406; two-sided material flags remain T401.
 
 - [ ] **T104 · Level static geometry**
-  Load a world sector, resolve its static meshes and transforms, and render the full sector with textures and fog.
+  Load a world sector, resolve its static meshes and transforms, and render the full sector with textures and fog. Build on `SceneNode` and the renderer's culling/submission path; choose chunking per sector (static merge or instancing) where draw counts demand it.
   Done when: a recognizable game location is visible end to end, with no missing-geometry gaps caused by loader bugs.
 
 - [ ] **T105 · Sky and lighting approximation**

@@ -25,8 +25,13 @@ public partial class DebugOverlay
 	/// <param name="renderer">Renderer providing the current-frame counters.</param>
 	/// <param name="snapshot">Timing and memory values collected by <see cref="FrameStatistics"/>.</param>
 	/// <param name="viewer">Current mesh-viewer state, or <see langword="null"/> when inactive.</param>
+	/// <param name="scene">Current scene state, or <see langword="null"/> when inactive.</param>
 	/// <exception cref="ArgumentNullException"><paramref name="renderer"/> is <see langword="null"/>.</exception>
-	public void Update(Renderer renderer, FrameSnapshot snapshot, MeshViewerStatus? viewer)
+	public void Update(
+		Renderer renderer,
+		FrameSnapshot snapshot,
+		MeshViewerStatus? viewer,
+		SceneStatus? scene)
 	{
 		ArgumentNullException.ThrowIfNull(renderer);
 
@@ -47,7 +52,10 @@ public partial class DebugOverlay
 		_labelDrawCalls.Text = Format("Draw calls: {0:N0}", renderer.DrawCalls);
 		_labelTriangles.Text = Format("Triangles: {0:N0}", renderer.Triangles);
 		_labelMeshes.Text = Format("Meshes: {0:N0}", renderer.Meshes);
+		_labelCulled.Text = Format("Culled: {0:N0}", renderer.MeshPartsCulled);
+		_labelBatches.Text = Format("Batches: {0:N0}", renderer.Batches);
 		UpdateViewer(viewer);
+		UpdateScene(scene);
 	}
 
 	private void UpdateViewer(MeshViewerStatus? viewer)
@@ -73,6 +81,25 @@ public partial class DebugOverlay
 
 	private static string ShadingName(MeshShading shading) =>
 		shading == MeshShading.VertexColor ? "vertex colors" : "lit";
+
+	private void UpdateScene(SceneStatus? scene)
+	{
+		if (scene is null)
+		{
+			_labelScene.Visible = false;
+			return;
+		}
+
+		var status = scene.Value;
+		_labelScene.Visible = true;
+		_labelScene.Text = string.Format(
+			NumberFormat,
+			"Scene: {0} ({1:N0} instances, {2:N0} chunks, {3:N0} parts)",
+			status.Name,
+			status.Instances,
+			status.Chunks,
+			status.Parts);
+	}
 
 	private static string CullingName(CullMode mode) =>
 		mode switch

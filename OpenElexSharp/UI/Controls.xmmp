@@ -7,6 +7,9 @@
     <Label Id="_labelColors" Text="V - Vertex colors" TextColor="#E8E8E8" />
     <Label Id="_labelTangents" Text="T - Tangent lines" TextColor="#E8E8E8" />
     <Label Id="_labelCulling" Text="C - Face culling" TextColor="#E8E8E8" />
+    <Label Id="_labelStressCulling" Text="F2 - Toggle frustum culling" TextColor="#E8E8E8" />
+    <Label Id="_labelFly" Text="WASD/QE - Fly (Shift fast)" TextColor="#E8E8E8" />
+    <Label Id="_labelLook" Text="Right mouse / Arrows - Look" TextColor="#E8E8E8" />
     <Label Id="_labelEscape" Text="Escape - Exit" TextColor="#E8E8E8" />
   </VerticalStackPanel>
 </Project>

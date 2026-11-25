@@ -11,8 +11,8 @@ All UI source lives in `OpenElexSharp/UI/`:
 | File | Purpose |
 | --- | --- |
 | `Hud.xmmp` | Root `Panel` stretched over the viewport. |
-| `DebugOverlay.xmmp` | Top-left stats block: FPS, update/draw time, memory, draw calls, triangles, meshes; mesh-viewer name and mode rows. |
-| `Controls.xmmp` | Bottom-right control hints: overlay toggle, mesh cycling, vertex colors, tangents, culling and exit. |
+| `DebugOverlay.xmmp` | Top-left stats block: FPS, update/draw time, memory, draw calls, triangles, drawn/culled parts, batches; mesh-viewer and scene rows. |
+| `Controls.xmmp` | Bottom-right control hints: overlay, mesh viewer, culling, fly camera and exit. |
 
 Each `.xmmp` uses:
 
@@ -90,6 +90,8 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1 --soak-te
 - `F1` toggles the debug stats block; the controls panel lists the key.
 - Viewer: `Left`/`Right` cycle meshes, `Home`/`End` jump to the first/last mesh, `V` toggles unlit
   vertex colors, `T` toggles tangent lines and `C` cycles face culling.
+- Stress scene: `WASD`/`QE` fly, `Shift` accelerates, right-mouse drag or arrow keys look, `F2`
+  toggles frustum culling.
 - The overlay starts visible; hiding it leaves the controls hint in place.
 
 ## Related tasks
@@ -97,4 +99,5 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1 --soak-te
 - T008 stage A — test scene HUD.
 - T101 — application shell, logging, crash screen, resize and debug overlay.
 - T102 — mesh viewer, vertex colors, tangents and winding resolution.
+- T103 — scene graph, fly camera, culling and batching; see [Rendering.md](Rendering.md).
 - See [Architecture.md](Architecture.md) for the host, timestep, logging and soak test.

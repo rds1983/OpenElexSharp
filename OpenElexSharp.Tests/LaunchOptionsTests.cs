@@ -9,6 +9,8 @@ public class LaunchOptionsTests
 
 		Assert.False(options.SmokeTest);
 		Assert.False(options.Viewer);
+		Assert.False(options.Stress);
+		Assert.False(options.NoCull);
 		Assert.Null(options.ElexPath);
 	}
 
@@ -122,6 +124,23 @@ public class LaunchOptionsTests
 
 		Assert.True(options.Viewer);
 		Assert.Equal("Obj_Dmy_MaterialCube_1_L1", options.Mesh);
+	}
+
+	[Fact]
+	public void Parse_StressArgument_EnablesStressScene()
+	{
+		var options = LaunchOptions.Parse(["--stress", "--mesh", "Obj_Dmy_MaterialCube_1_L1"]);
+
+		Assert.True(options.Stress);
+		Assert.Equal("Obj_Dmy_MaterialCube_1_L1", options.Mesh);
+	}
+
+	[Fact]
+	public void Parse_NoCullArgument_DisablesCulling()
+	{
+		var options = LaunchOptions.Parse(["--no-cull"]);
+
+		Assert.True(options.NoCull);
 	}
 
 	[Fact]

@@ -20,6 +20,12 @@ public sealed class LaunchOptions
 	/// <summary>The argument that opens the mesh viewer at the first catalog mesh.</summary>
 	public const string ViewerArgument = "--viewer";
 
+	/// <summary>The argument that opens the stress scene grid.</summary>
+	public const string StressArgument = "--stress";
+
+	/// <summary>The argument that starts with frustum culling disabled.</summary>
+	public const string NoCullArgument = "--no-cull";
+
 	/// <summary>The argument that loads a motion network and displays a skeleton pose.</summary>
 	public const string AnimationArgument = "--animation";
 
@@ -65,6 +71,12 @@ public sealed class LaunchOptions
 	/// no <see cref="Mesh"/> name is supplied.
 	/// </summary>
 	public bool Viewer { get; private init; }
+
+	/// <summary>Gets a value indicating whether the stress grid scene should open.</summary>
+	public bool Stress { get; private init; }
+
+	/// <summary>Gets a value indicating whether frustum culling starts disabled.</summary>
+	public bool NoCull { get; private init; }
 
 	/// <summary>
 	/// Gets the motion-network resource name (or substring) for the skeleton pose scene. When set,
@@ -114,6 +126,8 @@ public sealed class LaunchOptions
 		string? texture = null;
 		string? mesh = null;
 		var viewer = false;
+		var stress = false;
+		var noCull = false;
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
@@ -176,6 +190,14 @@ public sealed class LaunchOptions
 			else if (string.Equals(argument, ViewerArgument, StringComparison.OrdinalIgnoreCase))
 			{
 				viewer = true;
+			}
+			else if (string.Equals(argument, StressArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				stress = true;
+			}
+			else if (string.Equals(argument, NoCullArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				noCull = true;
 			}
 			else if (string.Equals(argument, AnimationArgument, StringComparison.OrdinalIgnoreCase))
 			{
@@ -274,6 +296,8 @@ public sealed class LaunchOptions
 			Texture = texture,
 			Mesh = mesh,
 			Viewer = viewer,
+			Stress = stress,
+			NoCull = noCull,
 			Animation = animation,
 			Collision = collision,
 			CapturePath = capturePath,
