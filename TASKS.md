@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T108** (T107 is blocked on the `net` keyframe codec).
+Milestone **M2 — Playable Core**. Next task: **T201** (T107 remains blocked on the `net` keyframe codec).
 
 ---
 
@@ -467,9 +467,11 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Progress 2026-11-26:** the character viewer now builds a DigitalRiseModel `DrModel`/`DrModelInstance` with `DrSkin` joints and renders through `GetSkinTransforms(0)`; `ElexModel` mirrors OpenGothicSharp's `GothicModel` (instance, model, per-part materials) and `CharacterViewer` owns the `AnimationController`. Male, female, cavebird, biter and drone bind poses still render at 60 FPS.
   **Blocked:** the `net` keyframe tracks are compressed. A 2026-11-26 audit found the 16-byte "sample track" candidates point at non-smooth random bytes and inconsistent durations, so they are diagnostic only (see [Formats/Animations.md](Documentation/Formats/Animations.md)). T107 cannot play retail clips until the real keyframe codec is identified.
 
-- [ ] **T108 · World visuals pass**
+- [x] **T108 · World visuals pass**
   Render light entities, decals, water surfaces and basic vegetation from level data; add debug toggles per category.
   Done when: the M1 level contains all major visual categories and each can be toggled independently.
+  **Completed 2026-11-26 -** `--visuals` resolves and filters nearby `_Lights`, `_Rivers`, `_Nature` and `_SpeedTree` companion sectors; entities are classified into lights, decals, water and vegetation with `1`–`4`/`0` debug toggles and an overlay summary. Decals use textured double-sided quads from `eCDecal2_PS`; water/lava meshes use alpha-blended water shading; nature meshes and partially decoded SpeedTree meshes render as vegetation. `ABE_AbessaCity_Buildings --visuals` loads lights=333, decals=9, water=19, vegetation=367 and renders at 58–60 FPS.
+  **Deferred:** point-light properties are not applied to `BasicEffect`; SpeedTree `spt` material/LOD decoding and terrain-river spline surfaces remain open.
 
 - [x] **T109 · Terrain heightmap and rendering**
   Decode the terrain heightmaps embedded in the compiled static-scene blobs and render them under the loaded sectors. Split the terrain into per-tile chunks and reuse the T103 scene/renderer path. The `terrain3.trn` path named by `World.wrl` is not present in the retail installation, so the `GESC` tiles are the source.

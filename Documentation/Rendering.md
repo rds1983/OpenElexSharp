@@ -80,6 +80,20 @@ see below.
 `Flush` is called automatically by `EndFrame`, so scene code submits parts and closes the frame.
 Immediate `DrawMesh` remains for the single-mesh viewer, where ordering and culling are irrelevant.
 
+## Transparent and decal shading
+
+`MeshShading` has two extra modes beyond `Lit` and `VertexColor`:
+
+- `Water` uses alpha blending, depth reads without depth writes and a cool `BasicEffect` tint; it is
+  used for nearby water/lava planes.
+- `Decal` and `Transparent` use alpha blending with unlit/lit stock `BasicEffect` paths; decal quads
+  are double-sided and use the material texture from `eCDecal2_PS`.
+
+`SectorVisualState` owns the light/decal/water/vegetation node lists and applies category toggles by
+setting `SceneNode.Visible`. The renderer keeps the existing material/buffer/shading sort, so water
+and decal draws are submitted after opaque geometry. See [Levels.md](Levels.md) for the companion
+sector loading and debug keys.
+
 ## Terrain chunks
 
 `TerrainScene` builds one `DrMesh` per 3200-unit heightmap tile (137 × 137 = 18,769 vertices, so

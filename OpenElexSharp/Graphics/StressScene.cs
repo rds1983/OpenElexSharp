@@ -13,7 +13,13 @@ namespace OpenElexSharp.Graphics;
 /// <param name="Instances">Scene-node mesh instances.</param>
 /// <param name="Chunks">Static batches submitted to the renderer.</param>
 /// <param name="Parts">Mesh parts across all batches.</param>
-public readonly record struct SceneStatus(string Name, int Instances, int Chunks, int Parts);
+/// <param name="Details">Optional extra scene information, such as visual category toggles.</param>
+public readonly record struct SceneStatus(
+	string Name,
+	int Instances,
+	int Chunks,
+	int Parts,
+	string? Details = null);
 
 /// <summary>
 /// A deterministic large test scene: a three-dimensional grid of one mesh, grouped under row

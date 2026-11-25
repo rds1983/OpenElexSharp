@@ -32,6 +32,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that loads terrain tiles around the sector bounds.</summary>
 	public const string TerrainArgument = "--terrain";
 
+	/// <summary>The argument that loads nearby nature, SpeedTree, river and light companion sectors.</summary>
+	public const string VisualsArgument = "--visuals";
+
 	/// <summary>The argument that starts with frustum culling disabled.</summary>
 	public const string NoCullArgument = "--no-cull";
 
@@ -95,6 +98,12 @@ public sealed class LaunchOptions
 	/// <summary>Gets a value indicating whether terrain tiles load around the sector bounds.</summary>
 	public bool Terrain { get; private init; }
 
+	/// <summary>
+	/// Gets a value indicating whether nearby nature, SpeedTree, river and light companion sectors
+	/// load with the requested sectors.
+	/// </summary>
+	public bool Visuals { get; private init; }
+
 	/// <summary>Gets a value indicating whether frustum culling starts disabled.</summary>
 	public bool NoCull { get; private init; }
 
@@ -151,6 +160,7 @@ public sealed class LaunchOptions
 		var noCull = false;
 		var sectors = new List<string>();
 		var terrain = false;
+		var visuals = false;
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
@@ -253,6 +263,10 @@ public sealed class LaunchOptions
 			else if (string.Equals(argument, TerrainArgument, StringComparison.OrdinalIgnoreCase))
 			{
 				terrain = true;
+			}
+			else if (string.Equals(argument, VisualsArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				visuals = true;
 			}
 			else if (string.Equals(argument, NoCullArgument, StringComparison.OrdinalIgnoreCase))
 			{
@@ -359,6 +373,7 @@ public sealed class LaunchOptions
 			Stress = stress,
 			Sectors = sectors,
 			Terrain = terrain,
+			Visuals = visuals,
 			NoCull = noCull,
 			Animation = animation,
 			Collision = collision,

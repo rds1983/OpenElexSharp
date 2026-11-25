@@ -444,6 +444,20 @@ public static class AssetCatalogConsole
 					$"{entity.NetworkResource ?? "-"}\t" +
 					$"{(entity.CollisionShapes.Count == 0 ? "-" : string.Join(';', entity.CollisionShapes.Select(shape => shape.ResourceName ?? "inline")))}\t" +
 					$"{(entity.IsTransformFinite ? "ok" : "non-finite")}");
+				foreach (var propertySet in entity.PropertySets)
+				{
+					output.WriteLine(
+						$"\t\tset\t{GenomeNameTable.GetNameOrHash(propertySet.ClassHash)}\t" +
+						$"{propertySet.Version}\t{propertySet.Properties.Count}");
+					foreach (var property in propertySet.Properties)
+					{
+						var decoded = GenomePropertyDecoder.Decode(property);
+						output.WriteLine(
+							$"\t\t\tprop\t{GenomeNameTable.GetNameOrHash(property.NameHash)}\t" +
+							$"{decoded.TypeName}\t{GenomePropertyDecoder.Format(decoded)}");
+					}
+				}
+
 				foreach (var reference in entity.References)
 				{
 					var value = reference.ReferenceGuid?.ToString("D") ?? reference.Resource ?? "-";

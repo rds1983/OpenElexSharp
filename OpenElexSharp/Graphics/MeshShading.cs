@@ -8,4 +8,13 @@ public enum MeshShading
 
 	/// <summary>Unlit vertex colors, used to inspect the decoded color stream.</summary>
 	VertexColor,
+
+	/// <summary>Alpha-blended water/lava surface with a cool tint.</summary>
+	Water,
+
+	/// <summary>Alpha-blended lit geometry.</summary>
+	Transparent,
+
+	/// <summary>Unlit alpha-blended decal quad.</summary>
+	Decal,
 }

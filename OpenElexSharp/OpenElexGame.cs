@@ -297,6 +297,35 @@ public sealed class OpenElexGame : Game
 			}
 		}
 
+		if (_sector is not null)
+		{
+			if (IsNewKeyPress(keyboard, Keys.D1))
+			{
+				ToggleSectorCategory(SectorVisualCategory.Lights, "lights");
+			}
+			else if (IsNewKeyPress(keyboard, Keys.D2))
+			{
+				ToggleSectorCategory(SectorVisualCategory.Decals, "decals");
+			}
+			else if (IsNewKeyPress(keyboard, Keys.D3))
+			{
+				ToggleSectorCategory(SectorVisualCategory.Water, "water");
+			}
+			else if (IsNewKeyPress(keyboard, Keys.D4))
+			{
+				ToggleSectorCategory(SectorVisualCategory.Vegetation, "vegetation");
+			}
+			else if (IsNewKeyPress(keyboard, Keys.D0))
+			{
+				foreach (var category in Enum.GetValues<SectorVisualCategory>())
+				{
+					_sector.SetCategoryVisible(category, true);
+				}
+
+				Log.Info("Sector visuals: all categories visible.");
+			}
+		}
+
 		if (_viewer is not null)
 		{
 			if (IsNewKeyPress(keyboard, Keys.Right))
@@ -366,6 +395,17 @@ public sealed class OpenElexGame : Game
 
 	private bool IsNewKeyPress(KeyboardState keyboard, Keys key) =>
 		keyboard.IsKeyDown(key) && _previousKeyboard.IsKeyUp(key);
+
+	private void ToggleSectorCategory(SectorVisualCategory category, string label)
+	{
+		if (_sector is null)
+		{
+			return;
+		}
+
+		var visible = _sector.ToggleCategory(category);
+		Log.Info($"Sector {label}: {(visible ? "on" : "off")}.");
+	}
 
 	protected override void Draw(GameTime gameTime)
 	{
@@ -841,7 +881,12 @@ public sealed class OpenElexGame : Game
 	private void LoadSectorScene()
 	{
 		var resources = BuildResourceIndex();
-		_sector = new SectorScene(GraphicsDevice, Assets, resources, _options.Sectors);
+		_sector = new SectorScene(
+			GraphicsDevice,
+			Assets,
+			resources,
+			_options.Sectors,
+			_options.Visuals);
 		_renderer!.CullingEnabled = !_options.NoCull;
 		_renderer.FogEnabled = true;
 		Log.Info(
@@ -850,7 +895,8 @@ public sealed class OpenElexGame : Game
 			$"missingMeshes={_sector.MissingMeshCount} " +
 			$"transformMismatches={_sector.TransformMismatches} " +
 			$"ground={_sector.GroundLevel:0} lighting={_sector.Lighting.Name} " +
-			$"fog={_sector.FogStart:0}-{_sector.FogEnd:0}");
+			$"fog={_sector.FogStart:0}-{_sector.FogEnd:0} " +
+			$"visuals={_sector.VisualsSummary}");
 		foreach (var warning in _sector.Warnings.Take(20))
 		{
 			Log.Warning($"Sector warning: {warning}");

@@ -104,7 +104,9 @@ lights and emissive materials are T108, and per-material lighting is T401.
 
 ## Limitations
 
-- No local/point lights, emissive meshes or lightmaps yet.
+- No local/point-light shading yet. T108 renders and toggles the point-light source meshes but does
+  not feed their colour/range/intensity into the stock effect.
+- No lightmaps, emissive-material pass or real light probes yet.
 - No normal maps or specular response; materials are diffuse textures.
 - No shadows, ambient occlusion or tone mapping.
 - The sky is a gradient, not a textured skybox or sun disc.

@@ -187,7 +187,7 @@ dotnet run --project OpenElexSharp -- assets scene XAC_Interacts --limit 1 --pro
 `scene` prints name, entity count, mesh count and source; `--properties` prints one tab-separated row
 per entity with depth, name, world position, world rotation quaternion, mesh, template GUID,
 animation network, attached collision resources and a transform flag, followed by decoded
-GUID/resource and collision reference rows. `EDA_Decals` contains entities whose matrix has non-finite
+property-set rows (`set` and `prop`), GUID/resource and collision reference rows. `EDA_Decals` contains entities whose matrix has non-finite
 components; the parser replaces those components with zero, keeps the entity in the graph and marks
 the transform as `non-finite`.
 

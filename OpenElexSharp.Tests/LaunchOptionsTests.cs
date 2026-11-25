@@ -12,6 +12,7 @@ public class LaunchOptionsTests
 		Assert.False(options.Stress);
 		Assert.False(options.NoCull);
 		Assert.False(options.Terrain);
+		Assert.False(options.Visuals);
 		Assert.Null(options.Character);
 		Assert.Null(options.ElexPath);
 	}
@@ -205,6 +206,26 @@ public class LaunchOptionsTests
 
 		Assert.True(options.Terrain);
 		Assert.Empty(options.Sectors);
+	}
+
+	[Theory]
+	[InlineData("--visuals")]
+	[InlineData("--VISUALS")]
+	public void Parse_VisualsArgument_EnablesCompanions(string argument)
+	{
+		var options = LaunchOptions.Parse([argument]);
+
+		Assert.True(options.Visuals);
+	}
+
+	[Fact]
+	public void Parse_VisualsWithSector_LoadsBoth()
+	{
+		var options = LaunchOptions.Parse(
+			["--sector", "ABE_AbessaCity_Buildings", "--visuals"]);
+
+		Assert.True(options.Visuals);
+		Assert.Equal(["ABE_AbessaCity_Buildings"], options.Sectors);
 	}
 
 	[Fact]

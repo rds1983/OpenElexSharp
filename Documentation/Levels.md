@@ -9,13 +9,15 @@ rendering infrastructure is in [Rendering.md](Rendering.md).
 ```powershell
 dotnet run --project OpenElexSharp -- --sector ABE_AbessaCity_Buildings
 dotnet run --project OpenElexSharp -- --sector TAV_Fort_Buildings --terrain
+dotnet run --project OpenElexSharp -- --sector ABE_AbessaCity_Buildings --visuals
 dotnet run --project OpenElexSharp -- --sector ABE_AbessaCity_Buildings --sector ABE_AbessaCity_Decoration
 ```
 
 `--sector` may be repeated; names are matched exactly first and then as substrings. The first
 matching sector wins for a partial name. `--no-cull` starts with frustum culling off and `F2`
-toggles it. `--terrain` loads heightmap tiles around the sector bounds (see below). The camera is the
-T103 fly camera; `WASD`/`QE` move, `Shift` accelerates and right-mouse drag or the arrow keys look.
+toggles it. `--terrain` loads heightmap tiles around the sector bounds (see below). `--visuals`
+loads nearby companion sectors for lights, decals, water and vegetation. The camera is the T103 fly
+camera; `WASD`/`QE` move, `Shift` accelerates and right-mouse drag or the arrow keys look.
 
 ## Loading
 
@@ -85,6 +87,46 @@ neighbours, which can form steep ridges. See the terrain spec's open questions.
 Terrain currently uses one texture for all biomes: material splatting and terrain holes are not
 decoded yet.
 
+## World visuals (`--visuals`)
+
+The static building sectors are only part of a location. `--visuals` resolves the companion
+sectors for the requested sector prefix and loads the entities that fall near the base scene:
+
+| Category | Source | Runtime representation |
+| --- | --- | --- |
+| Lights | `eCPointLight_PS` entities and `Obj_LS_*` / light-source meshes | Source meshes; point-light properties are not applied to `BasicEffect` yet. |
+| Decals | `eCDecal2_PS` entities | One textured, double-sided alpha quad per decal using `Material`, `Extends`, `Offset` and `Rotation`. |
+| Water | `eCMesh_PS` with `GameMapType_Water`, `eCTerrainRiver_PS` | Water/lava meshes, drawn with alpha blending and a cool tint. Terrain-river spline nodes are counted but do not generate a surface yet. |
+| Vegetation | `_Nature` mesh entities and `eCSpeedTreeStatic_PS` | Static nature meshes; SpeedTree `spt` resources are still only partially decoded (see limitations). |
+
+Companion names are derived from the requested sector by stripping `_Buildings`, `_Decoration`,
+`_Nature`, `_SpeedTree`, `_Speedtree`, `_SpeedTrees`, `_Lights` or `_Rivers` and then trying the
+prefix and region variants (`ABE_AbessaCity_Nature`, `ABE_Lights`, `ABE_Rivers`, ...). Exact
+resources that exist are loaded; missing companions are skipped.
+
+Companion entities are filtered to an expanded sphere around the base scene bounds (at least a
+2,000-unit radius, 1.25 × the base radius + 1,500 units). This keeps region-wide light and river
+sectors from dragging the camera or inflating memory with distant entities. The base sector still
+controls camera framing, fog and ground level.
+
+Debug keys while a sector is loaded:
+
+| Key | Category |
+| --- | --- |
+| `1` | Lights |
+| `2` | Decals |
+| `3` | Water |
+| `4` | Vegetation |
+| `0` | Show all categories |
+
+The overlay scene row reports `lights=on/333 decals=on/9 water=on/19 veg=on/367`. Toggling hides only
+the registered mesh nodes; building and terrain geometry stays visible.
+
+`ABE_AbessaCity_Buildings --visuals` loads 2,193 mesh instances / 3,504 parts with 333 light nodes,
+9 decals, 19 water nodes and 367 vegetation nodes. It renders at 58–60 FPS after shader warm-up with
+about 1.35 GB working set. Lights dominate the memory cost because their region sector is large and
+the current loader keeps decoded source meshes for nearby entities.
+
 ## Measured sectors
 
 Reference installation, 1280 × 720, 60 Hz, culling on, camera framed by the percentile rule:
@@ -107,22 +149,35 @@ individual entities. The T103 static-chunk strategy is available for future per-
 ## Visual state
 
 - Textures, UVs, normals and materials render through the T102 path.
-- Some alpha-test foliage, wires and decal meshes render as opaque dark geometry because material
-  alpha/culling flags are not decoded yet (T401/T108). They do not create missing-mesh gaps.
+- `--visuals` adds nearby light-source meshes, real decal quads, water/lava meshes and nature
+  geometry, with independent category toggles.
+- Alpha-test foliage, wires and non-decal materials still render as opaque dark geometry because
+  material alpha/culling flags are not decoded yet (T401). They do not create missing-mesh gaps.
+- SpeedTree `spt` files contain composite GMSH headers before the renderable mesh. The loader tries
+  every GMSH block and keeps the largest parseable mesh, but most trees still fall back to an
+  untextured material and some variants do not produce a mesh. Full SpeedTree material/LOD decoding
+  remains open.
+- Point-light `eCPointLight_PS` properties (colour, range, intensity) are not applied to the stock
+  `BasicEffect`; only the light-source meshes are rendered and toggled.
+- Terrain-river `eCTerrainRiver_PS` nodes are counted as water but do not generate a spline surface
+  yet; water planes and lava-pond meshes do render.
 - Terrain is loaded only with `--terrain`; it uses one grass material for all regions and an
   approximate vertical alignment. Terrain splatting, holes and map-edge border bands remain open
-  (T109/T401/T108).
+  (T109/T401).
 - Lighting uses a per-region stock `BasicEffect` palette (sky gradient, sun, fill, ambient, emissive)
   selected from the sector names; see [Lighting.md](Lighting.md). Ignadon/Xacor still contain very
-  dark metal materials that need local lights/emissive materials (T108/T401).
+  dark metal materials that need local lights/emissive materials (T108 follow-up/T401).
 
 ## Tests
 
 - `SceneTransformsTests` — row-major `Matrix4x4` to XNA matrix conversion and translation.
 - `ElexTerrainChunkTests` - synthetic terrain headers, column-major transpose, height mapping, truncation and corrupt input.
 - `TerrainSceneTests` - chunk index rounding, blob path formatting and shared-edge/corner stitching with blending.
-- `LaunchOptionsTests` — single/repeated `--sector`/`--terrain` parsing and missing values.
+- `LaunchOptionsTests` — single/repeated `--sector`/`--terrain`/`--visuals` parsing and missing values.
 - `LevelLightingTests` — region palette selection, fog/horizon consistency and normalized light directions.
+- `SectorEntityClassifierTests` — light, decal, water, vegetation and rock classification.
+- `SectorCompanionsTests` — companion name derivation for city, fort, XAC and speedtree sectors.
+- `SectorVisualStateTests` — category registration, toggles, counts and overlay summary.
 - Sector loading, transform validation and performance are verified against the retail
   installation and captured screenshots; they need a GPU and game data.
 
@@ -130,5 +185,6 @@ individual entities. The T103 static-chunk strategy is available for future per-
 
 - T104 — sector loading, transforms, fog and camera framing.
 - T105 — sky and level lighting.
+- T108 — light/decals/water/vegetation companion sectors and debug category toggles.
 - T406 — LOD, instancing and dense-scene performance.
-- T401/T108 — material alpha/two-sided flags and foliage/decal visuals.
+- T401 — material alpha/two-sided flags and per-material lighting.

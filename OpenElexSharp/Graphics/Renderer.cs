@@ -340,7 +340,7 @@ public sealed class Renderer : IDisposable
 		}
 
 		ApplyShading(shading);
-		DrawMeshPartCore(part, world, tag?.Material?.Texture ?? _fallbackTexture);
+		DrawMeshPartCore(part, world, tag?.Material?.Texture ?? _fallbackTexture, shading);
 	}
 
 	/// <summary>
@@ -422,17 +422,41 @@ public sealed class Renderer : IDisposable
 			}
 
 			ApplyShading(command.Shading);
-			DrawMeshPartCore(command.Part, command.World, command.Texture);
+			DrawMeshPartCore(command.Part, command.World, command.Texture, command.Shading);
 		}
 
 		_commands.Clear();
 	}
 
-	private void DrawMeshPartCore(DrMeshPart part, Matrix world, Texture2D texture)
+	private void DrawMeshPartCore(
+		DrMeshPart part,
+		Matrix world,
+		Texture2D texture,
+		MeshShading shading)
 	{
 		_effect.World = world;
 		_effect.Texture = texture;
 		_effect.DiffuseColor = Vector3.One;
+		_effect.Alpha = 1f;
+		switch (shading)
+		{
+			case MeshShading.Water:
+				_effect.DiffuseColor = new Vector3(0.35f, 0.62f, 0.88f);
+				_effect.Alpha = 0.65f;
+				_device.BlendState = BlendState.AlphaBlend;
+				_device.DepthStencilState = DepthStencilState.DepthRead;
+				break;
+			case MeshShading.Transparent:
+			case MeshShading.Decal:
+				_device.BlendState = BlendState.AlphaBlend;
+				_device.DepthStencilState = DepthStencilState.DepthRead;
+				break;
+			default:
+				_device.BlendState = BlendState.Opaque;
+				_device.DepthStencilState = DepthStencilState.Default;
+				break;
+		}
+
 		foreach (var pass in _effect.CurrentTechnique.Passes)
 		{
 			pass.Apply();
@@ -646,6 +670,11 @@ public sealed class Renderer : IDisposable
 				_effect.LightingEnabled = false;
 				_effect.TextureEnabled = false;
 				_effect.VertexColorEnabled = true;
+				break;
+			case MeshShading.Decal:
+				_effect.LightingEnabled = false;
+				_effect.TextureEnabled = true;
+				_effect.VertexColorEnabled = false;
 				break;
 			default:
 				_effect.LightingEnabled = true;
