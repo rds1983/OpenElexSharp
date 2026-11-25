@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T104**.
+Milestone **M1 — Visible World**. Next task: **T105**.
 
 ---
 
@@ -436,9 +436,11 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-25 — `SceneNode` hierarchy, fly camera, per-part frustum culling, material/buffer-sorted submission and a 864-instance static-batched stress scene (36 vs 72 draws, 289k vs 579k triangles, 60 FPS); 563 tests.**
   **Follow-ups:** per-sector chunking/instancing and LOD selection are T104/T406; two-sided material flags remain T401.
 
-- [ ] **T104 · Level static geometry**
+- [x] **T104 · Level static geometry**
   Load a world sector, resolve its static meshes and transforms, and render the full sector with textures and fog. Build on `SceneNode` and the renderer's culling/submission path; choose chunking per sector (static merge or instancing) where draw counts demand it.
   Done when: a recognizable game location is visible end to end, with no missing-geometry gaps caused by loader bugs.
+  **Completed 2026-11-25 — `SectorScene`/`--sector` load sectors into the scene graph with shared meshes, verified transforms and BasicEffect fog; Abessa buildings and TAV fort render end to end with 0 missing meshes/transform mismatches at 60 FPS (1,598–2,537 draws); 568 tests.**
+  **Follow-ups:** terrain (`terrain3.trn`) becomes T109; alpha foliage/decal materials are T401/T108; dense multi-sector merging/instancing is T406.
 
 - [ ] **T105 · Sky and lighting approximation**
   Skybox/background, sun directional light, ambient term and fog using stock effects; establish sane defaults per level.
@@ -455,6 +457,10 @@ Exit criteria: a level, its static geometry and its characters can be explored w
 - [ ] **T108 · World visuals pass**
   Render light entities, decals, water surfaces and basic vegetation from level data; add debug toggles per category.
   Done when: the M1 level contains all major visual categories and each can be toggled independently.
+
+- [ ] **T109 · Terrain heightmap and rendering**
+  Document `data/raw/terrain3/terrain3.trn` and render the heightmap, material layers and terrain-hole masks under the loaded sectors. Split large terrain into chunks and reuse the T103 scene/renderer path.
+  Done when: a sector sits on real terrain with no visible seams between terrain chunks and no missing height patches.
 
 ## M2 — Playable Core
 

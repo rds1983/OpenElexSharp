@@ -144,6 +144,33 @@ public class LaunchOptionsTests
 	}
 
 	[Fact]
+	public void Parse_OneSector_SetsSectorList()
+	{
+		var options = LaunchOptions.Parse(["--sector", "ABE_AbessaCity_Buildings"]);
+
+		Assert.Equal(["ABE_AbessaCity_Buildings"], options.Sectors);
+	}
+
+	[Fact]
+	public void Parse_RepeatedSectors_PreservesOrder()
+	{
+		var options = LaunchOptions.Parse(
+			["--sector", "ABE_AbessaCity_Buildings", "--sector=ABE_AbessaCity_Decoration"]);
+
+		Assert.Equal(
+			["ABE_AbessaCity_Buildings", "ABE_AbessaCity_Decoration"],
+			options.Sectors);
+	}
+
+	[Fact]
+	public void Parse_MissingSectorValue_Throws()
+	{
+		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--sector"]));
+
+		Assert.Contains("--sector", exception.Message);
+	}
+
+	[Fact]
 	public void Parse_AnimationWithSeparateArgument_SetsValue()
 	{
 		var options = LaunchOptions.Parse(["--animation", "Male"]);

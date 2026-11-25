@@ -100,6 +100,18 @@ public sealed class Renderer : IDisposable
 		set => _cullingEnabled = value;
 	}
 
+	/// <summary>Whether mesh draws apply linear distance fog.</summary>
+	public bool FogEnabled { get; set; }
+
+	/// <summary>Fog and background colour used while <see cref="FogEnabled"/> is on.</summary>
+	public Vector3 FogColor { get; set; } = new(0.55f, 0.6f, 0.65f);
+
+	/// <summary>Distance at which fog starts.</summary>
+	public float FogStart { get; set; } = 1_000f;
+
+	/// <summary>Distance at which fog fully replaces the surface colour.</summary>
+	public float FogEnd { get; set; } = 10_000f;
+
 	/// <summary>
 	/// Face culling used by mesh draws. Lines are unaffected. The value is applied at the start of
 	/// the next frame.
@@ -417,6 +429,14 @@ public sealed class Renderer : IDisposable
 
 	private void ApplyShading(MeshShading shading)
 	{
+		_effect.FogEnabled = FogEnabled;
+		if (FogEnabled)
+		{
+			_effect.FogColor = FogColor;
+			_effect.FogStart = FogStart;
+			_effect.FogEnd = FogEnd;
+		}
+
 		switch (shading)
 		{
 			case MeshShading.VertexColor:

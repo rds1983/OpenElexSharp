@@ -28,6 +28,7 @@ Format knowledge is derived **only** from game assets — never from `ELEX.exe` 
 | [Formats/Scripts.md](Formats/Scripts.md) | draft | T014 |
 | [Architecture.md](Architecture.md) | implemented | T101 |
 | [Rendering.md](Rendering.md) | implemented | T103 |
+| [Levels.md](Levels.md) | implemented | T104 |
 
 Status values: **planned** (not started), **draft** (written, implementation pending or partial), **implemented** (loader exists and tests cover it), **deprecated**.
 

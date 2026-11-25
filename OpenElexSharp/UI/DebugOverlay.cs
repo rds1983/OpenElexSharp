@@ -92,13 +92,20 @@ public partial class DebugOverlay
 
 		var status = scene.Value;
 		_labelScene.Visible = true;
-		_labelScene.Text = string.Format(
-			NumberFormat,
-			"Scene: {0} ({1:N0} instances, {2:N0} chunks, {3:N0} parts)",
-			status.Name,
-			status.Instances,
-			status.Chunks,
-			status.Parts);
+		_labelScene.Text = status.Chunks > 0
+			? string.Format(
+				NumberFormat,
+				"Scene: {0} ({1:N0} instances, {2:N0} chunks, {3:N0} parts)",
+				status.Name,
+				status.Instances,
+				status.Chunks,
+				status.Parts)
+			: string.Format(
+				NumberFormat,
+				"Scene: {0} ({1:N0} instances, {2:N0} parts)",
+				status.Name,
+				status.Instances,
+				status.Parts);
 	}
 
 	private static string CullingName(CullMode mode) =>

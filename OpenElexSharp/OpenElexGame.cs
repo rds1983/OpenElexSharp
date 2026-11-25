@@ -45,6 +45,7 @@ public sealed class OpenElexGame : Game
 	private Texture2D? _fallback;
 	private MeshViewer? _viewer;
 	private StressScene? _stress;
+	private SectorScene? _sector;
 	private ElexCollisionMesh? _collision;
 	private VertexPositionColor[]? _collisionLines;
 	private Skeleton? _skeleton;
@@ -134,6 +135,23 @@ public sealed class OpenElexGame : Game
 					AssetNotFoundException or InvalidOperationException or ArgumentException)
 			{
 				Log.Warning($"Stress scene warning: {exception.Message}");
+			}
+
+			return;
+		}
+
+		if (_options.Sectors.Count > 0)
+		{
+			try
+			{
+				LoadSectorScene();
+			}
+			catch (Exception exception) when (
+				exception is GmshFormatException or GenomeFormatException or Gar5FormatException or
+					NotSupportedException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException or InvalidOperationException or ArgumentException)
+			{
+				Log.Warning($"Sector scene warning: {exception.Message}");
 			}
 
 			return;
@@ -231,15 +249,24 @@ public sealed class OpenElexGame : Game
 			}
 		}
 
-		if (_stress is not null)
+		var flyCamera = _stress?.Camera ?? _sector?.Camera;
+		if (flyCamera is not null)
 		{
 			var mouse = Mouse.GetState();
-			_stress.UpdateCamera(keyboard, (float)gameTime.ElapsedGameTime.TotalSeconds);
+			if (_stress is not null)
+			{
+				_stress.UpdateCamera(keyboard, (float)gameTime.ElapsedGameTime.TotalSeconds);
+			}
+			else
+			{
+				_sector!.UpdateCamera(keyboard, (float)gameTime.ElapsedGameTime.TotalSeconds);
+			}
+
 			if (IsActive &&
 				mouse.RightButton == ButtonState.Pressed &&
 				_previousMouse.RightButton == ButtonState.Pressed)
 			{
-				_stress.Camera.Look(
+				flyCamera.Look(
 					mouse.X - _previousMouse.X,
 					mouse.Y - _previousMouse.Y);
 			}
@@ -363,6 +390,10 @@ public sealed class OpenElexGame : Game
 		{
 			DrawStress();
 		}
+		else if (_sector is not null)
+		{
+			DrawSector();
+		}
 		else if (_skeleton is not null)
 		{
 			DrawSkeleton(gameTime);
@@ -376,7 +407,8 @@ public sealed class OpenElexGame : Game
 			DrawTexture();
 		}
 
-		_hud?.Update(_renderer, _statistics, _viewer?.Status, _stress?.Status);
+		var sceneStatus = _stress?.Status ?? _sector?.Status;
+		_hud?.Update(_renderer, _statistics, _viewer?.Status, sceneStatus);
 		_desktop?.Render();
 		CaptureIfRequested();
 
@@ -416,6 +448,8 @@ public sealed class OpenElexGame : Game
 		_viewer = null;
 		_stress?.Dispose();
 		_stress = null;
+		_sector?.Dispose();
+		_sector = null;
 		_skeleton = null;
 		_network = null;
 		_clipA = null;
@@ -633,7 +667,8 @@ public sealed class OpenElexGame : Game
 			lines.Add(new VertexPositionColor(points[index], color));
 		}
 
-		_renderer!.BeginFrame(view, projection);
+		_renderer!.FogEnabled = false;
+		_renderer.BeginFrame(view, projection);
 		_renderer.Clear(new Color(16, 18, 24));
 		_renderer.DrawLines([.. lines], Matrix.Identity);
 		_renderer.EndFrame();
@@ -662,6 +697,7 @@ public sealed class OpenElexGame : Game
 			radius * 20f);
 
 		_renderer!.CullMode = _viewer?.CullMode ?? CullMode.None;
+		_renderer.FogEnabled = false;
 		_renderer.BeginFrame(view, projection);
 		_renderer.Clear(new Color(16, 18, 24));
 		if (mesh is not null)
@@ -685,7 +721,8 @@ public sealed class OpenElexGame : Game
 	private void DrawTexture()
 	{
 		var texture = _texture ?? _fallback;
-		_renderer!.BeginFrame();
+		_renderer!.FogEnabled = false;
+		_renderer.BeginFrame();
 		_renderer.Clear(new Color(16, 18, 24));
 		if (texture is not null)
 		{
@@ -727,12 +764,56 @@ public sealed class OpenElexGame : Game
 
 		var camera = _stress.Camera;
 		_renderer.CullMode = CullMode.None;
+		_renderer.FogEnabled = false;
 		_renderer.BeginFrame(
 			camera.View,
 			camera.Projection(GraphicsDevice.Viewport.AspectRatio));
 		_renderer.Clear(new Color(10, 12, 18));
 		_stress.Submit(_renderer);
 		_renderer.EndFrame();
+	}
+
+	private void DrawSector()
+	{
+		if (_renderer is null || _sector is null)
+		{
+			return;
+		}
+
+		var camera = _sector.Camera;
+		_renderer.CullMode = CullMode.None;
+		_renderer.FogEnabled = true;
+		_renderer.FogColor = _sector.FogColor;
+		_renderer.FogStart = _sector.FogStart;
+		_renderer.FogEnd = _sector.FogEnd;
+		_renderer.BeginFrame(
+			camera.View,
+			camera.Projection(GraphicsDevice.Viewport.AspectRatio));
+		_renderer.Clear(new Color(
+			_sector.FogColor.X,
+			_sector.FogColor.Y,
+			_sector.FogColor.Z,
+			1f));
+		_sector.Submit(_renderer);
+		_renderer.EndFrame();
+	}
+
+	private void LoadSectorScene()
+	{
+		var resources = BuildResourceIndex();
+		_sector = new SectorScene(GraphicsDevice, Assets, resources, _options.Sectors);
+		_renderer!.CullingEnabled = !_options.NoCull;
+		_renderer.FogEnabled = true;
+		Log.Info(
+			$"Sector scene: {_sector.DisplayName} instances={_sector.Instances} " +
+			$"parts={_sector.PartCount} uniqueMeshes={_sector.UniqueMeshCount} " +
+			$"missingMeshes={_sector.MissingMeshCount} " +
+			$"transformMismatches={_sector.TransformMismatches} " +
+			$"fog={_sector.FogStart:0}-{_sector.FogEnd:0}");
+		foreach (var warning in _sector.Warnings.Take(20))
+		{
+			Log.Warning($"Sector warning: {warning}");
+		}
 	}
 
 	private void LoadViewerScene()

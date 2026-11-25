@@ -137,11 +137,12 @@ scene row reports logical instances, static chunks and batch parts.
   depth-first traversal.
 - `FlyCameraTests` — forward/right basis, yaw/pitch clamping, movement speed, Shift multiplier and
   view matrix position.
-- `LaunchOptionsTests` — `--stress` and `--no-cull`.
+- `LaunchOptionsTests` — `--stress`, `--sector` and `--no-cull`.
 - `Renderer` counters and visual stress results are verified with captures; they need a GPU.
 
 ## Related tasks
 
 - T103 — this document, scene graph, fly camera, culling, batching and stress scene.
-- T104 — level static geometry uses the same scene and renderer APIs.
+- T104 — sector loading, transforms, camera framing and fog; see [Levels.md](Levels.md).
 - T401 — material two-sided flags determine the final culling default.
+- T406 — LOD, instancing and dense-scene performance.

@@ -92,6 +92,8 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1 --soak-te
   vertex colors, `T` toggles tangent lines and `C` cycles face culling.
 - Stress scene: `WASD`/`QE` fly, `Shift` accelerates, right-mouse drag or arrow keys look, `F2`
   toggles frustum culling.
+- Sector scenes use the same fly camera and `F2`; `--sector <sec resource>` selects a sector (repeat
+  for several).
 - The overlay starts visible; hiding it leaves the controls hint in place.
 
 ## Related tasks
@@ -99,5 +101,6 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1 --soak-te
 - T008 stage A — test scene HUD.
 - T101 — application shell, logging, crash screen, resize and debug overlay.
 - T102 — mesh viewer, vertex colors, tangents and winding resolution.
+- T104 — sector loading, transforms, camera framing and fog; see [Levels.md](Levels.md).
 - T103 — scene graph, fly camera, culling and batching; see [Rendering.md](Rendering.md).
 - See [Architecture.md](Architecture.md) for the host, timestep, logging and soak test.

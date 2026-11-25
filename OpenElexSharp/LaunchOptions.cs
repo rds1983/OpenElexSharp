@@ -23,6 +23,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that opens the stress scene grid.</summary>
 	public const string StressArgument = "--stress";
 
+	/// <summary>The argument that loads a static scene sector; may be repeated.</summary>
+	public const string SectorArgument = "--sector";
+
 	/// <summary>The argument that starts with frustum culling disabled.</summary>
 	public const string NoCullArgument = "--no-cull";
 
@@ -74,6 +77,9 @@ public sealed class LaunchOptions
 
 	/// <summary>Gets a value indicating whether the stress grid scene should open.</summary>
 	public bool Stress { get; private init; }
+
+	/// <summary>Gets the static scene sectors to load, in command-line order.</summary>
+	public IReadOnlyList<string> Sectors { get; private init; } = [];
 
 	/// <summary>Gets a value indicating whether frustum culling starts disabled.</summary>
 	public bool NoCull { get; private init; }
@@ -128,6 +134,7 @@ public sealed class LaunchOptions
 		var viewer = false;
 		var stress = false;
 		var noCull = false;
+		var sectors = new List<string>();
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
@@ -194,6 +201,22 @@ public sealed class LaunchOptions
 			else if (string.Equals(argument, StressArgument, StringComparison.OrdinalIgnoreCase))
 			{
 				stress = true;
+			}
+			else if (string.Equals(argument, SectorArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				if (index + 1 >= args.Count)
+				{
+					throw new ArgumentException($"{SectorArgument} requires a value.", nameof(args));
+				}
+
+				sectors.Add(ParseValue(SectorArgument, args[++index], nameof(args)));
+			}
+			else if (argument.StartsWith(SectorArgument + "=", StringComparison.OrdinalIgnoreCase))
+			{
+				sectors.Add(ParseValue(
+					SectorArgument,
+					argument[(SectorArgument.Length + 1)..],
+					nameof(args)));
 			}
 			else if (string.Equals(argument, NoCullArgument, StringComparison.OrdinalIgnoreCase))
 			{
@@ -297,6 +320,7 @@ public sealed class LaunchOptions
 			Mesh = mesh,
 			Viewer = viewer,
 			Stress = stress,
+			Sectors = sectors,
 			NoCull = noCull,
 			Animation = animation,
 			Collision = collision,
