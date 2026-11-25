@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T105**.
+Milestone **M1 — Visible World**. Next task: **T106**.
 
 ---
 
@@ -442,9 +442,11 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-25 — `SectorScene`/`--sector` load sectors into the scene graph with shared meshes, verified transforms and BasicEffect fog; Abessa buildings and TAV fort render end to end with 0 missing meshes/transform mismatches at 60 FPS (1,598–2,537 draws); 568 tests.**
   **Follow-ups:** terrain (`terrain3.trn`) becomes T109; alpha foliage/decal materials are T401/T108; dense multi-sector merging/instancing is T406.
 
-- [ ] **T105 · Sky and lighting approximation**
+- [x] **T105 · Sky and lighting approximation**
   Skybox/background, sun directional light, ambient term and fog using stock effects; establish sane defaults per level.
   Done when: levels read clearly and are not flat-black or blown out.
+  **Completed 2026-11-25 —** `LevelLighting` selects Tavar/Edan/Ignadon/Xacor palettes from sector names; `Renderer` applies sun/fill/ambient/emissive to the stock per-pixel `BasicEffect` and draws a full-screen sky gradient before meshes. Fog colour follows the horizon. TAV Fort and Abessa City read clearly at 60 FPS (2,617/1,669 draws, 3.87M/3.30M triangles); 606 tests; documentation in `Documentation/Lighting.md`.
+  **Follow-ups:** local/emissive lights and the very dark Ignadon/Xacor metal materials are T108/T401; shadows, normal maps and tone mapping remain later visual work.
 
 - [ ] **T106 · Character rendering**
   Render NPCs and creatures via skeleton + `SkinnedEffect` (or the documented custom fallback), including multi-material bodies and equipment attachments.

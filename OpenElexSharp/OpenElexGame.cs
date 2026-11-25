@@ -784,19 +784,25 @@ public sealed class OpenElexGame : Game
 		}
 
 		var camera = _sector.Camera;
+		var lighting = _sector.Lighting;
 		_renderer.CullMode = CullMode.None;
 		_renderer.FogEnabled = true;
 		_renderer.FogColor = _sector.FogColor;
 		_renderer.FogStart = _sector.FogStart;
 		_renderer.FogEnd = _sector.FogEnd;
+		_renderer.SkyTopColor = lighting.SkyTop;
+		_renderer.SkyHorizonColor = lighting.SkyHorizon;
+		_renderer.SunDirection = lighting.SunDirection;
+		_renderer.SunColor = lighting.SunColor;
+		_renderer.AmbientColor = lighting.AmbientColor;
+		_renderer.EmissiveColor = lighting.EmissiveColor;
+		_renderer.FillDirection = lighting.FillDirection;
+		_renderer.FillColor = lighting.FillColor;
 		_renderer.BeginFrame(
 			camera.View,
 			camera.Projection(GraphicsDevice.Viewport.AspectRatio));
-		_renderer.Clear(new Color(
-			_sector.FogColor.X,
-			_sector.FogColor.Y,
-			_sector.FogColor.Z,
-			1f));
+		_renderer.Clear(lighting.SkyHorizon);
+		_renderer.DrawSky();
 		_terrain?.Submit(_renderer);
 		_sector.Submit(_renderer);
 		_renderer.EndFrame();
@@ -813,7 +819,7 @@ public sealed class OpenElexGame : Game
 			$"parts={_sector.PartCount} uniqueMeshes={_sector.UniqueMeshCount} " +
 			$"missingMeshes={_sector.MissingMeshCount} " +
 			$"transformMismatches={_sector.TransformMismatches} " +
-			$"ground={_sector.GroundLevel:0} " +
+			$"ground={_sector.GroundLevel:0} lighting={_sector.Lighting.Name} " +
 			$"fog={_sector.FogStart:0}-{_sector.FogEnd:0}");
 		foreach (var warning in _sector.Warnings.Take(20))
 		{

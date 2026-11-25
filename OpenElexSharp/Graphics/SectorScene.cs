@@ -109,10 +109,11 @@ public sealed class SectorScene : IDisposable
 		var direction = Vector3.Normalize(center - Camera.Position);
 		Camera.Yaw = MathF.Atan2(direction.X, direction.Z);
 		Camera.Pitch = MathF.Asin(direction.Y);
-		FogColor = new Vector3(0.63f, 0.69f, 0.76f);
 		FogStart = MathF.Max(1_000f, radius * 0.9f);
 		FogEnd = MathF.Max(FogStart + 1_000f, radius * 2.8f);
 		DisplayName = string.Join("+", names);
+		Lighting = LevelLighting.ForSector(string.Join(" ", names));
+		FogColor = Lighting.FogColor;
 	}
 
 	/// <summary>Combined scene-graph root.</summary>
@@ -150,6 +151,9 @@ public sealed class SectorScene : IDisposable
 
 	/// <summary>Fog and background colour.</summary>
 	public Vector3 FogColor { get; }
+
+	/// <summary>Sky, sun, ambient and fog palette selected for the loaded sector names.</summary>
+	public LevelLighting Lighting { get; }
 
 	/// <summary>Fog start distance.</summary>
 	public float FogStart { get; }

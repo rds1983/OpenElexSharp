@@ -95,6 +95,20 @@ The terrain path deliberately uses the same `Renderer.SubmitMesh`/`Flush` pipeli
 the stress scene; it does not add a separate renderer or effect. See
 [Formats/Terrain.md](Formats/Terrain.md) for the data layout.
 
+## Sky and lighting
+
+`Renderer` exposes `SkyTopColor`/`SkyHorizonColor`, `SunDirection`/`SunColor`, `AmbientColor`,
+`EmissiveColor` and `FillDirection`/`FillColor`. `ApplyLighting` maps them to the stock per-pixel
+`BasicEffect` directional lights during `BeginFrame`, so scene code only swaps palettes.
+
+`DrawSky` builds a 1 × 128 vertical gradient texture from the sky colours and stretches it over the
+viewport with `SpriteBatch` before meshes are submitted. It uses `DepthStencilState.None` and restores
+the 3D device state afterwards, so the gradient is always behind geometry and never writes depth.
+
+`SectorScene` selects a `LevelLighting` palette from the loaded sector names; `OpenElexGame` copies
+the palette and fog values to the renderer. See [Lighting.md](Lighting.md) for the regional defaults
+and current limitations.
+
 ## Stress scene
 
 `--stress` builds a deterministic grid of **864 instances** of one mesh (`--mesh` selects it; the

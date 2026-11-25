@@ -47,8 +47,10 @@ fogStart = max(1000, radius * 0.9)
 fogEnd   = max(fogStart + 1000, radius * 2.8)
 ```
 
-Fog uses `BasicEffect` linear fog with a muted blue-grey colour; the back buffer is cleared to the
-same colour, which stands in for a sky until T105. Fog is disabled in the mesh viewer and stress
+Fog uses `BasicEffect` linear fog with the region palette's horizon colour; the sky gradient uses the
+same colour at the horizon, so distant geometry fades into the background. `SectorScene` selects a
+`LevelLighting` palette from the sector names and `OpenElexGame` applies its sky, sun, ambient and fog
+values to the renderer. See [Lighting.md](Lighting.md). Fog is disabled in the mesh viewer and stress
 scene.
 
 ## Terrain
@@ -91,8 +93,8 @@ Reference installation, 1280 × 720, 60 Hz, culling on, camera framed by the per
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `ABE_AbessaCity_Buildings` | 750 | 748 | 1,610 | 98 | 0 | 0 | 1,598 | 667,568 | 4.36 ms | 60 |
 | `TAV_Fort_Buildings` | 1,304 | 1,301 | 2,633 | 166 | 0 | 0 | 2,537 | 897,814 | 8.62 ms | 60 |
-| `TAV_Fort_Buildings --terrain` | 1,304 | 1,301 | 2,633 | 166 | 0 | 0 | 2,617 | 3,866,422 | 6.97 ms | 60 |
-| `ABE_AbessaCity_Buildings --terrain` | 750 | 748 | 1,610 | 98 | 0 | 0 | 1,669 | 3,301,616 | 3.77 ms | 60 |
+| `TAV_Fort_Buildings --terrain` | 1,304 | 1,301 | 2,633 | 166 | 0 | 0 | 2,617 | 3,866,422 | 8.11 ms | 60 |
+| `ABE_AbessaCity_Buildings --terrain` | 750 | 748 | 1,610 | 98 | 0 | 0 | 1,669 | 3,301,616 | 6.30 ms | 60 |
 | Buildings + Decoration | 5,776 | 5,773 | 7,802 | 489 | 0 | 0 | 7,801 | 5,114,707 | 35.6 ms (start-up) | 13 |
 
 The two-sector run is supported but not optimized: it demonstrates why T406's instancing/static
@@ -110,8 +112,9 @@ individual entities. The T103 static-chunk strategy is available for future per-
 - Terrain is loaded only with `--terrain`; it uses one grass material for all regions and an
   approximate vertical alignment. Terrain splatting, holes and map-edge border bands remain open
   (T109/T401/T108).
-- Lighting is the fixed BasicEffect rig from T008; T105 replaces it with a level-appropriate sun,
-  ambient and sky.
+- Lighting uses a per-region stock `BasicEffect` palette (sky gradient, sun, fill, ambient, emissive)
+  selected from the sector names; see [Lighting.md](Lighting.md). Ignadon/Xacor still contain very
+  dark metal materials that need local lights/emissive materials (T108/T401).
 
 ## Tests
 
@@ -119,6 +122,7 @@ individual entities. The T103 static-chunk strategy is available for future per-
 - `ElexTerrainChunkTests` - synthetic terrain headers, column-major transpose, height mapping, truncation and corrupt input.
 - `TerrainSceneTests` - chunk index rounding, blob path formatting and shared-edge/corner stitching with blending.
 - `LaunchOptionsTests` — single/repeated `--sector`/`--terrain` parsing and missing values.
+- `LevelLightingTests` — region palette selection, fog/horizon consistency and normalized light directions.
 - Sector loading, transform validation and performance are verified against the retail
   installation and captured screenshots; they need a GPU and game data.
 

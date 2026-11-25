@@ -17,6 +17,10 @@ public sealed class Renderer : IDisposable
 	private readonly SpriteBatch _spriteBatch;
 	private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 	private readonly Texture2D _fallbackTexture;
+	private const int SkyTextureHeight = 128;
+	private Texture2D? _skyTexture;
+	private Color _skyTopColor = Color.Transparent;
+	private Color _skyHorizonColor = Color.Transparent;
 
 	private static readonly RasterizerState CullNoneState = new() { CullMode = CullMode.None };
 	private static readonly RasterizerState CullCounterClockwiseState = new()
@@ -55,14 +59,7 @@ public sealed class Renderer : IDisposable
 			VertexColorEnabled = false,
 			PreferPerPixelLighting = true,
 			SpecularColor = Vector3.Zero,
-			AmbientLightColor = new Vector3(0.35f),
 		};
-		_effect.DirectionalLight0.Enabled = true;
-		_effect.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(0.35f, -1f, -0.55f));
-		_effect.DirectionalLight0.DiffuseColor = new Vector3(0.75f);
-		_effect.DirectionalLight1.Enabled = true;
-		_effect.DirectionalLight1.Direction = Vector3.Normalize(new Vector3(-0.6f, -0.4f, -0.45f));
-		_effect.DirectionalLight1.DiffuseColor = new Vector3(0.25f);
 		_effect.DirectionalLight2.Enabled = false;
 		_lineEffect = new BasicEffect(device)
 		{
@@ -70,6 +67,7 @@ public sealed class Renderer : IDisposable
 			TextureEnabled = false,
 			VertexColorEnabled = true,
 		};
+		ApplyLighting();
 	}
 
 	/// <summary>Draw calls issued during the current frame.</summary>
@@ -112,6 +110,30 @@ public sealed class Renderer : IDisposable
 	/// <summary>Distance at which fog fully replaces the surface colour.</summary>
 	public float FogEnd { get; set; } = 10_000f;
 
+	/// <summary>Top colour of the full-screen sky gradient.</summary>
+	public Color SkyTopColor { get; set; } = new(58, 104, 158);
+
+	/// <summary>Horizon colour of the full-screen sky gradient; usually matches the fog colour.</summary>
+	public Color SkyHorizonColor { get; set; } = new(180, 202, 218);
+
+	/// <summary>Direction the sun light travels, from the light toward the scene.</summary>
+	public Vector3 SunDirection { get; set; } = Vector3.Normalize(new Vector3(-0.35f, -1f, 0.55f));
+
+	/// <summary>Diffuse colour of the sun directional light.</summary>
+	public Vector3 SunColor { get; set; } = new(0.82f, 0.80f, 0.72f);
+
+	/// <summary>Ambient light colour added to every lit surface.</summary>
+	public Vector3 AmbientColor { get; set; } = new(0.42f, 0.44f, 0.48f);
+
+	/// <summary>Small constant emissive lift so dark materials do not read as flat black.</summary>
+	public Vector3 EmissiveColor { get; set; } = new(0.04f, 0.045f, 0.05f);
+
+	/// <summary>Direction of the fill light, from the light toward the scene.</summary>
+	public Vector3 FillDirection { get; set; } = Vector3.Normalize(new Vector3(-0.6f, -0.4f, -0.45f));
+
+	/// <summary>Diffuse colour of the fill light.</summary>
+	public Vector3 FillColor { get; set; } = new(0.16f, 0.18f, 0.22f);
+
 	/// <summary>
 	/// Face culling used by mesh draws. Lines are unaffected. The value is applied at the start of
 	/// the next frame.
@@ -148,6 +170,34 @@ public sealed class Renderer : IDisposable
 	{
 		EnsureFrameOpen(nameof(Clear));
 		_device.Clear(color);
+	}
+
+	/// <summary>
+	/// Draws the full-screen vertical sky gradient behind the 3D scene. Must be called after
+	/// <see cref="BeginFrame(Matrix, Matrix)"/> and before meshes. The method restores the 3D device
+	/// state it temporarily overrides for <see cref="SpriteBatch"/>.
+	/// </summary>
+	public void DrawSky()
+	{
+		EnsureFrameOpen(nameof(DrawSky));
+		EnsureSkyTexture();
+		var viewport = _device.Viewport;
+		_spriteBatch.Begin(
+			SpriteSortMode.Deferred,
+			BlendState.Opaque,
+			SamplerState.LinearClamp,
+			DepthStencilState.None,
+			RasterizerState.CullNone);
+		_spriteBatch.Draw(
+			_skyTexture,
+			new Rectangle(0, 0, viewport.Width, viewport.Height),
+			Color.White);
+		_spriteBatch.End();
+		_device.BlendState = BlendState.Opaque;
+		_device.DepthStencilState = DepthStencilState.Default;
+		_device.RasterizerState = StateFor(_cullMode);
+		_device.SamplerStates[0] = SamplerState.LinearWrap;
+		_device.ScissorRectangle = viewport.Bounds;
 	}
 
 	/// <summary>
@@ -425,6 +475,53 @@ public sealed class Renderer : IDisposable
 		_device.RasterizerState = StateFor(_cullMode);
 		_device.SamplerStates[0] = SamplerState.LinearWrap;
 		_device.ScissorRectangle = _device.Viewport.Bounds;
+		ApplyLighting();
+	}
+
+	private void ApplyLighting()
+	{
+		var sunDirection = SunDirection.LengthSquared() > 1e-6f
+			? Vector3.Normalize(SunDirection)
+			: Vector3.Down;
+		var fillDirection = FillDirection.LengthSquared() > 1e-6f
+			? Vector3.Normalize(FillDirection)
+			: Vector3.Up;
+		_effect.AmbientLightColor = AmbientColor;
+		_effect.EmissiveColor = EmissiveColor;
+		_effect.DirectionalLight0.Enabled = true;
+		_effect.DirectionalLight0.Direction = sunDirection;
+		_effect.DirectionalLight0.DiffuseColor = SunColor;
+		_effect.DirectionalLight1.Enabled = true;
+		_effect.DirectionalLight1.Direction = fillDirection;
+		_effect.DirectionalLight1.DiffuseColor = FillColor;
+		_effect.DirectionalLight2.Enabled = false;
+	}
+
+	private void EnsureSkyTexture()
+	{
+		_skyTexture ??= new Texture2D(
+			_device,
+			1,
+			SkyTextureHeight,
+			false,
+			SurfaceFormat.Color);
+		if (_skyTopColor == SkyTopColor && _skyHorizonColor == SkyHorizonColor)
+		{
+			return;
+		}
+
+		var pixels = new Color[SkyTextureHeight];
+		for (var y = 0; y < SkyTextureHeight; y++)
+		{
+			pixels[y] = Color.Lerp(
+				SkyTopColor,
+				SkyHorizonColor,
+				y / (float)(SkyTextureHeight - 1));
+		}
+
+		_skyTexture.SetData(pixels);
+		_skyTopColor = SkyTopColor;
+		_skyHorizonColor = SkyHorizonColor;
 	}
 
 	private void ApplyShading(MeshShading shading)
@@ -499,5 +596,6 @@ public sealed class Renderer : IDisposable
 		_lineEffect.Dispose();
 		_spriteBatch.Dispose();
 		_fallbackTexture.Dispose();
+		_skyTexture?.Dispose();
 	}
 }
