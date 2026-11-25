@@ -26,6 +26,7 @@ AGENTS.local.md
 *.local.md
 .env
 .env.*
+launchSettings.json
 
 # Game content must never be committed
 *.pak
