@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T107**.
+Milestone **M1 — Visible World**. Next task: **T108** (T107 is blocked on the `net` keyframe codec).
 
 ---
 
@@ -461,7 +461,7 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-26 —** `ElexModelLoader` builds the `DrModel` skeleton (`_ROOT`/`_MESH`), `DrSkin` joints and `DrModelInstance`; `ElexModel` mirrors `GothicModel` with `Instance`, `Model`, per-part `Materials` and `BoundingBox`; `Renderer.DrawSkinnedMesh` draws an `ElexModel` through `Instance.GetSkinTransforms` and `Materials`. Verified male body (61 bones/2 parts), female body, cavebird, biter and drone bind poses at 60 FPS; 620 tests; documentation updated.
   **Follow-ups:** retail animation keyframes remain blocked on the `net` codec (T107); the legacy `SkinnedMesh` class is unused by the viewer and can be removed in cleanup.
 
-- [~] **T107 · Animation playback**
+- [!] **T107 · Animation playback**
   Sample, loop and crossfade animation clips on the T106 skinned character viewer, using its bone transforms and inverse bind matrices; drive idle/walk/run.
   Done when: clips play at correct speed without pops, and looping clips are seamless.
   **Progress 2026-11-26:** the character viewer now builds a DigitalRiseModel `DrModel`/`DrModelInstance` with `DrSkin` joints and renders through `GetSkinTransforms(0)`; `ElexModel` mirrors OpenGothicSharp's `GothicModel` (instance, model, per-part materials) and `CharacterViewer` owns the `AnimationController`. Male, female, cavebird, biter and drone bind poses still render at 60 FPS.
