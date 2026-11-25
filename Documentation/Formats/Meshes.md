@@ -139,9 +139,22 @@ Positions and normals are stored in object space with Y up. The retail cube is 5
 (`-250..250` on X/Z, `0..500` on Y) and the door is roughly 600 units wide, which is consistent with
 centimetre-like units. The loader applies **no** axis conversion, scale or pivot shift; the test
 scene uses MonoGame's right-handed `CreateLookAt`/`CreatePerspectiveFieldOfView` directly and the
-meshes render upright. The stock renderer uses `RasterizerState.CullNone`, so triangle winding is not
-relied on; normals come from the vertex stream (or are generated only when the stream is absent).
-Exact winding/handedness conventions remain an open question.
+meshes render upright.
+
+### Winding and face culling
+
+`MeshWinding` compares `cross(b - a, c - a)` with the summed decoded vertex normals for every
+triangle. Across the 5,868 retail `msh` resources, 14,810,301 triangles disagree with the vertex
+normals, 12,346 agree and 6,099 are degenerate: **99.92% of non-degenerate triangles are clockwise
+when viewed from the side the normals point to**. The 0.08% exceptions are inconsistent meshes or
+vertices without a reliable normal.
+
+After MonoGame's projection and viewport transform those front faces are counter-clockwise on
+screen: a closed cube rendered with `CullCounterClockwiseFace` shows its outside correctly. The
+renderer still defaults to `CullNone` for static props because several meshes are open or
+single-sided (the closed door loses interior panels under culling) and the material two-sided flags
+are not decoded yet (T401). The viewer's `C` key cycles none/CCW/CW for inspection; once material
+flags are available, closed props should default to counter-clockwise culling.
 
 ## Buffer descriptors
 
@@ -246,6 +259,8 @@ The skeleton tail, bone names, parent indices and the retail bone budget are doc
 | Meshes with tangents | 5,718 |
 | Meshes with vertex colors | 1,614 |
 | Meshes with 32-bit indices | 28 |
+| Triangles clockwise vs. vertex normals | 14,810,301 (99.92% of non-degenerate) |
+| Triangles agreeing / degenerate | 12,346 / 6,099 |
 | Maximum vertices | 327,858 (`Obj_Bld_Cle_Cathedral_1_L1`) |
 | Maximum indices | 654,600 (32-bit) |
 
@@ -259,6 +274,26 @@ Layouts observed:
 | 6 | 5 | position, normal, tangent, color, UV0+UV1 | 424 |
 | 2 | 2 | position, normal | 123 |
 | 3 | 3 | position, normal, UV | 29 |
+
+## Runtime rendering and viewer
+
+`MeshLoader` uploads the stock MonoGame `VertexPositionColorNormalTexture` (position, color,
+normal and one texture coordinate). Meshes without a color stream get white. `BasicEffect` is used
+in two modes:
+
+- **lit** (default): lighting, diffuse texture and vertex color; the stock effect supports vertex
+  colors together with lighting (verified on `It_Plasma_Rifle_1_L1`, where the blue/ochre color
+  stream tints the metal);
+- **vertex colors** (`V`): unlit, texture disabled, to inspect the decoded color stream directly.
+
+Missing materials and textures still bind the checker placeholder. Tangents stay on the CPU: the
+viewer builds up to 2,000 magenta tangent segments (3% of the mesh radius) and `T` draws them with
+depth testing, which verifies the 5,718 meshes that carry a tangent stream.
+
+`MeshViewer` loads one mesh at a time from the 5,868 `msh` resources in name order. Left/Right
+cycles, Home/End jumps to the ends, and every change disposes the previous mesh and its material
+library so textures do not accumulate. The overlay shows the current resource, catalog position and
+active modes.
 
 ## Evidence
 
@@ -290,7 +325,8 @@ ranges: 0+180, 180+168, 348+1440, 1788+222 = 2,010 indices
 - Meaning of the 44-byte GAR5 trailer and its offsets.
 - Semantics of attribute field 12 (observed shader-slot values) and the unused 2 bits of packed normals.
 - Whether more than two UV sets can share a stream and how `UsageOffset` scales for them.
-- Vertex-color and tangent rendering: the stock `BasicEffect` supports lighting or vertex colors, not both.
+- Two-sided material flags: static props render without culling until the material parameter blocks
+  are decoded (T401); closed meshes can already use `CullCounterClockwiseFace`.
 - Whether any mesh uses a position format other than codes 4 and 7.
 
 ## Implementation
@@ -302,17 +338,25 @@ ranges: 0+180, 180+168, 348+1440, 1788+222 = 2,010 indices
 | DB-side mesh metadata | `OpenElexSharp/Assets/MeshMetadata.cs` |
 | RT02 class-block reader | `OpenElexSharp/Assets/ResourceClassBlockReader.cs` |
 | DigitalRiseModel mesh-part creation and material binding | `OpenElexSharp/Graphics/MeshLoader.cs` |
+| Winding analyzer | `OpenElexSharp/Graphics/MeshWinding.cs` |
+| Catalog mesh viewer | `OpenElexSharp/Graphics/MeshViewer.cs` |
 | Runtime material cache and texture upload | `OpenElexSharp/Graphics/MaterialLibrary.cs` |
-| Low-level renderer and statistics | `OpenElexSharp/Graphics/Renderer.cs` |
-| Test scene | `OpenElexSharp/OpenElexGame.cs` (`--mesh`, `--capture`) |
+| Low-level renderer, shading and culling | `OpenElexSharp/Graphics/Renderer.cs` |
+| Test scene | `OpenElexSharp/OpenElexGame.cs` (`--mesh`, `--viewer`, `--capture`) |
 | CLI inspector | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets meshes`) |
 
-CLI:
+CLI and viewer:
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties
 dotnet run --project OpenElexSharp -- assets meshes --all
+dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1
+dotnet run --project OpenElexSharp -- --viewer
 ```
+
+Viewer keys: Left/Right cycles the catalog, Home/End jumps to the first/last mesh, `V` toggles
+unlit vertex colors, `T` toggles tangent lines and `C` cycles culling. The debug overlay shows the
+current resource, position and modes; `--smoke-test --capture` saves a frame for automated checks.
 
 Test scene:
 

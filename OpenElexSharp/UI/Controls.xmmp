@@ -2,6 +2,11 @@
   <Project.ExportOptions Namespace="OpenElexSharp.UI" Class="Controls" FieldsVisibility="Private" />
   <VerticalStackPanel Id="_panelRoot" Spacing="2" Background="#000000A6" Padding="10,6">
     <Label Id="_labelOverlay" Text="F1 - Toggle debug overlay" TextColor="#E8E8E8" />
+    <Label Id="_labelMesh" Text="Left/Right - Cycle mesh" TextColor="#E8E8E8" />
+    <Label Id="_labelHomeEnd" Text="Home/End - First/last" TextColor="#E8E8E8" />
+    <Label Id="_labelColors" Text="V - Vertex colors" TextColor="#E8E8E8" />
+    <Label Id="_labelTangents" Text="T - Tangent lines" TextColor="#E8E8E8" />
+    <Label Id="_labelCulling" Text="C - Face culling" TextColor="#E8E8E8" />
     <Label Id="_labelEscape" Text="Escape - Exit" TextColor="#E8E8E8" />
   </VerticalStackPanel>
 </Project>

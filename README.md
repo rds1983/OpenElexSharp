@@ -55,7 +55,7 @@ dotnet run --project OpenElexSharp
 dotnet run --project OpenElexSharp -- --mesh Mesh_Male_FullBody_Alb_High_01_L1 --animation Male
 ```
 
-`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. `--mesh <skn resource> --animation <net resource>` displays a decoded skeleton driven by the largest duration-grouped sample set (falling back to a blend between the two largest clips). `--collision <col resource>` draws a collision wireframe (scaled from metres to mesh centimetres) and can be combined with `--mesh`; add `--smoke-test`/`--capture <path>` for automated checks, and `--capture-frame <n>` to save a later frame. All scenes show a Myra HUD with FPS, update/draw time, memory, draw-call, triangle and mesh statistics; press `F1` to toggle the stats block and `Escape` to exit. `--soak-test <seconds>` runs the loop for a fixed duration and logs memory samples; `--crash-test` deliberately fails to exercise the crash screen. Runtime logs go to `logs/openelexsharp.log`, crash reports to `logs/crash-*.txt`. Full materials, skinned meshes and world rendering arrive in later tasks.
+`--smoke-test` renders a few frames and exits with code 0 (used for automated verification). At this stage the engine mounts the installation's loose folders and PAK volumes from `mount_packed.xml` and opens a window. `--texture <image resource>` displays a game DDS texture and `--mesh <mesh resource>` displays a static GMSH mesh with its decoded normals, UVs, submesh ranges and material textures. `--viewer` opens the mesh viewer at the first catalog mesh; `Left`/`Right` cycles all 5,868 meshes, `Home`/`End` jumps to the ends, `V` toggles unlit vertex colors, `T` draws tangent lines and `C` cycles face culling. `--mesh <skn resource> --animation <net resource>` displays a decoded skeleton driven by the largest duration-grouped sample set (falling back to a blend between the two largest clips). `--collision <col resource>` draws a collision wireframe (scaled from metres to mesh centimetres) and can be combined with `--mesh`; add `--smoke-test`/`--capture <path>` for automated checks, and `--capture-frame <n>` to save a later frame. All scenes show a Myra HUD with FPS, update/draw time, memory, draw-call, triangle and mesh statistics; press `F1` to toggle the stats block and `Escape` to exit. `--soak-test <seconds>` runs the loop for a fixed duration and logs memory samples; `--crash-test` deliberately fails to exercise the crash screen. Runtime logs go to `logs/openelexsharp.log`, crash reports to `logs/crash-*.txt`. Full materials, skinned meshes and world rendering arrive in later tasks.
 
 Asset inspection is available headlessly:
 
@@ -96,9 +96,9 @@ Updated after each completed task by running `Scripts/Get-CodeMetrics.ps1` with 
 
 | Scope | Files | Lines | Non-blank LOC | Size |
 | --- | ---: | ---: | ---: | ---: |
-| Engine | 79 | 15977 | 13899 | 496.4 KB |
-| Tests | 65 | 8610 | 7247 | 251.1 KB |
-| **Total** | **144** | **24587** | **21146** | **747.5 KB** |
+| Engine | 82 | 16667 | 14499 | 516.9 KB |
+| Tests | 66 | 8729 | 7346 | 253.9 KB |
+| **Total** | **148** | **25396** | **21845** | **770.8 KB** |
 
 ## Credits
 

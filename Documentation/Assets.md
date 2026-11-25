@@ -184,7 +184,8 @@ Builds the logical resource index, finds `msh` resources and parses their GMSH v
 index buffer, vertex streams, attribute formats and buffer descriptors. Prints name, vertex count,
 triangle count, attribute/stream/descriptor counts, bounds and ROM path. `--properties` prints the
 decoded stream layout, formats, buffer descriptors, the maximum deviation between packed and widened
-positions, and the `eCMeshResource2` submesh/material/LOD metadata from the database.
+positions, the winding agreement between each triangle's face normal and its vertex normals, and the
+`eCMeshResource2` submesh/material/LOD metadata from the database.
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets meshes Obj_Bld_Alb_Door_Closed_L1 --properties

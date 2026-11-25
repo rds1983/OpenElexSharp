@@ -17,7 +17,18 @@ public sealed class Renderer : IDisposable
 	private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 	private readonly Texture2D _fallbackTexture;
 
+	private static readonly RasterizerState CullNoneState = new() { CullMode = CullMode.None };
+	private static readonly RasterizerState CullCounterClockwiseState = new()
+	{
+		CullMode = CullMode.CullCounterClockwiseFace,
+	};
+	private static readonly RasterizerState CullClockwiseState = new()
+	{
+		CullMode = CullMode.CullClockwiseFace,
+	};
+
 	private bool _frameOpen;
+	private CullMode _cullMode = CullMode.None;
 	private Matrix _view;
 	private Matrix _projection;
 
@@ -70,6 +81,16 @@ public sealed class Renderer : IDisposable
 	/// <summary>Line primitives submitted during the current frame.</summary>
 	public int Lines { get; private set; }
 
+	/// <summary>
+	/// Face culling used by mesh draws. Lines are unaffected. The value is applied at the start of
+	/// the next frame.
+	/// </summary>
+	public CullMode CullMode
+	{
+		get => _cullMode;
+		set => _cullMode = value;
+	}
+
 	/// <summary>Starts a 3D frame and installs the camera matrices.</summary>
 	public void BeginFrame(Matrix view, Matrix projection)
 	{
@@ -102,13 +123,13 @@ public sealed class Renderer : IDisposable
 	/// Draws every part of a DigitalRiseModel mesh. Each part uses its own material texture when
 	/// present and the fallback checker texture otherwise.
 	/// </summary>
-	public void DrawMesh(DrMesh mesh, Matrix world, bool cull = false)
+	public void DrawMesh(DrMesh mesh, Matrix world, bool cull = false, MeshShading shading = MeshShading.Lit)
 	{
 		EnsureFrameOpen(nameof(DrawMesh));
 		ArgumentNullException.ThrowIfNull(mesh);
 		foreach (var part in mesh.MeshParts)
 		{
-			DrawMeshPart(part, world, cull);
+			DrawMeshPart(part, world, cull, shading);
 		}
 	}
 
@@ -117,7 +138,11 @@ public sealed class Renderer : IDisposable
 	/// bounding sphere used for optional culling and the runtime material whose diffuse texture is
 	/// bound for the draw.
 	/// </summary>
-	public void DrawMeshPart(DrMeshPart part, Matrix world, bool cull = false)
+	public void DrawMeshPart(
+		DrMeshPart part,
+		Matrix world,
+		bool cull = false,
+		MeshShading shading = MeshShading.Lit)
 	{
 		EnsureFrameOpen(nameof(DrawMeshPart));
 		ArgumentNullException.ThrowIfNull(part);
@@ -136,6 +161,7 @@ public sealed class Renderer : IDisposable
 			}
 		}
 
+		ApplyShading(shading);
 		_effect.World = world;
 		_effect.Texture = tag?.Material?.Texture ?? _fallbackTexture;
 		_effect.DiffuseColor = Vector3.One;
@@ -247,10 +273,35 @@ public sealed class Renderer : IDisposable
 		_frameOpen = true;
 		_device.BlendState = BlendState.Opaque;
 		_device.DepthStencilState = DepthStencilState.Default;
-		_device.RasterizerState = RasterizerState.CullNone;
+		_device.RasterizerState = StateFor(_cullMode);
 		_device.SamplerStates[0] = SamplerState.LinearWrap;
 		_device.ScissorRectangle = _device.Viewport.Bounds;
 	}
+
+	private void ApplyShading(MeshShading shading)
+	{
+		switch (shading)
+		{
+			case MeshShading.VertexColor:
+				_effect.LightingEnabled = false;
+				_effect.TextureEnabled = false;
+				_effect.VertexColorEnabled = true;
+				break;
+			default:
+				_effect.LightingEnabled = true;
+				_effect.TextureEnabled = true;
+				_effect.VertexColorEnabled = true;
+				break;
+		}
+	}
+
+	private static RasterizerState StateFor(CullMode mode) =>
+		mode switch
+		{
+			CullMode.CullCounterClockwiseFace => CullCounterClockwiseState,
+			CullMode.CullClockwiseFace => CullClockwiseState,
+			_ => CullNoneState,
+		};
 
 	private static int PrimitiveCountToTriangles(PrimitiveType primitiveType, int primitiveCount)
 	{

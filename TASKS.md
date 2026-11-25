@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T102**.
+Milestone **M1 — Visible World**. Next task: **T103**.
 
 ---
 
@@ -424,9 +424,11 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-25 — 60 Hz host with resize/device-reset handling, console+file logging, crash report/screen (exit 3), F1 overlay with FPS/update/draw/memory, `--soak-test`/`--crash-test`/`--capture-frame`; 536 tests, 60 s soak flat at 333.6 MB.**
   **Follow-up:** in-place device-lost resource recreation is deferred until runtime GPU state exists; unfocused windows throttle to ~10 Hz.
 
-- [ ] **T102 · Mesh renderer**
+- [x] **T102 · Mesh renderer**
   Upload parsed meshes to GPU buffers, map materials/textures, and draw with `BasicEffect`; provide checker/placeholder materials for missing data. Add a model-viewer scene. Include vertex-color and tangent rendering and resolve triangle winding/handedness.
   Done when: static meshes render with correct proportions, normals and UVs, and the viewer can cycle any mesh in the catalog.
+  **Completed 2026-11-25 — stock `VertexPositionColorNormalTexture`, lit vertex colors, tangent debug lines, 5,868-mesh viewer and winding analysis (99.92% clockwise vs. normals; CCW culling verified on closed meshes); 545 tests.**
+  **Follow-ups:** two-sided material flags and the resulting default culling are T401; automatic LOD switching is T406; the GMSH per-triangle cluster block remains undecoded.
 
 - [ ] **T103 · Camera, transforms and culling**
   Scene graph/transform hierarchy, fly camera, frustum culling, material-sorted draw batching, and basic render statistics.
@@ -533,7 +535,7 @@ Exit criteria: scripts, quests, dialogue, activities, progression and audio work
 Exit criteria: visuals and UI are close enough to the original that differences are deliberate and documented.
 
 - [ ] **T401 · Material shaders**
-  Normal/specular/emissive materials, terrain layer blending and the remaining feature-specific effects, matching the original look. Decode the material parameter blocks (shader colors/scalars and multi-pass selection) first.
+  Normal/specular/emissive materials, terrain layer blending and the remaining feature-specific effects, matching the original look. Decode the material parameter blocks (shader colors/scalars, two-sided/culling flags and multi-pass selection) first.
   Done when: side-by-side comparisons show no systemic material differences.
 
 - [ ] **T402 · Post-processing**

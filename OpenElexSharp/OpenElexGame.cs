@@ -27,7 +27,7 @@ public sealed class OpenElexGame : Game
 	private readonly LaunchOptions _options;
 	private readonly FrameStatistics _frameStatistics = new();
 	private int _updateCount;
-	private int _frameCount;
+	private int _drawCount;
 	private bool _captured;
 	private bool _deviceLost;
 	private bool _resizing;
@@ -43,10 +43,9 @@ public sealed class OpenElexGame : Game
 	private Hud? _hud;
 	private Texture2D? _texture;
 	private Texture2D? _fallback;
-	private DrMesh? _mesh;
+	private MeshViewer? _viewer;
 	private ElexCollisionMesh? _collision;
 	private VertexPositionColor[]? _collisionLines;
-	private MaterialLibrary? _materials;
 	private Skeleton? _skeleton;
 	private MotionNetwork? _network;
 	private MotionClip? _clipA;
@@ -121,18 +120,18 @@ public sealed class OpenElexGame : Game
 			return;
 		}
 
-		if (!string.IsNullOrWhiteSpace(_options.Mesh))
+		if (_options.Viewer || !string.IsNullOrWhiteSpace(_options.Mesh))
 		{
 			try
 			{
-				_mesh = LoadMesh(_options.Mesh);
+				LoadViewerScene();
 			}
 			catch (Exception exception) when (
 				exception is GmshFormatException or GenomeFormatException or Gar5FormatException or
 					NotSupportedException or IOException or UnauthorizedAccessException or
 					AssetNotFoundException or InvalidOperationException or ArgumentException)
 			{
-				Log.Warning($"Mesh warning: {exception.Message}");
+				Log.Warning($"Mesh viewer warning: {exception.Message}");
 			}
 		}
 
@@ -151,7 +150,7 @@ public sealed class OpenElexGame : Game
 			}
 		}
 
-		if (_mesh is not null || _collisionLines is not null)
+		if (_viewer?.Mesh is not null || _collisionLines is not null)
 		{
 			return;
 		}
@@ -189,7 +188,6 @@ public sealed class OpenElexGame : Game
 
 	private void UpdateCore(GameTime gameTime)
 	{
-		++_frameCount;
 		++_updateCount;
 
 		if (_deviceLost)
@@ -200,17 +198,57 @@ public sealed class OpenElexGame : Game
 		}
 
 		var keyboard = Keyboard.GetState();
-		if (keyboard.IsKeyDown(Keys.Escape) && _previousKeyboard.IsKeyUp(Keys.Escape))
+		if (IsNewKeyPress(keyboard, Keys.Escape))
 		{
 			Exit();
 		}
 
-		if (keyboard.IsKeyDown(Keys.F1) && _previousKeyboard.IsKeyUp(Keys.F1))
+		if (IsNewKeyPress(keyboard, Keys.F1))
 		{
 			var visible = _hud?.ToggleDebugOverlay();
 			if (visible is not null)
 			{
 				Log.Info($"Debug overlay {(visible.Value ? "shown" : "hidden")}.");
+			}
+		}
+
+		if (_viewer is not null)
+		{
+			if (IsNewKeyPress(keyboard, Keys.Right))
+			{
+				ChangeMesh(1);
+			}
+			else if (IsNewKeyPress(keyboard, Keys.Left))
+			{
+				ChangeMesh(-1);
+			}
+			else if (IsNewKeyPress(keyboard, Keys.Home))
+			{
+				LoadFirstMesh();
+			}
+			else if (IsNewKeyPress(keyboard, Keys.End))
+			{
+				LoadLastMesh();
+			}
+
+			if (IsNewKeyPress(keyboard, Keys.V))
+			{
+				_viewer.Shading = _viewer.Shading == MeshShading.Lit
+					? MeshShading.VertexColor
+					: MeshShading.Lit;
+				Log.Info($"Mesh shading: {_viewer.Shading}.");
+			}
+
+			if (IsNewKeyPress(keyboard, Keys.T))
+			{
+				_viewer.ShowTangents = !_viewer.ShowTangents;
+				Log.Info($"Tangent lines: {(_viewer.ShowTangents ? "on" : "off")}.");
+			}
+
+			if (IsNewKeyPress(keyboard, Keys.C))
+			{
+				_viewer.CullMode = NextCullMode(_viewer.CullMode);
+				Log.Info($"Face culling: {_viewer.CullMode}.");
 			}
 		}
 
@@ -237,21 +275,12 @@ public sealed class OpenElexGame : Game
 				return;
 			}
 		}
-		else if (_options.SmokeTest && _updateCount >= SmokeTestFrameCount)
-		{
-			if (_renderer is not null)
-			{
-				Log.Info(
-					$"Render statistics: drawCalls={_renderer.DrawCalls} " +
-					$"triangles={_renderer.Triangles} meshes={_renderer.Meshes}");
-			}
-
-			Exit();
-			return;
-		}
 
 		base.Update(gameTime);
 	}
+
+	private bool IsNewKeyPress(KeyboardState keyboard, Keys key) =>
+		keyboard.IsKeyDown(key) && _previousKeyboard.IsKeyUp(key);
 
 	protected override void Draw(GameTime gameTime)
 	{
@@ -277,6 +306,7 @@ public sealed class OpenElexGame : Game
 			return;
 		}
 
+		++_drawCount;
 		_statisticsElapsed += gameTime.ElapsedGameTime.TotalSeconds;
 		if (!_statisticsWarmedUp || _statisticsElapsed >= StatisticsInterval)
 		{
@@ -292,7 +322,7 @@ public sealed class OpenElexGame : Game
 		{
 			DrawSkeleton(gameTime);
 		}
-		else if (_mesh is not null || _collisionLines is not null)
+		else if (_viewer?.Mesh is not null || _collisionLines is not null)
 		{
 			DrawMesh(gameTime);
 		}
@@ -301,9 +331,22 @@ public sealed class OpenElexGame : Game
 			DrawTexture();
 		}
 
-		_hud?.Update(_renderer, _statistics);
+		_hud?.Update(_renderer, _statistics, _viewer?.Status);
 		_desktop?.Render();
 		CaptureIfRequested();
+
+		if (_options.SmokeTest && _options.SoakSeconds is null)
+		{
+			var smokeFrames = Math.Max(SmokeTestFrameCount, _options.CaptureFrame ?? 0);
+			if (_drawCount >= smokeFrames)
+			{
+				Log.Info(
+					$"Render statistics: drawCalls={_renderer.DrawCalls} " +
+					$"triangles={_renderer.Triangles} meshes={_renderer.Meshes}");
+				Exit();
+			}
+		}
+
 		base.Draw(gameTime);
 	}
 
@@ -324,10 +367,8 @@ public sealed class OpenElexGame : Game
 		_texture = null;
 		_fallback?.Dispose();
 		_fallback = null;
-		_mesh?.Dispose();
-		_mesh = null;
-		_materials?.Dispose();
-		_materials = null;
+		_viewer?.Dispose();
+		_viewer = null;
 		_skeleton = null;
 		_network = null;
 		_clipA = null;
@@ -340,7 +381,7 @@ public sealed class OpenElexGame : Game
 	private void CaptureIfRequested()
 	{
 		var captureFrame = _options.CaptureFrame ?? 4;
-		if (_captured || string.IsNullOrEmpty(_options.CapturePath) || _frameCount < captureFrame)
+		if (_captured || string.IsNullOrEmpty(_options.CapturePath) || _drawCount < captureFrame)
 		{
 			return;
 		}
@@ -553,8 +594,9 @@ public sealed class OpenElexGame : Game
 
 	private void DrawMesh(GameTime gameTime)
 	{
-		var box = _mesh is not null ?
-			ComputeMeshBounds(_mesh) :
+		var mesh = _viewer?.Mesh;
+		var box = mesh is not null ?
+			ComputeMeshBounds(mesh) :
 			new BoundingBox(
 				new Vector3(_collision!.BoundsMin.X, _collision.BoundsMin.Y, _collision.BoundsMin.Z),
 				new Vector3(_collision.BoundsMax.X, _collision.BoundsMax.Y, _collision.BoundsMax.Z));
@@ -572,11 +614,17 @@ public sealed class OpenElexGame : Game
 			radius * 0.001f,
 			radius * 20f);
 
-		_renderer!.BeginFrame(view, projection);
+		_renderer!.CullMode = _viewer?.CullMode ?? CullMode.None;
+		_renderer.BeginFrame(view, projection);
 		_renderer.Clear(new Color(16, 18, 24));
-		if (_mesh is not null)
+		if (mesh is not null)
 		{
-			_renderer.DrawMesh(_mesh, Matrix.Identity);
+			_renderer.DrawMesh(mesh, Matrix.Identity, shading: _viewer!.Shading);
+		}
+
+		if (_viewer?.ShowTangents == true && _viewer.TangentLines.Length > 0)
+		{
+			_renderer.DrawLines(_viewer.TangentLines, Matrix.Identity);
 		}
 
 		if (_collisionLines is not null)
@@ -613,38 +661,95 @@ public sealed class OpenElexGame : Game
 		_renderer.EndFrame();
 	}
 
-	private DrMesh LoadMesh(string query)
+	private void LoadViewerScene()
 	{
 		var resources = BuildResourceIndex();
-		var resource = FindResource(resources, query, "msh");
-		var mesh = GmshMesh.Parse(resource.Name, resource.VirtualPath, ReadAll(resource.VirtualPath));
-		MeshMetadata? metadata = null;
-		using (var classBlocks = new ResourceClassBlockReader(Assets))
+		_viewer = new MeshViewer(GraphicsDevice, Assets, resources);
+		if (!_viewer.TryLoad(_options.Mesh, out var error))
 		{
-			try
-			{
-				metadata = MeshMetadata.Parse(classBlocks.Read(resource));
-			}
-			catch (Exception exception) when (exception is Gar5FormatException or GenomeFormatException)
-			{
-				Log.Warning($"Mesh metadata warning: {exception.Message}");
-			}
+			Log.Warning($"Mesh viewer: {error}");
+			return;
 		}
 
-		_materials = new MaterialLibrary(GraphicsDevice, Assets, resources);
-		var result = MeshLoader.Load(GraphicsDevice, mesh, metadata, _materials.Load);
-		Log.Info(
-			$"Mesh: {resource.Name} vertices={mesh.Positions.Count} triangles={mesh.TriangleCount} " +
-			$"attributes={mesh.VertexAttributes.Count} subMeshes={result.MeshParts.Count} " +
-			$"materials={metadata?.MaterialNames.Count ?? 0} lodStart={metadata?.LODRangeStart ?? 0:0.###} " +
-			$"diagnostics={mesh.Diagnostics.Count}");
-		foreach (var warning in _materials.Warnings)
-		{
-			Log.Warning($"Material warning: {warning}");
-		}
-
-		return result;
+		LogViewerInfo("Mesh viewer");
 	}
+
+	private void ChangeMesh(int delta)
+	{
+		if (_viewer is null)
+		{
+			return;
+		}
+
+		if (_viewer.Cycle(delta, out var error))
+		{
+			LogViewerInfo("Mesh viewer");
+		}
+		else
+		{
+			Log.Warning($"Mesh viewer: {error}");
+		}
+	}
+
+	private void LoadFirstMesh()
+	{
+		if (_viewer is null)
+		{
+			return;
+		}
+
+		if (_viewer.LoadFirst(out var error))
+		{
+			LogViewerInfo("Mesh viewer");
+		}
+		else
+		{
+			Log.Warning($"Mesh viewer: {error}");
+		}
+	}
+
+	private void LoadLastMesh()
+	{
+		if (_viewer is null)
+		{
+			return;
+		}
+
+		if (_viewer.LoadLast(out var error))
+		{
+			LogViewerInfo("Mesh viewer");
+		}
+		else
+		{
+			Log.Warning($"Mesh viewer: {error}");
+		}
+	}
+
+	private void LogViewerInfo(string prefix)
+	{
+		if (_viewer is null)
+		{
+			return;
+		}
+
+		Log.Info(
+			$"{prefix}: {_viewer.CurrentName} ({_viewer.Index + 1}/{_viewer.Count}) " +
+			$"vertices={_viewer.VertexCount} triangles={_viewer.TriangleCount} " +
+			$"parts={_viewer.PartCount} materials={_viewer.MaterialCount} " +
+			$"shading={_viewer.Shading} tangents={_viewer.ShowTangents} cull={_viewer.CullMode}");
+		foreach (var warning in _viewer.Warnings)
+		{
+			Log.Warning($"Mesh warning: {warning}");
+		}
+	}
+
+	private static CullMode NextCullMode(CullMode mode) =>
+		mode switch
+		{
+			CullMode.None => CullMode.CullCounterClockwiseFace,
+			CullMode.CullCounterClockwiseFace => CullMode.CullClockwiseFace,
+			_ => CullMode.None,
+		};
 
 	private void LoadCollision(string query)
 	{

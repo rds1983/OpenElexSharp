@@ -54,12 +54,19 @@ public static class MeshLoader
 		var textureCoordinates = source.TextureCoordinates.Count == positions.Count
 			? source.TextureCoordinates
 			: null;
+		var colors = source.Colors.Count == positions.Count
+			? source.Colors
+			: null;
 
-		var vertices = new VertexPositionNormalTexture[positions.Count];
+		var vertices = new VertexPositionColorNormalTexture[positions.Count];
 		for (var index = 0; index < vertices.Length; index++)
 		{
-			vertices[index] = new VertexPositionNormalTexture(
+			var color = colors is null
+				? Color.White
+				: new Color(colors[index].X, colors[index].Y, colors[index].Z, colors[index].W);
+			vertices[index] = new VertexPositionColorNormalTexture(
 				new Vector3(positions[index].X, positions[index].Y, positions[index].Z),
+				color,
 				new Vector3(normals[index].X, normals[index].Y, normals[index].Z),
 				textureCoordinates is null
 					? Vector2.Zero
@@ -74,7 +81,7 @@ public static class MeshLoader
 
 		var vertexBuffer = new VertexBuffer(
 			device,
-			VertexPositionNormalTexture.VertexDeclaration,
+			VertexPositionColorNormalTexture.VertexDeclaration,
 			vertices.Length,
 			BufferUsage.WriteOnly);
 		vertexBuffer.SetData(vertices);

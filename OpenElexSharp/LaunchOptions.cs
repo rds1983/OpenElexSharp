@@ -17,6 +17,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that loads a mesh resource for the static-mesh test scene.</summary>
 	public const string MeshArgument = "--mesh";
 
+	/// <summary>The argument that opens the mesh viewer at the first catalog mesh.</summary>
+	public const string ViewerArgument = "--viewer";
+
 	/// <summary>The argument that loads a motion network and displays a skeleton pose.</summary>
 	public const string AnimationArgument = "--animation";
 
@@ -56,6 +59,12 @@ public sealed class LaunchOptions
 	/// Gets the mesh resource name (or name substring) to display in the static-mesh test scene.
 	/// </summary>
 	public string? Mesh { get; private init; }
+
+	/// <summary>
+	/// Gets a value indicating whether the mesh viewer should open at the first catalog mesh when
+	/// no <see cref="Mesh"/> name is supplied.
+	/// </summary>
+	public bool Viewer { get; private init; }
 
 	/// <summary>
 	/// Gets the motion-network resource name (or substring) for the skeleton pose scene. When set,
@@ -104,6 +113,7 @@ public sealed class LaunchOptions
 		string? elexPath = null;
 		string? texture = null;
 		string? mesh = null;
+		var viewer = false;
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
@@ -162,6 +172,10 @@ public sealed class LaunchOptions
 					MeshArgument,
 					argument[(MeshArgument.Length + 1)..],
 					nameof(args));
+			}
+			else if (string.Equals(argument, ViewerArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				viewer = true;
 			}
 			else if (string.Equals(argument, AnimationArgument, StringComparison.OrdinalIgnoreCase))
 			{
@@ -259,6 +273,7 @@ public sealed class LaunchOptions
 			ElexPath = elexPath,
 			Texture = texture,
 			Mesh = mesh,
+			Viewer = viewer,
 			Animation = animation,
 			Collision = collision,
 			CapturePath = capturePath,

@@ -11,8 +11,8 @@ All UI source lives in `OpenElexSharp/UI/`:
 | File | Purpose |
 | --- | --- |
 | `Hud.xmmp` | Root `Panel` stretched over the viewport. |
-| `DebugOverlay.xmmp` | Top-left stats block: FPS, update/draw time, memory, draw calls, triangles, meshes. |
-| `Controls.xmmp` | Bottom-right control hints: `F1 - Toggle debug overlay`, `Escape - Exit`. |
+| `DebugOverlay.xmmp` | Top-left stats block: FPS, update/draw time, memory, draw calls, triangles, meshes; mesh-viewer name and mode rows. |
+| `Controls.xmmp` | Bottom-right control hints: overlay toggle, mesh cycling, vertex colors, tangents, culling and exit. |
 
 Each `.xmmp` uses:
 
@@ -57,14 +57,17 @@ plus `FrameStatistics` (FPS, update/draw time, memory). `Renderer.Meshes` counts
 **parts**, so a mesh with four submeshes contributes four. FPS is counted over a half-second
 window; update/draw values are averages over the last 120 frames; memory shows the process
 working set and managed heap. The block refreshes every frame until the first half second has
-elapsed so a screenshot taken during start-up still shows values, then twice per second.
+elapsed so a screenshot taken during start-up still shows values, then twice per second. When the
+mesh viewer is active, two more rows show the current resource/catalog position and the active
+shading, tangent and culling state; they are hidden otherwise.
 
 ## Capturing a frame
 
 Desktop capture can show a black surface for the game window on some multi-GPU setups. Use the
-`--capture <path>` option instead: after a few frames the game copies the back buffer to a PNG and
-keeps running (combine with `--smoke-test` to exit automatically). `--capture-frame <n>` selects
-the frame (default 4), which is useful after shader warm-up or after hiding the debug overlay.
+`--capture <path>` option instead: at the requested draw frame the game copies the back buffer to a
+PNG and keeps running. `--smoke-test` exits after capture (at least 10 draws); `--capture-frame <n>`
+selects the draw frame (default 4), which is useful after shader warm-up or after hiding the debug
+overlay.
 
 ```powershell
 dotnet run --project OpenElexSharp -- --mesh Obj_Bld_Alb_Door_Closed_L1 --smoke-test --capture shot.png
@@ -85,10 +88,13 @@ dotnet run --project OpenElexSharp -- --mesh Obj_Dmy_MaterialCube_1_L1 --soak-te
 
 - `Escape` exits. It is handled by both `Window.KeyDown` and `Game.Update` edge detection.
 - `F1` toggles the debug stats block; the controls panel lists the key.
+- Viewer: `Left`/`Right` cycle meshes, `Home`/`End` jump to the first/last mesh, `V` toggles unlit
+  vertex colors, `T` toggles tangent lines and `C` cycles face culling.
 - The overlay starts visible; hiding it leaves the controls hint in place.
 
 ## Related tasks
 
 - T008 stage A — test scene HUD.
 - T101 — application shell, logging, crash screen, resize and debug overlay.
+- T102 — mesh viewer, vertex colors, tangents and winding resolution.
 - See [Architecture.md](Architecture.md) for the host, timestep, logging and soak test.

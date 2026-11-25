@@ -47,8 +47,8 @@ public partial class Hud
 	public DebugOverlay DebugOverlay => _debugOverlay;
 
 	/// <summary>Updates the HUD from the current frame statistics and renderer counters.</summary>
-	public void Update(Renderer renderer, FrameSnapshot snapshot) =>
-		_debugOverlay.Update(renderer, snapshot);
+	public void Update(Renderer renderer, FrameSnapshot snapshot, MeshViewerStatus? viewer) =>
+		_debugOverlay.Update(renderer, snapshot, viewer);
 
 	/// <summary>Shows or hides the stats block and returns the new visibility.</summary>
 	public bool ToggleDebugOverlay()

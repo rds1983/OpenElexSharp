@@ -109,8 +109,9 @@ real numbers immediately) and twice per second afterwards. The overlay is shown 
 **F1** toggles it; the bottom-right controls panel lists the key. The toggle uses edge detection
 in `Update` (the same pattern as Escape) and logs the new state.
 
-`--capture-frame <n>` chooses the frame saved by `--capture`, which is useful for screenshots
-after shader warm-up or after toggling the overlay. The default remains frame 4.
+`--capture-frame <n>` chooses the draw frame saved by `--capture`, which is useful for screenshots
+after shader warm-up or after toggling the overlay. The default remains draw frame 4; a smoke test
+waits for the capture frame before exiting.
 
 ## Soak testing
 

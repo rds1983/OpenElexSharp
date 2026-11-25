@@ -8,6 +8,7 @@ public class LaunchOptionsTests
 		var options = LaunchOptions.Parse([]);
 
 		Assert.False(options.SmokeTest);
+		Assert.False(options.Viewer);
 		Assert.Null(options.ElexPath);
 	}
 
@@ -104,6 +105,23 @@ public class LaunchOptionsTests
 		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--mesh"]));
 
 		Assert.Contains("--mesh", exception.Message);
+	}
+
+	[Fact]
+	public void Parse_ViewerArgument_EnablesViewer()
+	{
+		var options = LaunchOptions.Parse(["--viewer"]);
+
+		Assert.True(options.Viewer);
+	}
+
+	[Fact]
+	public void Parse_ViewerWithMesh_SetsBoth()
+	{
+		var options = LaunchOptions.Parse(["--viewer", "--mesh", "Obj_Dmy_MaterialCube_1_L1"]);
+
+		Assert.True(options.Viewer);
+		Assert.Equal("Obj_Dmy_MaterialCube_1_L1", options.Mesh);
 	}
 
 	[Fact]

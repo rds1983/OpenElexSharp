@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using OpenElexSharp.Graphics;
 
 namespace OpenElexSharp.Assets;
 
@@ -1090,6 +1091,18 @@ public static class AssetCatalogConsole
 					$"hasNormals={mesh.HasNormals}\thasTextureCoordinates={mesh.HasTextureCoordinates}\t" +
 					$"hasTangents={mesh.Tangents.Count > 0}\thasColors={mesh.Colors.Count > 0}\t" +
 					$"hasTextureCoordinates1={mesh.TextureCoordinates1.Count > 0}");
+				if (mesh.Normals.Count == mesh.Positions.Count && mesh.Normals.Count > 0)
+				{
+					var winding = MeshWinding.Analyze(mesh.Positions, mesh.Normals, mesh.Indices);
+					output.WriteLine(
+						$"\twinding\tagree={winding.Agreeing}\tdisagree={winding.Disagreeing}\t" +
+						$"degenerate={winding.Degenerate}\tratio={winding.AgreementRatio:0.####}");
+				}
+				else
+				{
+					output.WriteLine("\twinding\tn/a");
+				}
+
 				var deviation = MaxSourcePositionDeviation(mesh);
 				output.WriteLine($"\tpositions\tmaxSourceDeviation={deviation:0.######}");
 				foreach (var attribute in mesh.VertexAttributes)
