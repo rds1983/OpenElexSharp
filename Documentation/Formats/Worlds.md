@@ -58,6 +58,14 @@ trailer follows the names (unresolved).
 Sector names resolve through the resource index with type token `sec`; the list order is the world
 order used by the game.
 
+### Compiled heightmaps
+
+The `terrain3.trn` path is not mounted in the retail installation. Heightmaps are instead embedded
+in the per-tile static-scene blobs under
+`data/compiled/staticscene/World/World_00_<blockX>_<blockZ>/`. Each blob has a `GESC` section with a
+3200 × 3200 tile header and a 137 × 137 `uint16` height grid; see [Terrain.md](Terrain.md) for the
+layout, world mapping and current runtime alignment.
+
 ## Scene sector (`sec`)
 
 The inner object is `class gCEmbeddedLayer` (`0x7A99504C`, version 1). Its class data starts with an

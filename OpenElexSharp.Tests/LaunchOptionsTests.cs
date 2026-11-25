@@ -11,6 +11,7 @@ public class LaunchOptionsTests
 		Assert.False(options.Viewer);
 		Assert.False(options.Stress);
 		Assert.False(options.NoCull);
+		Assert.False(options.Terrain);
 		Assert.Null(options.ElexPath);
 	}
 
@@ -168,6 +169,26 @@ public class LaunchOptionsTests
 		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--sector"]));
 
 		Assert.Contains("--sector", exception.Message);
+	}
+
+	[Theory]
+	[InlineData("--terrain")]
+	[InlineData("--TERRAIN")]
+	public void Parse_TerrainArgument_EnablesTerrain(string argument)
+	{
+		var options = LaunchOptions.Parse([argument]);
+
+		Assert.True(options.Terrain);
+		Assert.Empty(options.Sectors);
+	}
+
+	[Fact]
+	public void Parse_TerrainWithSector_LoadsBoth()
+	{
+		var options = LaunchOptions.Parse(["--sector", "TAV_Fort_Buildings", "--terrain"]);
+
+		Assert.True(options.Terrain);
+		Assert.Equal(["TAV_Fort_Buildings"], options.Sectors);
 	}
 
 	[Fact]

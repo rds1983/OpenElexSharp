@@ -34,6 +34,7 @@ This folder documents the binary formats used by ELEX assets. Each specification
 - [Skeletons.md](Skeletons.md) — `skn` skinned meshes and embedded skeletons (T009a, partial).
 - [Animations.md](Animations.md) — Morpheme motion networks (`net`), clips/poses, transitions and blend shapes (`bln`) (T009b/T009c/T009d/T009e, partial).
 - [Worlds.md](Worlds.md) — world definitions (`wrl`), scene sectors (`sec`), entity trees and transforms (T010).
+- [Terrain.md](Terrain.md) — `GESC` heightmap tiles embedded in staticscene blobs (T109, partial).
 - [Collision.md](Collision.md) — collision (`col`), occlusion (`ocm`) and navigation annotations (T011).
 - [Audio.md](Audio.md) — FSB5 sound banks (`snd`/`dlg`) and FADPCM metadata (T012).
 - [Localization.md](Localization.md) — compiled STB string tables (`str`) and `loc.ini` (T013).

@@ -46,6 +46,7 @@ public sealed class OpenElexGame : Game
 	private MeshViewer? _viewer;
 	private StressScene? _stress;
 	private SectorScene? _sector;
+	private TerrainScene? _terrain;
 	private ElexCollisionMesh? _collision;
 	private VertexPositionColor[]? _collisionLines;
 	private Skeleton? _skeleton;
@@ -450,6 +451,8 @@ public sealed class OpenElexGame : Game
 		_stress = null;
 		_sector?.Dispose();
 		_sector = null;
+		_terrain?.Dispose();
+		_terrain = null;
 		_skeleton = null;
 		_network = null;
 		_clipA = null;
@@ -794,6 +797,7 @@ public sealed class OpenElexGame : Game
 			_sector.FogColor.Y,
 			_sector.FogColor.Z,
 			1f));
+		_terrain?.Submit(_renderer);
 		_sector.Submit(_renderer);
 		_renderer.EndFrame();
 	}
@@ -809,10 +813,43 @@ public sealed class OpenElexGame : Game
 			$"parts={_sector.PartCount} uniqueMeshes={_sector.UniqueMeshCount} " +
 			$"missingMeshes={_sector.MissingMeshCount} " +
 			$"transformMismatches={_sector.TransformMismatches} " +
+			$"ground={_sector.GroundLevel:0} " +
 			$"fog={_sector.FogStart:0}-{_sector.FogEnd:0}");
 		foreach (var warning in _sector.Warnings.Take(20))
 		{
 			Log.Warning($"Sector warning: {warning}");
+		}
+
+		if (!_options.Terrain)
+		{
+			return;
+		}
+
+		try
+		{
+			var size = _sector.Bounds.Max - _sector.Bounds.Min;
+			var radius = Math.Clamp(
+				(int)MathF.Ceiling(MathF.Max(size.X, size.Z) / TerrainScene.TileSize) + 1,
+				1,
+				4);
+			var center = (_sector.Bounds.Min + _sector.Bounds.Max) * 0.5f;
+			_terrain = new TerrainScene(
+				GraphicsDevice,
+				Assets,
+				resources,
+				center,
+				radius,
+				_sector.GroundLevel);
+			Log.Info(
+				$"Terrain: chunks={_terrain.ChunkCount} radius={_terrain.Radius} " +
+				$"offset={_terrain.VerticalOffset:0} material={_terrain.MaterialName} " +
+				$"bounds={_terrain.Bounds.Min}..{_terrain.Bounds.Max}");
+		}
+		catch (Exception exception) when (
+			exception is GenomeFormatException or IOException or UnauthorizedAccessException or
+				AssetNotFoundException or ArgumentException)
+		{
+			Log.Warning($"Terrain warning: {exception.Message}");
 		}
 	}
 

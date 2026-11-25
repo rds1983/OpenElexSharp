@@ -26,6 +26,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that loads a static scene sector; may be repeated.</summary>
 	public const string SectorArgument = "--sector";
 
+	/// <summary>The argument that loads terrain tiles around the sector bounds.</summary>
+	public const string TerrainArgument = "--terrain";
+
 	/// <summary>The argument that starts with frustum culling disabled.</summary>
 	public const string NoCullArgument = "--no-cull";
 
@@ -81,6 +84,9 @@ public sealed class LaunchOptions
 	/// <summary>Gets the static scene sectors to load, in command-line order.</summary>
 	public IReadOnlyList<string> Sectors { get; private init; } = [];
 
+	/// <summary>Gets a value indicating whether terrain tiles load around the sector bounds.</summary>
+	public bool Terrain { get; private init; }
+
 	/// <summary>Gets a value indicating whether frustum culling starts disabled.</summary>
 	public bool NoCull { get; private init; }
 
@@ -135,6 +141,7 @@ public sealed class LaunchOptions
 		var stress = false;
 		var noCull = false;
 		var sectors = new List<string>();
+		var terrain = false;
 		string? animation = null;
 		string? collision = null;
 		string? capturePath = null;
@@ -217,6 +224,10 @@ public sealed class LaunchOptions
 					SectorArgument,
 					argument[(SectorArgument.Length + 1)..],
 					nameof(args)));
+			}
+			else if (string.Equals(argument, TerrainArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				terrain = true;
 			}
 			else if (string.Equals(argument, NoCullArgument, StringComparison.OrdinalIgnoreCase))
 			{
@@ -321,6 +332,7 @@ public sealed class LaunchOptions
 			Viewer = viewer,
 			Stress = stress,
 			Sectors = sectors,
+			Terrain = terrain,
 			NoCull = noCull,
 			Animation = animation,
 			Collision = collision,

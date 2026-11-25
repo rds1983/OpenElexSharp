@@ -458,9 +458,11 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   Render light entities, decals, water surfaces and basic vegetation from level data; add debug toggles per category.
   Done when: the M1 level contains all major visual categories and each can be toggled independently.
 
-- [ ] **T109 · Terrain heightmap and rendering**
-  Document `data/raw/terrain3/terrain3.trn` and render the heightmap, material layers and terrain-hole masks under the loaded sectors. Split large terrain into chunks and reuse the T103 scene/renderer path.
-  Done when: a sector sits on real terrain with no visible seams between terrain chunks and no missing height patches.
+- [x] **T109 · Terrain heightmap and rendering**
+  Decode the terrain heightmaps embedded in the compiled static-scene blobs and render them under the loaded sectors. Split the terrain into per-tile chunks and reuse the T103 scene/renderer path. The `terrain3.trn` path named by `World.wrl` is not present in the retail installation, so the `GESC` tiles are the source.
+  Done when: a sector sits on real terrain with no visible seams between terrain chunks and no missing height patches, and the height/coordinate mapping is documented.
+  **Completed 2026-11-25 —** `ElexTerrainChunk` parses the `GESC` tile header (Z/Y/X origin, 3200-unit tiles, scale 3.125) and the 137² `uint16` heights, transposing the stored column-major grid to logical row-major. `TerrainScene`/`--terrain` load 81 chunks around a sector, stitch shared perimeter samples with a 32-sample blend, compute normals on the stitched global grid, add 200-unit skirts only at the outer block boundary, and render through `Renderer` with one shared grass material. A per-block vertical offset aligns the terrain with the sector ground estimate. TAV Fort and Abessa City render continuously at 60 FPS (2,617/1,669 draws, 3.87M/3.30M triangles); 593 tests; format spec in `Documentation/Formats/Terrain.md`.
+  **Follow-ups:** the exact per-region height base and the high map-edge border bands need more GESC research; terrain splatting/materials and hole masks are T401/T108; terrain LOD is T406. The one-texture terrain is a deliberate first pass.
 
 ## M2 — Playable Core
 

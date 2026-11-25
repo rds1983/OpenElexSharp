@@ -18,4 +18,8 @@
     <EmbeddedResource Include="Assets/Data/GenomeNames.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenElexSharp.Tests" />
+  </ItemGroup>
+
 </Project>

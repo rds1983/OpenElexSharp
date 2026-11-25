@@ -96,6 +96,7 @@ public sealed class SectorScene : IDisposable
 		}
 
 		Bounds = ComputeBounds();
+		GroundLevel = ComputeGroundLevel();
 		var center = (Bounds.Min + Bounds.Max) * 0.5f;
 		var radius = MathF.Max(MinimumRadius, Vector3.Distance(center, Bounds.Max));
 		Camera = new FlyCamera
@@ -137,6 +138,12 @@ public sealed class SectorScene : IDisposable
 	/// distance from the average center. Distant outlier props do not drag the camera away.
 	/// </summary>
 	public BoundingBox Bounds { get; }
+
+	/// <summary>
+	/// Estimated ground height, taken from the 10th percentile of mesh-box bottoms so that props
+	/// extending below ground do not pull the estimate down. Used to align terrain tiles.
+	/// </summary>
+	public float GroundLevel { get; }
 
 	/// <summary>Camera framed on the scene bounds.</summary>
 	public FlyCamera Camera { get; }
@@ -360,6 +367,27 @@ public sealed class SectorScene : IDisposable
 			MathF.Abs(first.M11 - second.M11) <= 1e-3f &&
 			MathF.Abs(first.M22 - second.M22) <= 1e-3f &&
 			MathF.Abs(first.M33 - second.M33) <= 1e-3f;
+	}
+
+	private float ComputeGroundLevel()
+	{
+		var bottoms = new List<float>();
+		Root.ForEach(node =>
+		{
+			if (node.HasBounds)
+			{
+				bottoms.Add(node.WorldBounds.Min.Y);
+			}
+		});
+
+		if (bottoms.Count == 0)
+		{
+			return Bounds.Min.Y;
+		}
+
+		bottoms.Sort();
+		var index = Math.Clamp((int)MathF.Floor(bottoms.Count * 0.1f), 0, bottoms.Count - 1);
+		return bottoms[index];
 	}
 
 	private BoundingBox ComputeBounds()

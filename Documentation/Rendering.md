@@ -80,6 +80,21 @@ see below.
 `Flush` is called automatically by `EndFrame`, so scene code submits parts and closes the frame.
 Immediate `DrawMesh` remains for the single-mesh viewer, where ordering and culling are irrelevant.
 
+## Terrain chunks
+
+`TerrainScene` builds one `DrMesh` per 3200-unit heightmap tile (137 × 137 = 18,769 vertices, so
+16-bit indices are sufficient) and submits each tile as a separate part with an identity world
+transform. Shared perimeter samples are averaged across neighbouring tiles in memory, and normals
+sample the stitched global grid, so adjacent top surfaces and lighting meet exactly. A short 200-unit
+skirt is added only where no neighbour tile is loaded, hiding the outer block boundary. The geometry
+is already in world space, so culling uses the real tile bounds (including outer skirt bottoms) and
+no per-frame transform composition is needed. All tiles share one material/texture, which sorts into
+a single state group while each tile still gets its own draw and culling decision.
+
+The terrain path deliberately uses the same `Renderer.SubmitMesh`/`Flush` pipeline as sectors and
+the stress scene; it does not add a separate renderer or effect. See
+[Formats/Terrain.md](Formats/Terrain.md) for the data layout.
+
 ## Stress scene
 
 `--stress` builds a deterministic grid of **864 instances** of one mesh (`--mesh` selects it; the
