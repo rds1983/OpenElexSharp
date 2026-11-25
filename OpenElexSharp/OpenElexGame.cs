@@ -47,6 +47,7 @@ public sealed class OpenElexGame : Game
 	private StressScene? _stress;
 	private SectorScene? _sector;
 	private TerrainScene? _terrain;
+	private CharacterViewer? _character;
 	private ElexCollisionMesh? _collision;
 	private VertexPositionColor[]? _collisionLines;
 	private Skeleton? _skeleton;
@@ -107,6 +108,23 @@ public sealed class OpenElexGame : Game
 		_desktop = new Desktop();
 		_hud = new Hud();
 		_desktop.Root = _hud;
+		if (!string.IsNullOrWhiteSpace(_options.Character))
+		{
+			try
+			{
+				LoadCharacterScene();
+			}
+			catch (Exception exception) when (
+				exception is GmshFormatException or GenomeFormatException or Gar5FormatException or
+					NotSupportedException or IOException or UnauthorizedAccessException or
+					AssetNotFoundException or InvalidOperationException or ArgumentException)
+			{
+				Log.Warning($"Character warning: {exception.Message}");
+			}
+
+			return;
+		}
+
 		if (!string.IsNullOrWhiteSpace(_options.Animation))
 		{
 			try
@@ -395,6 +413,10 @@ public sealed class OpenElexGame : Game
 		{
 			DrawSector();
 		}
+		else if (_character is not null)
+		{
+			DrawCharacter(gameTime);
+		}
 		else if (_skeleton is not null)
 		{
 			DrawSkeleton(gameTime);
@@ -408,7 +430,7 @@ public sealed class OpenElexGame : Game
 			DrawTexture();
 		}
 
-		var sceneStatus = _stress?.Status ?? _sector?.Status;
+		var sceneStatus = _stress?.Status ?? _sector?.Status ?? _character?.Status;
 		_hud?.Update(_renderer, _statistics, _viewer?.Status, sceneStatus);
 		_desktop?.Render();
 		CaptureIfRequested();
@@ -453,6 +475,8 @@ public sealed class OpenElexGame : Game
 		_sector = null;
 		_terrain?.Dispose();
 		_terrain = null;
+		_character?.Dispose();
+		_character = null;
 		_skeleton = null;
 		_network = null;
 		_clipA = null;
@@ -535,6 +559,30 @@ public sealed class OpenElexGame : Game
 	}
 
 	private static string FormatMegabytes(long bytes) => $"{bytes / 1048576.0:0.0} MB";
+
+	private void LoadCharacterScene()
+	{
+		var resources = BuildResourceIndex();
+		var resource = FindResource(resources, _options.Character!, "skn");
+		_character = CharacterViewer.Load(GraphicsDevice, Assets, resources, resource);
+		Log.Info(
+			$"Character: {_character.Name} bones={_character.BoneCount} " +
+			$"parts={_character.PartCount} materials={_character.MaterialCount}");
+		foreach (var warning in _character.Warnings.Take(20))
+		{
+			Log.Warning($"Character warning: {warning}");
+		}
+	}
+
+	private void DrawCharacter(GameTime gameTime)
+	{
+		if (_renderer is null || _character is null)
+		{
+			return;
+		}
+
+		_character.Draw(_renderer, (float)gameTime.TotalGameTime.TotalSeconds);
+	}
 
 	private void LoadAnimationScene()
 	{

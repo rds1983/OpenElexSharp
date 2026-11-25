@@ -20,6 +20,9 @@ public enum GmshVertexUsage
 
 	/// <summary>Texture coordinate set.</summary>
 	TextureCoordinate = 4,
+
+	/// <summary>Skinning influences: bone indices at usage offset 0, weights at offset 4.</summary>
+	Skin = 5,
 }
 
 /// <summary>
@@ -41,6 +44,9 @@ public static class GmshVertexFormat
 	/// <summary><c>R16G16_Float</c>: two half floats.</summary>
 	public const uint R16G16Float = 23;
 
+	/// <summary><c>R8G8B8A8_UInt</c>: four bytes, used for bone indices.</summary>
+	public const uint R8G8B8A8UInt = 20;
+
 	/// <summary><c>B8G8R8A8_UNorm</c>: four bytes in blue, green, red, alpha order.</summary>
 	public const uint B8G8R8A8UNorm = 58;
 
@@ -51,6 +57,7 @@ public static class GmshVertexFormat
 		R16G16B16A16Float => 8,
 		R10G10B10A2UNorm => 4,
 		R16G16Float => 4,
+		R8G8B8A8UInt => 4,
 		B8G8R8A8UNorm => 4,
 		_ => 0,
 	};
@@ -62,6 +69,7 @@ public static class GmshVertexFormat
 		R16G16B16A16Float => "R16G16B16A16_Float",
 		R10G10B10A2UNorm => "R10G10B10A2_UNorm",
 		R16G16Float => "R16G16_Float",
+		R8G8B8A8UInt => "R8G8B8A8_UInt",
 		B8G8R8A8UNorm => "B8G8R8A8_UNorm",
 		_ => $"format{format}",
 	};
@@ -98,6 +106,7 @@ public sealed record GmshVertexAttribute(
 		GmshVertexUsage.Tangent => "tangent",
 		GmshVertexUsage.Color => "color",
 		GmshVertexUsage.TextureCoordinate => "texcoord",
+		GmshVertexUsage.Skin => "skin",
 		_ => $"usage{Usage}",
 	};
 
@@ -123,6 +132,7 @@ public sealed record GmshVertexStream(int Usage, uint Unknown, uint Offset, uint
 		GmshVertexUsage.Tangent => "tangent",
 		GmshVertexUsage.Color => "color",
 		GmshVertexUsage.TextureCoordinate => "texcoord",
+		GmshVertexUsage.Skin => "skin",
 		_ => $"usage{Usage}",
 	};
 }
@@ -182,6 +192,8 @@ public sealed class GmshMesh
 		Vector4[] colors,
 		Vector2[] textureCoordinates,
 		Vector2[] textureCoordinates1,
+		Vector4[] boneIndices,
+		Vector4[] boneWeights,
 		GmshVertexAttribute[] vertexAttributes,
 		GmshVertexStream[] vertexStreams,
 		GmshBufferDescriptor[] bufferDescriptors,
@@ -207,6 +219,8 @@ public sealed class GmshMesh
 		Colors = colors;
 		TextureCoordinates = textureCoordinates;
 		TextureCoordinates1 = textureCoordinates1;
+		BoneIndices = boneIndices;
+		BoneWeights = boneWeights;
 		VertexAttributes = vertexAttributes;
 		VertexStreams = vertexStreams;
 		BufferDescriptors = bufferDescriptors;
@@ -263,6 +277,12 @@ public sealed class GmshMesh
 	/// <summary>Per-vertex second texture-coordinate set, when present.</summary>
 	public IReadOnlyList<Vector2> TextureCoordinates1 { get; }
 
+	/// <summary>Four bone indices per vertex, or empty when the mesh is not skinned.</summary>
+	public IReadOnlyList<Vector4> BoneIndices { get; }
+
+	/// <summary>Four bone weights per vertex, or empty when the mesh is not skinned.</summary>
+	public IReadOnlyList<Vector4> BoneWeights { get; }
+
 	/// <summary>Vertex attribute declarations.</summary>
 	public IReadOnlyList<GmshVertexAttribute> VertexAttributes { get; }
 
@@ -302,6 +322,12 @@ public sealed class GmshMesh
 	/// <summary>Whether the mesh has decoded texture coordinates.</summary>
 	public bool HasTextureCoordinates =>
 		TextureCoordinates.Count == Positions.Count && TextureCoordinates.Count > 0;
+
+	/// <summary>Whether the mesh has four bone indices and weights per vertex.</summary>
+	public bool HasSkinning =>
+		BoneIndices.Count == Positions.Count &&
+		BoneWeights.Count == Positions.Count &&
+		BoneIndices.Count > 0;
 
 	/// <summary>Returns the position attribute when available.</summary>
 	public GmshVertexAttribute? PositionAttribute =>
@@ -449,6 +475,8 @@ public sealed class GmshMesh
 		var colors = Array.Empty<Vector4>();
 		var textureCoordinates = Array.Empty<Vector2>();
 		var textureCoordinates1 = Array.Empty<Vector2>();
+		var boneIndices = Array.Empty<Vector4>();
+		var boneWeights = Array.Empty<Vector4>();
 		foreach (var attribute in vertexAttributes)
 		{
 			var stream = FindStream(vertexStreams, attribute.Usage);
@@ -522,6 +550,22 @@ public sealed class GmshMesh
 					}
 
 					break;
+
+				case GmshVertexUsage.Skin:
+					if (attribute.UsageOffset == 0)
+					{
+						boneIndices = DecodeBoneIndices(
+							data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+							vertexCount, attribute.Format);
+					}
+					else if (attribute.UsageOffset == 4)
+					{
+						boneWeights = DecodeBoneWeights(
+							data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+							vertexCount, attribute.Format);
+					}
+
+					break;
 			}
 		}
 
@@ -548,6 +592,8 @@ public sealed class GmshMesh
 			colors,
 			textureCoordinates,
 			textureCoordinates1,
+			boneIndices,
+			boneWeights,
 			vertexAttributes,
 			vertexStreams,
 			bufferDescriptors,
@@ -557,6 +603,231 @@ public sealed class GmshMesh
 			vertexDataLength,
 			bufferDescriptorOffset,
 			bufferDescriptorLength);
+	}
+
+	/// <summary>
+	/// Parses a skinned GMSH v2 resource (<c>skn</c>). Unlike <see cref="Parse"/>, the header's first
+	/// value points at the embedded skeleton tail, so index and vertex counts come from the buffer
+	/// descriptors.
+	/// </summary>
+	/// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+	/// <exception cref="GmshFormatException">The mesh is malformed or unsupported.</exception>
+	public static GmshMesh ParseSkinned(string name, string sourcePath, byte[] data)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+		ArgumentNullException.ThrowIfNull(sourcePath);
+		ArgumentNullException.ThrowIfNull(data);
+		var gmshOffset = FindGmshOffset(data);
+		if (gmshOffset + HeaderSize > data.Length)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has a truncated GMSH header.");
+		}
+
+		var version = ReadUInt32(data, gmshOffset + 4);
+		if (version != 2)
+		{
+			throw new GmshFormatException($"Mesh '{name}' uses unsupported GMSH version {version}.");
+		}
+
+		var headerValues = new uint[HeaderValueCount];
+		for (var index = 0; index < headerValues.Length; index++)
+		{
+			headerValues[index] = ReadUInt32(data, gmshOffset + 8 + index * 4);
+		}
+
+		var vertexAttributes = ReadVertexAttributes(name, data, gmshOffset, headerValues[4], headerValues[5]);
+		var vertexStreams = ReadVertexStreams(name, data, gmshOffset, headerValues[8], headerValues[9]);
+		var (bufferDescriptors, descriptorError) = ReadBufferDescriptors(
+			name, data, gmshOffset, headerValues[10], headerValues[11], headerValues[3]);
+		var diagnostics = new List<string>();
+		if (descriptorError is not null)
+		{
+			diagnostics.Add(descriptorError);
+		}
+
+		if (bufferDescriptors.Length < 2 ||
+			bufferDescriptors[0].ElementSize is not (2 or 4) ||
+			bufferDescriptors[0].Size % bufferDescriptors[0].ElementSize != 0)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has no usable index buffer descriptor.");
+		}
+
+		var indexElementSize = (int)bufferDescriptors[0].ElementSize;
+		var indexCount = (int)(bufferDescriptors[0].Size / bufferDescriptors[0].ElementSize);
+		var streamStride = 0;
+		foreach (var stream in vertexStreams)
+		{
+			streamStride = checked(streamStride + (int)stream.Stride);
+		}
+
+		if (indexCount <= 0 || indexCount > MaxIndexCount)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has an invalid index count {indexCount}.");
+		}
+
+		if (streamStride <= 0 || bufferDescriptors[1].Size % (uint)streamStride != 0)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has an invalid vertex buffer descriptor.");
+		}
+
+		var vertexCount = (int)(bufferDescriptors[1].Size / (uint)streamStride);
+		if (vertexCount <= 0 || vertexCount > MaxVertexCount)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has an invalid vertex count {vertexCount}.");
+		}
+
+		var indexDataOffset = gmshOffset + HeaderSize;
+		var indexByteCount = checked(indexCount * indexElementSize);
+		if (indexDataOffset + indexByteCount > data.Length)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has truncated {indexElementSize * 8}-bit indices.");
+		}
+
+		var indices = new int[indexCount];
+		for (var index = 0; index < indices.Length; index++)
+		{
+			var value = indexElementSize == 2
+				? ReadUInt16(data, indexDataOffset + index * 2)
+				: ReadUInt32(data, indexDataOffset + index * 4);
+			if (value >= vertexCount)
+			{
+				throw new GmshFormatException(
+					$"Mesh '{name}' index {index} references vertex {value} of {vertexCount}.");
+			}
+
+			indices[index] = checked((int)value);
+		}
+
+		var vertexDataOffset = Align16(HeaderSize + indexByteCount);
+		var vertexDataLength = checked(streamStride * vertexCount);
+		if (vertexDataOffset + vertexDataLength > data.Length - gmshOffset)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has truncated vertex streams.");
+		}
+
+		var positions = Array.Empty<Vector3>();
+		var normals = Array.Empty<Vector3>();
+		var tangents = Array.Empty<Vector3>();
+		var colors = Array.Empty<Vector4>();
+		var textureCoordinates = Array.Empty<Vector2>();
+		var textureCoordinates1 = Array.Empty<Vector2>();
+		var boneIndices = Array.Empty<Vector4>();
+		var boneWeights = Array.Empty<Vector4>();
+		foreach (var attribute in vertexAttributes)
+		{
+			var stream = FindStream(vertexStreams, attribute.Usage);
+			var size = GmshVertexFormat.GetSize(attribute.Format);
+			if (stream is null)
+			{
+				diagnostics.Add($"{attribute.UsageName} attribute has no matching stream.");
+				continue;
+			}
+
+			if (size == 0)
+			{
+				diagnostics.Add(
+					$"{attribute.UsageName} attribute uses unknown format {attribute.Format}.");
+				continue;
+			}
+
+			var elementOffset = checked((int)stream.Offset + (int)attribute.UsageOffset);
+			if ((int)attribute.UsageOffset + size > stream.Stride)
+			{
+				throw new GmshFormatException(
+					$"Mesh '{name}' attribute '{attribute.UsageName}' does not fit its stream record.");
+			}
+
+			switch ((GmshVertexUsage)attribute.Usage)
+			{
+				case GmshVertexUsage.Position:
+					var decodedPositions = DecodePositions(
+						data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+						(uint)vertexCount, attribute.Format);
+					if (decodedPositions.Length == vertexCount)
+					{
+						positions = decodedPositions;
+					}
+
+					break;
+				case GmshVertexUsage.Normal:
+					normals = DecodeVectors(
+						data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+						(uint)vertexCount, attribute.Format);
+					break;
+				case GmshVertexUsage.Tangent:
+					tangents = DecodeVectors(
+						data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+						(uint)vertexCount, attribute.Format);
+					break;
+				case GmshVertexUsage.Color:
+					colors = DecodeColors(
+						data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+						(uint)vertexCount, attribute.Format);
+					break;
+				case GmshVertexUsage.TextureCoordinate:
+					var decodedUvs = DecodeTextureCoordinates(
+						data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+						(uint)vertexCount, attribute.Format);
+					if (textureCoordinates.Length == 0)
+					{
+						textureCoordinates = decodedUvs;
+					}
+					else if (textureCoordinates1.Length == 0)
+					{
+						textureCoordinates1 = decodedUvs;
+					}
+
+					break;
+				case GmshVertexUsage.Skin:
+					if (attribute.UsageOffset == 0)
+					{
+						boneIndices = DecodeBoneIndices(
+							data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+							(uint)vertexCount, attribute.Format);
+					}
+					else if (attribute.UsageOffset == 4)
+					{
+						boneWeights = DecodeBoneWeights(
+							data, gmshOffset + vertexDataOffset, elementOffset, (int)stream.Stride,
+							(uint)vertexCount, attribute.Format);
+					}
+
+					break;
+			}
+		}
+
+		if (positions.Length != vertexCount)
+		{
+			throw new GmshFormatException($"Mesh '{name}' has no usable position stream.");
+		}
+
+		return new GmshMesh(
+			name,
+			sourcePath,
+			gmshOffset,
+			version,
+			headerValues,
+			headerValues[0],
+			indices,
+			[],
+			positions,
+			positions,
+			normals,
+			tangents,
+			colors,
+			textureCoordinates,
+			textureCoordinates1,
+			boneIndices,
+			boneWeights,
+			vertexAttributes,
+			vertexStreams,
+			bufferDescriptors,
+			diagnostics,
+			indexDataOffset - gmshOffset,
+			vertexDataOffset,
+			vertexDataLength,
+			(int)headerValues[11],
+			Math.Max(0, (int)(headerValues[3] - headerValues[11])));
 	}
 
 	private static int ResolveIndexElementSize(
@@ -706,6 +977,60 @@ public sealed class GmshMesh
 		{
 			var offset = vertexDataOffset + elementOffset + index * stride;
 			result[index] = new Vector2(ReadHalf(data, offset), ReadHalf(data, offset + 2));
+		}
+
+		return result;
+	}
+
+	private static Vector4[] DecodeBoneIndices(
+		byte[] data,
+		int vertexDataOffset,
+		int elementOffset,
+		int stride,
+		uint vertexCount,
+		uint format)
+	{
+		if (format != GmshVertexFormat.R8G8B8A8UInt)
+		{
+			return [];
+		}
+
+		var result = new Vector4[vertexCount];
+		for (var index = 0; index < result.Length; index++)
+		{
+			var offset = vertexDataOffset + elementOffset + index * stride;
+			result[index] = new Vector4(
+				data[offset],
+				data[offset + 1],
+				data[offset + 2],
+				data[offset + 3]);
+		}
+
+		return result;
+	}
+
+	private static Vector4[] DecodeBoneWeights(
+		byte[] data,
+		int vertexDataOffset,
+		int elementOffset,
+		int stride,
+		uint vertexCount,
+		uint format)
+	{
+		if (format != GmshVertexFormat.R16G16B16A16Float)
+		{
+			return [];
+		}
+
+		var result = new Vector4[vertexCount];
+		for (var index = 0; index < result.Length; index++)
+		{
+			var offset = vertexDataOffset + elementOffset + index * stride;
+			result[index] = new Vector4(
+				ReadHalf(data, offset),
+				ReadHalf(data, offset + 2),
+				ReadHalf(data, offset + 4),
+				ReadHalf(data, offset + 6));
 		}
 
 		return result;

@@ -23,6 +23,8 @@ internal static class TestGmshBuilder
 		Vector2[]? textureCoordinates1 = null,
 		Vector3[]? tangents = null,
 		Vector4[]? colors = null,
+		byte[]? boneIndices = null,
+		Vector4[]? boneWeights = null,
 		bool halfPrecisionPositions = false,
 		bool use32BitIndices = false,
 		bool wrap = true)
@@ -34,6 +36,11 @@ internal static class TestGmshBuilder
 		ValidateLength(textureCoordinates1, positions.Length, nameof(textureCoordinates1));
 		ValidateLength(tangents, positions.Length, nameof(tangents));
 		ValidateLength(colors, positions.Length, nameof(colors));
+		ValidateLength(boneWeights, positions.Length, nameof(boneWeights));
+		if (boneIndices is not null && boneIndices.Length != positions.Length * 4)
+		{
+			throw new ArgumentException("boneIndices must contain four entries per vertex.", nameof(boneIndices));
+		}
 
 		var attributes = new List<AttributeSpec>();
 		var streams = new List<StreamSpec>();
@@ -60,6 +67,18 @@ internal static class TestGmshBuilder
 		{
 			attributes.Add(new AttributeSpec(3, 0, GmshVertexFormats.B8G8R8A8UNorm, 5));
 			streams.Add(new StreamSpec(3, 4));
+		}
+
+		if (boneIndices is not null || boneWeights is not null)
+		{
+			if (boneIndices is null || boneWeights is null)
+			{
+				throw new ArgumentException("Bone indices and weights must be supplied together.");
+			}
+
+			attributes.Add(new AttributeSpec(5, 0, GmshVertexFormats.R8G8B8A8UInt, 6));
+			attributes.Add(new AttributeSpec(5, 4, GmshVertexFormats.R16G16B16A16Float, 6));
+			streams.Add(new StreamSpec(5, 12));
 		}
 
 		if (textureCoordinates is not null)
@@ -157,6 +176,17 @@ internal static class TestGmshBuilder
 							writer.Write(ToHalf(textureCoordinates1[vertex].Y));
 						}
 
+						break;
+					case 5:
+						for (var influence = 0; influence < 4; influence++)
+						{
+							writer.Write(boneIndices![vertex * 4 + influence]);
+						}
+
+						writer.Write(ToHalf(boneWeights![vertex].X));
+						writer.Write(ToHalf(boneWeights[vertex].Y));
+						writer.Write(ToHalf(boneWeights[vertex].Z));
+						writer.Write(ToHalf(boneWeights[vertex].W));
 						break;
 				}
 			}
@@ -297,6 +327,7 @@ internal static class TestGmshBuilder
 		public const uint R16G16B16A16Float = 7;
 		public const uint R10G10B10A2UNorm = 15;
 		public const uint R16G16Float = 23;
+		public const uint R8G8B8A8UInt = 20;
 		public const uint B8G8R8A8UNorm = 58;
 	}
 }

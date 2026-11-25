@@ -193,10 +193,37 @@ public class GmshMeshTests
 		Assert.Throws<ArgumentNullException>(() => GmshMesh.Parse("TestMesh", null!, []));
 	}
 
+	[Fact]
+	public void ParseSkinned_ReadsBoneIndicesAndWeights()
+	{
+		var data = TestGmshBuilder.Create(
+			Triangle,
+			[0, 1, 2],
+			normals: [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+			textureCoordinates: [new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 1)],
+			boneIndices: [0, 1, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0],
+			boneWeights:
+			[
+				new Vector4(1f, 0f, 0f, 0f),
+				new Vector4(0.5f, 0.5f, 0f, 0f),
+				new Vector4(1f, 0f, 0f, 0f),
+			]);
+
+		var mesh = GmshMesh.ParseSkinned("TestSkinned", "data/test.skn", data);
+
+		Assert.True(mesh.HasSkinning);
+		Assert.Equal(3, mesh.Positions.Count);
+		Assert.Equal(new Vector4(0, 1, 0, 0), mesh.BoneIndices[0]);
+		Assert.Equal(new Vector4(1f, 0f, 0f, 0f), mesh.BoneWeights[0]);
+		Assert.Equal(new Vector4(1, 0, 0, 0), mesh.BoneIndices[1]);
+		Assert.Equal(new Vector4(0.5f, 0.5f, 0f, 0f), mesh.BoneWeights[1]);
+	}
+
 	[Theory]
 	[InlineData(4u, 12)]
 	[InlineData(7u, 8)]
 	[InlineData(15u, 4)]
+	[InlineData(20u, 4)]
 	[InlineData(23u, 4)]
 	[InlineData(58u, 4)]
 	[InlineData(999u, 0)]
@@ -211,6 +238,7 @@ public class GmshMeshTests
 	[InlineData(2, "tangent")]
 	[InlineData(3, "color")]
 	[InlineData(4, "texcoord")]
+	[InlineData(5, "skin")]
 	public void VertexUsage_ReturnsName(int usage, string expected)
 	{
 		var attribute = new GmshVertexAttribute(usage, 0, 4, 0, 0, 0, 0);

@@ -109,6 +109,17 @@ the 3D device state afterwards, so the gradient is always behind geometry and ne
 the palette and fog values to the renderer. See [Lighting.md](Lighting.md) for the regional defaults
 and current limitations.
 
+## Skinned characters
+
+`Renderer` also owns a stock `SkinnedEffect` for character meshes. `DrawSkinnedMesh` takes a
+`DrMesh` whose vertex buffer uses `VertexPositionNormalTextureSkinned` (four byte bone indices plus
+four float weights), a world matrix and one bone matrix per skeleton bone. It applies the same
+lighting/fog palette as the world path and draws one part per material submesh.
+
+`SkinnedMesh` normalizes the half-float weights, clamps bone indices and keeps the inverse bind
+matrices for future animation. `CharacterViewer`/`--character` render the authored bind pose with
+identity bone transforms. See [Characters.md](Characters.md) for the loader and coverage.
+
 ## Stress scene
 
 `--stress` builds a deterministic grid of **864 instances** of one mesh (`--mesh` selects it; the

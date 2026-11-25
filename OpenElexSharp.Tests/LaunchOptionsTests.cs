@@ -12,6 +12,7 @@ public class LaunchOptionsTests
 		Assert.False(options.Stress);
 		Assert.False(options.NoCull);
 		Assert.False(options.Terrain);
+		Assert.Null(options.Character);
 		Assert.Null(options.ElexPath);
 	}
 
@@ -108,6 +109,30 @@ public class LaunchOptionsTests
 		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--mesh"]));
 
 		Assert.Contains("--mesh", exception.Message);
+	}
+
+	[Fact]
+	public void Parse_CharacterWithSeparateArgument_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--character", "Mesh_Male_FullBody_Alb_High_01_L1"]);
+
+		Assert.Equal("Mesh_Male_FullBody_Alb_High_01_L1", options.Character);
+	}
+
+	[Fact]
+	public void Parse_CharacterWithEquals_SetsValue()
+	{
+		var options = LaunchOptions.Parse(["--character=Mesh_Cre_Mon_Cavebird_01_L1"]);
+
+		Assert.Equal("Mesh_Cre_Mon_Cavebird_01_L1", options.Character);
+	}
+
+	[Fact]
+	public void Parse_MissingCharacterValue_Throws()
+	{
+		var exception = Assert.Throws<ArgumentException>(() => LaunchOptions.Parse(["--character"]));
+
+		Assert.Contains("--character", exception.Message);
 	}
 
 	[Fact]

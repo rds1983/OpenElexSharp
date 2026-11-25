@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M1 — Visible World**. Next task: **T106**.
+Milestone **M1 — Visible World**. Next task: **T107**.
 
 ---
 
@@ -448,12 +448,14 @@ Exit criteria: a level, its static geometry and its characters can be explored w
   **Completed 2026-11-25 —** `LevelLighting` selects Tavar/Edan/Ignadon/Xacor palettes from sector names; `Renderer` applies sun/fill/ambient/emissive to the stock per-pixel `BasicEffect` and draws a full-screen sky gradient before meshes. Fog colour follows the horizon. TAV Fort and Abessa City read clearly at 60 FPS (2,617/1,669 draws, 3.87M/3.30M triangles); 606 tests; documentation in `Documentation/Lighting.md`.
   **Follow-ups:** local/emissive lights and the very dark Ignadon/Xacor metal materials are T108/T401; shadows, normal maps and tone mapping remain later visual work.
 
-- [ ] **T106 · Character rendering**
+- [x] **T106 · Character rendering**
   Render NPCs and creatures via skeleton + `SkinnedEffect` (or the documented custom fallback), including multi-material bodies and equipment attachments.
   Done when: the bind pose of any humanoid/monster renders correctly in the character viewer.
+  **Completed 2026-11-25 —** `GmshMesh.ParseSkinned` reads skn descriptor counts and usage-5 bone indices/weights; `SkinnedMesh` builds four-influence GPU buffers, normalizes weights, clamps bone indices and keeps inverse bind matrices; `Renderer.DrawSkinnedMesh` renders material submeshes with the stock `SkinnedEffect`; `--character` opens the bind-pose viewer. Verified male body (61 bones, 2 materials), female head (6/4), cavebird (30/2), biter (55/1) and drone (10/1) at 60 FPS; 615 tests; documentation in `Documentation/Characters.md`.
+  **Follow-ups:** equipment attachments are separate `skn` resources that still need bone parenting; animation playback is T107; the 50 unrecognized skeleton tails and material alpha/normal maps remain format/material work (T401).
 
 - [ ] **T107 · Animation playback**
-  Sample, loop and crossfade animation clips; drive idle/walk/run on the character viewer.
+  Sample, loop and crossfade animation clips on the T106 skinned character viewer, using its bone transforms and inverse bind matrices; drive idle/walk/run.
   Done when: clips play at correct speed without pops, and looping clips are seamless.
 
 - [ ] **T108 · World visuals pass**

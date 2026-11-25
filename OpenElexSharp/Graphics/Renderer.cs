@@ -13,6 +13,7 @@ public sealed class Renderer : IDisposable
 {
 	private readonly GraphicsDevice _device;
 	private readonly BasicEffect _effect;
+	private readonly SkinnedEffect _skinnedEffect;
 	private readonly BasicEffect _lineEffect;
 	private readonly SpriteBatch _spriteBatch;
 	private readonly BoundingFrustum _frustum = new(Matrix.Identity);
@@ -61,6 +62,14 @@ public sealed class Renderer : IDisposable
 			SpecularColor = Vector3.Zero,
 		};
 		_effect.DirectionalLight2.Enabled = false;
+		_skinnedEffect = new SkinnedEffect(device)
+		{
+			PreferPerPixelLighting = true,
+			SpecularColor = Vector3.Zero,
+			WeightsPerVertex = 4,
+			Alpha = 1f,
+		};
+		_skinnedEffect.DirectionalLight2.Enabled = false;
 		_lineEffect = new BasicEffect(device)
 		{
 			LightingEnabled = false,
@@ -72,6 +81,9 @@ public sealed class Renderer : IDisposable
 
 	/// <summary>Draw calls issued during the current frame.</summary>
 	public int DrawCalls { get; private set; }
+
+	/// <summary>Aspect ratio of the current back-buffer viewport.</summary>
+	public float ViewportAspectRatio => _device.Viewport.AspectRatio;
 
 	/// <summary>Triangles submitted during the current frame.</summary>
 	public int Triangles { get; private set; }
@@ -152,6 +164,8 @@ public sealed class Renderer : IDisposable
 		_projection = projection;
 		_effect.View = view;
 		_effect.Projection = projection;
+		_skinnedEffect.View = view;
+		_skinnedEffect.Projection = projection;
 		_lineEffect.View = view;
 		_lineEffect.Projection = projection;
 		_frustum.Matrix = view * projection;
@@ -212,6 +226,72 @@ public sealed class Renderer : IDisposable
 		{
 			DrawMeshPart(part, world, cull, shading);
 		}
+	}
+
+	/// <summary>
+	/// Draws a skinned DigitalRiseModel mesh with stock <see cref="SkinnedEffect"/>. The vertex buffer
+	/// must use <see cref="VertexPositionNormalTextureSkinned"/> and
+	/// <paramref name="boneTransforms"/> must contain one matrix per skeleton bone.
+	/// </summary>
+	/// <param name="mesh">Skinned mesh whose parts share one skinned vertex buffer.</param>
+	/// <param name="world">World transform.</param>
+	/// <param name="boneTransforms">Bone matrices in skeleton order.</param>
+	/// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+	/// <exception cref="ArgumentException">The bone array is too large for the stock effect.</exception>
+	public void DrawSkinnedMesh(DrMesh mesh, Matrix world, Matrix[] boneTransforms)
+	{
+		EnsureFrameOpen(nameof(DrawSkinnedMesh));
+		ArgumentNullException.ThrowIfNull(mesh);
+		ArgumentNullException.ThrowIfNull(boneTransforms);
+		if (boneTransforms.Length > SkinnedEffect.MaxBones)
+		{
+			throw new ArgumentException(
+				$"SkinnedEffect supports at most {SkinnedEffect.MaxBones} bones.",
+				nameof(boneTransforms));
+		}
+
+		_skinnedEffect.World = world;
+		_skinnedEffect.SetBoneTransforms(boneTransforms);
+		foreach (var part in mesh.MeshParts)
+		{
+			if (part.VertexBuffer is null || part.IndexBuffer is null)
+			{
+				continue;
+			}
+
+			var tag = part.Tag as DrMeshPartTag;
+			ApplySkinnedShading(tag?.Material?.Texture ?? _fallbackTexture);
+			_device.SetVertexBuffer(part.VertexBuffer);
+			_device.Indices = part.IndexBuffer;
+			foreach (var pass in _skinnedEffect.CurrentTechnique.Passes)
+			{
+				pass.Apply();
+				_device.DrawIndexedPrimitives(
+					part.PrimitiveType,
+					part.VertexOffset,
+					part.StartIndex,
+					part.PrimitiveCount);
+			}
+
+			++DrawCalls;
+			++Meshes;
+			Triangles += PrimitiveCountToTriangles(part.PrimitiveType, part.PrimitiveCount);
+		}
+	}
+
+	private void ApplySkinnedShading(Texture2D texture)
+	{
+		_skinnedEffect.Texture = texture;
+		_skinnedEffect.FogEnabled = FogEnabled;
+		if (FogEnabled)
+		{
+			_skinnedEffect.FogColor = FogColor;
+			_skinnedEffect.FogStart = FogStart;
+			_skinnedEffect.FogEnd = FogEnd;
+		}
+
+		_skinnedEffect.DiffuseColor = Vector3.One;
+		_skinnedEffect.SpecularColor = Vector3.Zero;
 	}
 
 	/// <summary>
@@ -495,6 +575,15 @@ public sealed class Renderer : IDisposable
 		_effect.DirectionalLight1.Direction = fillDirection;
 		_effect.DirectionalLight1.DiffuseColor = FillColor;
 		_effect.DirectionalLight2.Enabled = false;
+		_skinnedEffect.AmbientLightColor = AmbientColor;
+		_skinnedEffect.EmissiveColor = EmissiveColor;
+		_skinnedEffect.DirectionalLight0.Enabled = true;
+		_skinnedEffect.DirectionalLight0.Direction = sunDirection;
+		_skinnedEffect.DirectionalLight0.DiffuseColor = SunColor;
+		_skinnedEffect.DirectionalLight1.Enabled = true;
+		_skinnedEffect.DirectionalLight1.Direction = fillDirection;
+		_skinnedEffect.DirectionalLight1.DiffuseColor = FillColor;
+		_skinnedEffect.DirectionalLight2.Enabled = false;
 	}
 
 	private void EnsureSkyTexture()
@@ -593,6 +682,7 @@ public sealed class Renderer : IDisposable
 	public void Dispose()
 	{
 		_effect.Dispose();
+		_skinnedEffect.Dispose();
 		_lineEffect.Dispose();
 		_spriteBatch.Dispose();
 		_fallbackTexture.Dispose();

@@ -151,23 +151,30 @@ the global set under the observed parent order, so it is validated but not used.
 - The 50 resources whose tails do not match any observed layout.
 - Head/attachment parent encoding (packed words before the name offsets).
 - Usage 7 (`R32_SInt`) semantics.
-- Whether bone weights need renormalization after half-float quantization.
-- GPU skinning with the decoded body bind poses → T106/T102.
+- The 50 unrecognized tails; the remaining bind-pose tails are rendered, but many name/parent-only
+  tails cannot be animated yet.
 
 ## Implementation
 
 | Component | File |
 | --- | --- |
 | Skeleton tail parser | `OpenElexSharp/Assets/Skeleton.cs` |
+| Skinned GMSH parser (`ParseSkinned`) | `OpenElexSharp/Assets/GmshMesh.cs` |
 | Mesh metadata (`eCMotionSkinResource2`) | `OpenElexSharp/Assets/MeshMetadata.cs` |
+| GPU skinned mesh + weight normalization | `OpenElexSharp/Graphics/SkinnedMesh.cs` |
+| Character viewer | `OpenElexSharp/Graphics/CharacterViewer.cs` |
+| Skinned vertex layout | `OpenElexSharp/Graphics/VertexPositionNormalTextureSkinned.cs` |
+| `SkinnedEffect` draw path | `OpenElexSharp/Graphics/Renderer.cs` |
 | CLI inspector | `OpenElexSharp/Assets/AssetCatalogConsole.cs` (`assets skeletons`) |
-| Tests | `OpenElexSharp.Tests/SkeletonTests.cs` |
+| Tests | `OpenElexSharp.Tests/SkeletonTests.cs`, `GmshMeshTests.cs`, `SkinnedMeshTests.cs` |
 
 CLI:
 
 ```powershell
 dotnet run --project OpenElexSharp -- assets skeletons CH_Head_F_Ambient_01_L1 --properties
 dotnet run --project OpenElexSharp -- assets skeletons --all
+dotnet run --project OpenElexSharp -- --character Mesh_Male_FullBody_Alb_High_01_L1
+dotnet run --project OpenElexSharp -- --character Mesh_Cre_Mon_Cavebird_01_L1
 ```
 
 ## Related tasks

@@ -20,6 +20,9 @@ public sealed class LaunchOptions
 	/// <summary>The argument that opens the mesh viewer at the first catalog mesh.</summary>
 	public const string ViewerArgument = "--viewer";
 
+	/// <summary>The argument that loads a skinned character in bind pose.</summary>
+	public const string CharacterArgument = "--character";
+
 	/// <summary>The argument that opens the stress scene grid.</summary>
 	public const string StressArgument = "--stress";
 
@@ -71,6 +74,11 @@ public sealed class LaunchOptions
 	/// Gets the mesh resource name (or name substring) to display in the static-mesh test scene.
 	/// </summary>
 	public string? Mesh { get; private init; }
+
+	/// <summary>
+	/// Gets the skinned character resource name (or substring) to display in the character viewer.
+	/// </summary>
+	public string? Character { get; private init; }
 
 	/// <summary>
 	/// Gets a value indicating whether the mesh viewer should open at the first catalog mesh when
@@ -137,6 +145,7 @@ public sealed class LaunchOptions
 		string? elexPath = null;
 		string? texture = null;
 		string? mesh = null;
+		string? character = null;
 		var viewer = false;
 		var stress = false;
 		var noCull = false;
@@ -199,6 +208,22 @@ public sealed class LaunchOptions
 				mesh = ParseValue(
 					MeshArgument,
 					argument[(MeshArgument.Length + 1)..],
+					nameof(args));
+			}
+			else if (string.Equals(argument, CharacterArgument, StringComparison.OrdinalIgnoreCase))
+			{
+				if (index + 1 >= args.Count)
+				{
+					throw new ArgumentException($"{CharacterArgument} requires a value.", nameof(args));
+				}
+
+				character = ParseValue(CharacterArgument, args[++index], nameof(args));
+			}
+			else if (argument.StartsWith(CharacterArgument + "=", StringComparison.OrdinalIgnoreCase))
+			{
+				character = ParseValue(
+					CharacterArgument,
+					argument[(CharacterArgument.Length + 1)..],
 					nameof(args));
 			}
 			else if (string.Equals(argument, ViewerArgument, StringComparison.OrdinalIgnoreCase))
@@ -329,6 +354,7 @@ public sealed class LaunchOptions
 			ElexPath = elexPath,
 			Texture = texture,
 			Mesh = mesh,
+			Character = character,
 			Viewer = viewer,
 			Stress = stress,
 			Sectors = sectors,
