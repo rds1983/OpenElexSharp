@@ -115,6 +115,7 @@ Format-research credits — projects whose source or documentation informed a fo
 - [G3Archive](https://github.com/gekonnn/G3Archive) (MIT) — Gothic 3 PAK header reference that clarified the G3V0 lineage.
 - [BCnEncoder.NET](https://github.com/Nominom/BCnEncoder.NET) (MIT OR Unlicense) — CPU decoding for BC6H and BC7 textures.
 - [Microsoft DXGI_FORMAT documentation](https://learn.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format) — authoritative DXGI format identifiers used by the DDS DX10 header.
+- [ELEX scripting](https://www.nexusmods.com/elex/mods/64) — community documentation of the `gCInfoCommand*` infoscript data model, used to confirm that ELEX logic is edited as data rather than a shipped script bytecode.
 
 ## Legal
 

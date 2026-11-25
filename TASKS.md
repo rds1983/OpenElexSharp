@@ -19,7 +19,7 @@ Every format is documented in `Documentation/Formats/` **before** its loader is 
 
 ## Current focus
 
-Milestone **M0 — Toolchain & Formats**. Next task: **T014**.
+Milestone **M1 — Visible World**. Next task: **T101**.
 
 ---
 
@@ -404,9 +404,15 @@ Exit criteria: the solution builds and tests on a clean machine; the engine can 
   - Recover or obtain raw CSV ID names for friendly lookups.
   - Verify retail non-mod language files use the same STB version/columns.
 
-- [ ] **T014 · Script system research**
+- [x] **T014 · Script system research**
   Determine how game logic is stored and executed (bytecode/format, entry points, native API surface, quest/dialogue hooks) and write `Documentation/Formats/Scripts.md`. No runtime implementation in this task.
   Done when: the document explains how a simple script could be executed, with concrete evidence from assets and a list of unknown areas.
+  **Completed 2026-11-25 — research written up; no script bytecode exists.**
+  - Logic is data-driven: `gCInfo` command/condition trees (7,679 infos, 40,900 commands, 7,593 conditions), quest hooks, cutscene/UI/AI hooks and combat behaviour trees.
+  - 1,064 distinct named native functions are referenced through proxy properties; the code itself is not in any asset.
+  - `*LocString` stores `u32 DJB2(ID) + u16 length + ID`; 27,089/27,090 dialogue/quest IDs resolve in `en.str` by plain-ID hash, closing that T013 question for info/quest text.
+  - Follow-ups moved to T301a (info decoder) and T301 (binding table); combat tree layout remains an open question under T206.
+  - No code changed; 496 tests still pass.
 
 ## M1 — Visible World
 
@@ -469,7 +475,7 @@ Exit criteria: the hero can traverse a level, collide with the world, talk to/in
   Done when: NPCs across a settlement move plausibly and do not fall off the navmesh.
 
 - [ ] **T206 · Combat basics**
-  Melee attacks with hit detection, stamina/health, damage, stagger, death and loot drops; ranged combat stubs where needed.
+  Melee attacks with hit detection, stamina/health, damage, stagger, death and loot drops; ranged combat stubs where needed. Use the named conditions/actions from `w_combatbehavior.hdr`; decode the behaviour-tree payload when follow-up parity work needs it.
   Done when: the hero can defeat a basic enemy and be defeated, with correct animations and state transitions.
 
 - [ ] **T207 · HUD and core menus**
@@ -484,9 +490,13 @@ Exit criteria: the hero can traverse a level, collide with the world, talk to/in
 
 Exit criteria: scripts, quests, dialogue, activities, progression and audio work together; the main story is completable with temporary gaps explicitly tracked.
 
+- [ ] **T301a · Info program decoder and inspector**
+  Decode the `gCInfo` class data documented in [Formats/Scripts.md](Documentation/Formats/Scripts.md) into typed command/condition trees, including `SwitchCase`'s nested condition list, proxy names and `*LocString` payloads. Expose an `assets infos <id>` view (conditions, commands, branches, text IDs) and add synthetic tests for valid, truncated and bad-count input. No execution yet.
+  Done when: every retail `gCInfo` decodes without errors and a selected info prints its full command/condition tree.
+
 - [ ] **T301 · Script runtime**
-  Execute game scripts on the VM/format documented in T014, with native bindings for world, inventory, quest and UI functions, plus graceful handling of unsupported calls.
-  Done when: a representative set of shipped scripts runs and produces observable world changes.
+  Execute the info programs and native hooks documented in [Formats/Scripts.md](Documentation/Formats/Scripts.md): info selection, condition evaluation, command/switch stepping and a binding table for the named world, inventory, quest and UI functions, with graceful fallbacks for unknown names.
+  Done when: a representative set of shipped infos and quest hooks runs and produces observable world changes.
 
 - [ ] **T302 · Dialogue and quests**
   Dialogue trees, conditions, quest state machine, journal entries, objectives and script hooks.

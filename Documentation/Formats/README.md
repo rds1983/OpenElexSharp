@@ -37,3 +37,4 @@ This folder documents the binary formats used by ELEX assets. Each specification
 - [Collision.md](Collision.md) — collision (`col`), occlusion (`ocm`) and navigation annotations (T011).
 - [Audio.md](Audio.md) — FSB5 sound banks (`snd`/`dlg`) and FADPCM metadata (T012).
 - [Localization.md](Localization.md) — compiled STB string tables (`str`) and `loc.ini` (T013).
+- [Scripts.md](Scripts.md) — data-driven info/quest/cutscene logic and the native script-function registry (T014, research).
